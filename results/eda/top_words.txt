@@ -1,0 +1,88 @@
+
+=== isot_real ===
+said: 13718
+trump: 12900
+u: 9131
+would: 5559
+president: 5277
+house: 4981
+tax: 4459
+republican: 3905
+reuters: 3832
+senate: 3606
+washington: 3140
+bill: 2718
+white: 2658
+state: 2625
+new: 2572
+states: 2520
+donald: 2410
+also: 2343
+republicans: 2292
+year: 2224
+
+=== isot_fake ===
+trump: 23657
+president: 4567
+donald: 4399
+people: 4195
+said: 3928
+one: 3444
+would: 3400
+twitter: 3314
+white: 3068
+house: 2906
+via: 2899
+like: 2855
+image: 2844
+even: 2684
+featured: 2504
+obama: 2238
+time: 2181
+news: 2137
+realdonaldtrump: 2132
+images: 2128
+
+=== liar_real ===
+says: 648
+percent: 429
+state: 268
+000: 248
+year: 225
+states: 209
+tax: 195
+years: 193
+obama: 193
+million: 189
+people: 179
+would: 159
+one: 152
+1: 152
+new: 151
+health: 151
+president: 150
+jobs: 148
+every: 143
+texas: 139
+
+=== liar_fake ===
+says: 781
+obama: 267
+state: 221
+percent: 214
+health: 208
+president: 207
+tax: 198
+care: 197
+people: 177
+000: 175
+would: 162
+u: 153
+year: 151
+new: 146
+years: 145
+one: 142
+bill: 131
+barack: 129
+jobs: 129
+states: 127

@@ -1,0 +1,5 @@
+pool,mean_words,median_words,p95_words
+isot_real,395.6,369,904
+isot_fake,437.9,378,941
+liar_real,18.5,17,33
+liar_fake,17.4,16,32

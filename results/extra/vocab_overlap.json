@@ -1,0 +1,26 @@
+[
+  {
+    "set": "test_indomain (real, ISOT held-out)",
+    "n": 4284,
+    "avg_words": 242.8,
+    "oov_rate_pct": 6.4
+  },
+  {
+    "set": "test_indomain (fake, ISOT held-out)",
+    "n": 6348,
+    "avg_words": 258.0,
+    "oov_rate_pct": 7.6
+  },
+  {
+    "set": "test_crossdomain (real, ISOT held-out)",
+    "n": 4284,
+    "avg_words": 242.8,
+    "oov_rate_pct": 6.4
+  },
+  {
+    "set": "test_crossdomain (fake, LIAR)",
+    "n": 5657,
+    "avg_words": 11.1,
+    "oov_rate_pct": 8.3
+  }
+]

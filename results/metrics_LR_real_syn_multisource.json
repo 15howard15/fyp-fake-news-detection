@@ -1,0 +1,15 @@
+{
+  "model": "LR",
+  "composition": "real_syn_multisource",
+  "accuracy": 0.9726385675485364,
+  "precision": 0.9561240047433508,
+  "recall": 0.9977019621707619,
+  "f1": 0.9764705882352941,
+  "auc_roc": 0.9991433730996376,
+  "confusion": {
+    "tn": 4025,
+    "fp": 259,
+    "fn": 13,
+    "tp": 5644
+  }
+}

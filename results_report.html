@@ -1,0 +1,993 @@
+<title>Can AI-written fake news train a better fake-news detector?</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page:        #f9f9f7;
+    --surface:     #fcfcfb;
+    --ink:         #0b0b0b;
+    --ink-2:       #52514e;
+    --muted:       #898781;
+    --grid:        #e1e0d9;
+    --border:      rgba(11,11,11,0.10);
+    --real:        #2a78d6;   /* categorical slot 1 */
+    --realfake:    #eb6834;   /* categorical slot 2 */
+    --synfake:     #1baf7a;   /* categorical slot 3 */
+    --model-lr:    #2a78d6;
+    --model-svm:   #eb6834;
+    --model-cnn:   #1baf7a;
+    --model-bert:  #eda100;
+    --critical:    #d03b3b;
+    --critical-tint: #fbeceb;
+    --good:        #0ca30c;
+    --good-tint:   #eaf7ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page:        #0d0d0d;
+      --surface:     #1a1a19;
+      --ink:         #ffffff;
+      --ink-2:       #c3c2b7;
+      --muted:       #898781;
+      --grid:        #2c2c2a;
+      --border:      rgba(255,255,255,0.10);
+      --real:        #3987e5;
+      --realfake:    #d95926;
+      --synfake:     #199e70;
+      --model-lr:    #3987e5;
+      --model-svm:   #d95926;
+      --model-cnn:   #199e70;
+      --model-bert:  #c98500;
+      --critical:    #e66767;
+      --critical-tint: #3a1f1f;
+      --good:        #0ca30c;
+      --good-tint:   #16281a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page:        #0d0d0d;
+    --surface:     #1a1a19;
+    --ink:         #ffffff;
+    --ink-2:       #c3c2b7;
+    --muted:       #898781;
+    --grid:        #2c2c2a;
+    --border:      rgba(255,255,255,0.10);
+    --real:        #3987e5;
+    --realfake:    #d95926;
+    --synfake:     #199e70;
+    --model-lr:    #3987e5;
+    --model-svm:   #d95926;
+    --model-cnn:   #199e70;
+    --model-bert:  #c98500;
+    --critical:    #e66767;
+    --critical-tint: #3a1f1f;
+    --good:        #0ca30c;
+    --good-tint:   #16281a;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e;
+    --muted: #898781; --grid: #e1e0d9; --border: rgba(11,11,11,0.10);
+    --real: #2a78d6; --realfake: #eb6834; --synfake: #1baf7a;
+    --model-lr: #2a78d6; --model-svm: #eb6834; --model-cnn: #1baf7a; --model-bert: #eda100;
+    --critical: #d03b3b; --critical-tint: #fbeceb; --good: #0ca30c; --good-tint: #eaf7ea;
+  }
+
+  * { box-sizing: border-box; }
+  html { background: var(--page); }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: -apple-system, "Segoe UI", "Noto Sans", sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  h1, h2, h3 {
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-weight: 600;
+    text-wrap: balance;
+    color: var(--ink);
+    margin: 0;
+  }
+  a { color: var(--real); }
+  .layout {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 760px);
+    justify-content: center;
+    gap: 56px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px 120px;
+  }
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: minmax(0,1fr); padding: 24px 16px 80px; }
+    .toc { position: static !important; margin-bottom: 32px; }
+  }
+
+  /* ---- side nav ---- */
+  .toc {
+    position: sticky;
+    top: 40px;
+    align-self: start;
+    font-size: 13.5px;
+  }
+  .toc-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-size: 11.5px;
+    margin-bottom: 10px;
+  }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .toc a {
+    display: block;
+    color: var(--ink-2);
+    text-decoration: none;
+    padding: 6px 0 6px 12px;
+    border-left: 2px solid var(--grid);
+  }
+  .toc a:hover { color: var(--ink); border-left-color: var(--ink-2); }
+
+  /* ---- header block ---- */
+  header.title-block {
+    grid-column: 2;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px;
+    margin-bottom: 8px;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  h1.doc-title { font-size: 34px; line-height: 1.18; margin-bottom: 14px; max-width: 34ch; }
+  .doc-sub { color: var(--ink-2); font-size: 17px; max-width: 60ch; margin-bottom: 22px; }
+  .facts-row {
+    display: flex; flex-wrap: wrap; gap: 24px 36px;
+  }
+  .fact dt { text-transform: uppercase; letter-spacing: 0.06em; font-size: 10.5px; color: var(--muted); margin-bottom: 3px; }
+  .fact dd { margin: 0; font-size: 14.5px; color: var(--ink); }
+
+  /* ---- sections ---- */
+  section { grid-column: 2; scroll-margin-top: 32px; margin-bottom: 64px; }
+  .q-eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 8px; }
+  h2.q { font-size: 25px; line-height: 1.3; max-width: 30ch; margin-bottom: 14px; }
+  .lede { color: var(--ink-2); font-size: 15.5px; max-width: 66ch; margin-bottom: 24px; }
+  .lede code, p code { background: var(--grid); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; font-family: ui-monospace, "SF Mono", Consolas, monospace; }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px 18px;
+    margin-bottom: 18px;
+  }
+  .chart-title { font-size: 13.5px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+  .chart-note { font-size: 12.5px; color: var(--muted); margin-bottom: 14px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; font-size: 12.5px; color: var(--ink-2); }
+  .legend .sw { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  svg.chart text { font-family: -apple-system, "Segoe UI", sans-serif; fill: var(--ink-2); }
+  svg.chart .axis-line { stroke: var(--grid); }
+  svg.chart .grid-line { stroke: var(--grid); stroke-width: 1; }
+  svg.chart .val-label { fill: var(--ink); font-size: 11px; font-weight: 600; text-anchor: middle; }
+  svg.chart .cat-label { fill: var(--ink-2); font-size: 12px; text-anchor: middle; }
+  svg.chart rect.bar { cursor: default; }
+  svg.chart rect.bar:hover { filter: brightness(1.12); }
+  .table-scroll { overflow-x: auto; }
+
+  .finding {
+    border-radius: 8px;
+    padding: 16px 18px;
+    font-size: 14.5px;
+    line-height: 1.6;
+    margin-bottom: 6px;
+  }
+  .finding.good { background: var(--good-tint); border: 1px solid color-mix(in srgb, var(--good) 35%, transparent); }
+  .finding.critical { background: var(--critical-tint); border: 1px solid color-mix(in srgb, var(--critical) 35%, transparent); }
+  .finding strong { color: var(--ink); }
+
+  .quote-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+  @media (max-width: 640px) { .quote-pair { grid-template-columns: 1fr; } }
+  .quote {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .quote.before { border-left-color: var(--good); }
+  .quote.after { border-left-color: var(--critical); }
+  .quote-label { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; margin-bottom: 6px; }
+  .quote.before .quote-label { color: var(--good); }
+  .quote.after .quote-label { color: var(--critical); }
+
+  .recipe-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
+  @media (max-width: 640px) { .recipe-grid { grid-template-columns: 1fr; } }
+  .recipe {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    background: var(--surface);
+  }
+  .recipe .bar { height: 6px; border-radius: 3px; overflow: hidden; display: flex; margin-bottom: 10px; }
+  .recipe .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .recipe .desc { font-size: 12.5px; color: var(--ink-2); }
+
+  table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.data caption { text-align: left; font-size: 13px; color: var(--muted); margin-bottom: 8px; caption-side: top; }
+  table.data th, table.data td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data thead th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+  table.data tbody tr:last-child td { border-bottom: none; }
+  details.table-wrap { margin-bottom: 22px; }
+  details.table-wrap summary { cursor: pointer; font-size: 13.5px; color: var(--real); margin-bottom: 10px; font-weight: 600; }
+
+  footer { grid-column: 2; border-top: 1px solid var(--border); padding-top: 20px; font-size: 12.5px; color: var(--muted); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    section { animation: rise 0.5s ease-out both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  }
+</style>
+
+<div class="layout">
+  <nav class="toc">
+    <div class="toc-label">Contents</div>
+    <ol>
+      <li><a href="#recipes">Training recipes</a></li>
+      <li><a href="#replace">Can synthetic replace real?</a></li>
+      <li><a href="#authorship">Detecting fake, or detecting AI?</a></li>
+      <li><a href="#augment">Does adding synthetic help?</a></li>
+      <li><a href="#multisource">Does the source mix matter?</a></li>
+      <li><a href="#crossdomain">Does it generalize?</a></li>
+      <li><a href="#style">Can tone fool it?</a></li>
+      <li><a href="#tables">All the numbers</a></li>
+    </ol>
+  </nav>
+
+  <header class="title-block">
+    <div class="eyebrow">Final Year Project &middot; Fake News Detection</div>
+    <h1 class="doc-title">Can AI-written fake news train a better fake-news detector?</h1>
+    <p class="doc-sub">
+      Four detection methods were trained on real news and various mixes of real and
+      AI-generated ("synthetic") fake news, then tested on fake news they never saw
+      during training &mdash; including a completely different dataset, to check the
+      results aren't just a fluke of one test set.
+    </p>
+    <dl class="facts-row">
+      <div class="fact"><dt>Methods compared</dt><dd>Logistic Regression &middot; SVM &middot; CNN &middot; BERT</dd></div>
+      <div class="fact"><dt>Trained on</dt><dd>ISOT news articles</dd></div>
+      <div class="fact"><dt>Tested on</dt><dd>LIAR &amp; WELFake (unseen sources)</dd></div>
+      <div class="fact"><dt>Fake-class size</dt><dd>500 real / 500 synthetic (balanced)</dd></div>
+    </dl>
+  </header>
+
+  <section id="recipes">
+    <div class="q-eyebrow">Setup</div>
+    <h2 class="q">What each training recipe means</h2>
+    <p class="lede">
+      Every chart below compares the same three "recipes" &mdash; the only thing that
+      changes between them is <em>where the fake-news examples came from</em> during
+      training. Same amount of real news, same amount of fake news, every time.
+    </p>
+    <div class="recipe-grid">
+      <div class="recipe">
+        <div class="bar"><div style="flex:1;background:var(--real)"></div><div style="flex:1;background:var(--realfake)"></div></div>
+        <div class="name">Real + Real</div>
+        <div class="desc">Real news, and genuine fake news written by people. The baseline &mdash; no AI-generated text anywhere.</div>
+      </div>
+      <div class="recipe">
+        <div class="bar"><div style="flex:1;background:var(--real)"></div><div style="flex:0.5;background:var(--realfake)"></div><div style="flex:0.5;background:var(--synfake)"></div></div>
+        <div class="name">Real + Mixed</div>
+        <div class="desc">Real news, and fake news that's half genuine, half AI-generated.</div>
+      </div>
+      <div class="recipe">
+        <div class="bar"><div style="flex:1;background:var(--real)"></div><div style="flex:1;background:var(--synfake)"></div></div>
+        <div class="name">Real + Synthetic</div>
+        <div class="desc">Real news, but every fake-news example was written entirely by an LLM &mdash; full replacement.</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="replace">
+    <div class="q-eyebrow">Objective 1 &middot; Full replacement</div>
+    <h2 class="q">Can AI-written fake news replace real fake news for training?</h2>
+    <p class="lede">
+      Real fake news is scarce and expensive to collect. If a detector trained purely
+      on AI-generated fake news works just as well, that's a cheap substitute. Each
+      bar below is how well a model, trained under one recipe, detects fake news it's
+      never seen &mdash; from a completely different source (LIAR). The last two
+      recipes go a step further and make the REAL side synthetic too (paraphrased by
+      an AI, facts unchanged) &mdash; a validity check explained in the next section.
+    </p>
+    <div class="chart-card">
+      <div class="chart-title">Detection accuracy (F1 score) by method and training recipe &mdash; full matrix</div>
+      <div class="chart-note">Higher is better. Tested on real news + LIAR fake news, never seen during training.</div>
+      <div class="legend">
+        <span class="sw"><span class="dot" style="background:var(--real)"></span>Real + Real</span>
+        <span class="sw"><span class="dot" style="background:var(--realfake)"></span>Real + Mixed</span>
+        <span class="sw"><span class="dot" style="background:var(--synfake)"></span>Real + Synthetic</span>
+        <span class="sw"><span class="dot" style="background:#4a3aa7"></span>Synthetic real + Real fake</span>
+        <span class="sw"><span class="dot" style="background:#e34948"></span>Synthetic real + Synthetic fake</span>
+      </div>
+      <div id="chart-replace"></div>
+    </div>
+    <div class="finding critical">
+      <strong>Full replacement breaks one method completely.</strong> SVM trained
+      entirely on synthetic fake news scores F1&nbsp;=&nbsp;0.000 &mdash; it predicts
+      "real" for every single test article. The synthetic fake articles are built by
+      changing one fact in a real article and keeping everything else nearly
+      identical, so SVM never learns a signal that generalizes beyond that narrow
+      trick. The other three methods degrade too, just less catastrophically.
+    </div>
+    <p class="lede" style="margin-top:22px; margin-bottom:10px;">
+      It's not just a low score &mdash; every single wrong prediction comes back at
+      exactly 50% confidence, meaning the model isn't guessing wrong, it has
+      <em>zero</em> ability to tell these apart at all. Compare a genuinely fake
+      headline it misses entirely to a real one the baseline model still gets right:
+    </p>
+    <div class="quote-pair">
+      <div class="quote after">
+        <div class="quote-label">Real + Synthetic &middot; misclassified as real (50% confidence)</div>
+        "NOT KIDDING: CNN Asks Widow Of Jewish Terror Victim If He Had It Coming?
+        [VIDEO]. Islamic terrorist Syed Farook threatened his coworkers at
+        work&hellip;" &mdash; obvious sensationalized clickbait, missed completely.
+      </div>
+      <div class="quote before">
+        <div class="quote-label">Real + Real &middot; correctly identified as fake</div>
+        Genuine fake-news examples in training let this model recognize the same
+        kind of clickbait pattern &mdash; it fails on only 462 of 9,941 test
+        articles, versus Real + Synthetic missing 5,657.
+      </div>
+    </div>
+  </section>
+
+  <section id="authorship">
+    <div class="q-eyebrow">Beyond the proposal &middot; Validity check</div>
+    <h2 class="q">Is it detecting fake news, or just detecting AI writing?</h2>
+    <p class="lede">
+      A worry with the whole approach: when a model does well on AI-generated fake
+      news, is it actually learning "this is false," or has it just learned "this
+      was written by an AI"? Those are different things, and if it's the second
+      one, the whole method is measuring the wrong signal. To test this, "synthetic
+      real" news was also built &mdash; real articles paraphrased by an AI, facts
+      unchanged &mdash; giving the last two recipes in the chart above, where
+      <em>both</em> classes are machine-touched. Their F1 scores (0.50&ndash;0.61 for
+      LR/SVM/BERT, 0.14 for CNN) look mediocre rather than catastrophic on their own
+      &mdash; the chart below is what reveals the real problem.
+    </p>
+    <div class="chart-card">
+      <div class="chart-title">AUC-ROC when both classes are AI-authored, vs. only the fake class</div>
+      <div class="chart-note">1.0 = perfect ranking, 0.5 = random guessing. Below 0.5 means the model's confidence is pointing the wrong way. Shown on both test sets so the pattern can't be dismissed as one dataset's quirk.</div>
+      <div class="legend">
+        <span class="sw"><span class="dot" style="background:var(--real)"></span>Only fake class is AI-written</span>
+        <span class="sw"><span class="dot" style="background:var(--realfake)"></span>Both classes are AI-written</span>
+      </div>
+      <div id="chart-authorship"></div>
+    </div>
+    <div class="finding critical">
+      <strong>F1 alone hides the problem &mdash; AUC-ROC is what exposes it.</strong> The
+      model isn't uncertain on "Synthetic real + Synthetic fake," it's confidently
+      backwards: AUC-ROC sits well below 0.5 for all four methods, on both test
+      sets (as low as 0.027 on LIAR, 0.053 on WELFake for CNN), and stable across 3 random seeds &mdash; not a fluke run. It even happens
+      on same-source test data with no domain shift at all, which rules out "doesn't
+      generalize" as the explanation.
+    </div>
+    <p class="lede" style="margin-top:18px; margin-bottom:10px;">
+      Reading the actual misclassified articles (two independent methods, BERT and
+      Logistic Regression, show the identical pattern) explains why:
+    </p>
+    <div class="quote-pair">
+      <div class="quote after">
+        <div class="quote-label">Genuine real article &middot; misclassified as fake (99.8% confidence)</div>
+        "Targeting U.S. automaker signals possible China retaliation over Trump
+        talk. WASHINGTON (Reuters) &mdash; China's plan to punish a U.S. automaker
+        accused of price-fixing is a sign of how Beijing could retaliate&hellip;"
+      </div>
+      <div class="quote after">
+        <div class="quote-label">Genuine real article &middot; misclassified as fake (94% confidence, different method)</div>
+        "Trump in crisis after lewd remarks about women come to light. NEW
+        YORK/WASHINGTON (Reuters) &mdash; Republican presidential candidate Donald
+        Trump plunged into a deep crisis&hellip;"
+      </div>
+    </div>
+    <p class="lede" style="margin-top:14px; margin-bottom:0;">
+      The "real" training examples here were AI-<em>paraphrased</em> (different
+      sentence structure throughout). The "fake" training examples were built by
+      changing exactly one fact and keeping the <em>original wording almost
+      untouched</em>. So the model never once saw genuine, unedited news copy
+      labeled real during training &mdash; only rephrased text. At test time, real
+      articles are, obviously, unedited &mdash; which makes them look more like what
+      the model learned to call "fake" than what it learned to call "real." The
+      model isn't confused; it learned a real, consistent, but backwards rule.
+    </p>
+  </section>
+
+  <section id="augment">
+    <div class="q-eyebrow">Objective 1 &middot; Partial augmentation</div>
+    <h2 class="q">Does adding synthetic fake news on top help, instead of replacing?</h2>
+    <p class="lede">
+      A softer question: keep every real fake-news example, and just add some
+      AI-generated ones on top. This chart holds the total fake-news count fixed at
+      500 and only changes what fraction of it is synthetic, from 0% (all real) to
+      100% (all synthetic).
+    </p>
+    <div class="chart-card">
+      <div class="chart-title">F1 score as synthetic fake news replaces more of the fake class</div>
+      <div class="chart-note">X-axis: % of the fake-news training examples that are AI-generated. Fake-class size held constant at 500.</div>
+      <div class="legend">
+        <span class="sw"><span class="dot" style="background:var(--model-lr)"></span>LR</span>
+        <span class="sw"><span class="dot" style="background:var(--model-svm)"></span>SVM</span>
+        <span class="sw"><span class="dot" style="background:var(--model-cnn)"></span>CNN</span>
+        <span class="sw"><span class="dot" style="background:var(--model-bert)"></span>BERT</span>
+      </div>
+      <div id="chart-sweep"></div>
+    </div>
+    <div class="finding good">
+      <strong>A moderate blend (25&ndash;50% synthetic) is the sweet spot for LR, SVM and BERT</strong>
+      &mdash; scores hold steady or improve. Past 50%, SVM collapses sharply and BERT
+      drops off a cliff at 100%. CNN is the odd one out: it declines steadily the
+      whole way, gaining nothing from synthetic data at any blend level.
+    </div>
+    <div class="finding critical">
+      <strong>Why CNN never finds a sweet spot:</strong> reading its actual wrong
+      predictions at every blend level shows one consistent error, not a mix &mdash;
+      genuine real articles predicted fake, never the other way round. The exact
+      same specific real articles (colorful, opinion- or personality-driven pieces,
+      not plain wire reports) keep reappearing as top mistakes as more synthetic
+      data is added, and CNN's confidence on them actually <em>drops</em> the more
+      synthetic data it sees (96%&nbsp;&rarr;&nbsp;63% average confidence from 25%
+      to 100% synthetic). That's a gradually eroding decision boundary on
+      stylistically distinctive real writing, not CNN learning a new, confident
+      shortcut the way SVM does &mdash; a different failure mode from every other method here.
+    </div>
+  </section>
+
+  <section id="multisource">
+    <div class="q-eyebrow">Objective 1 &middot; Diverse sources</div>
+    <h2 class="q">Does it matter which real news the synthetic fake news is based on?</h2>
+    <p class="lede">
+      Every "Real + Synthetic" result so far used fake news generated from ONE
+      source: real ISOT articles, lightly rewritten. That's a narrow well to draw
+      from. This tests whether sourcing the synthetic generation from a
+      <strong>second, independent dataset</strong> (LIAR) as well &mdash; instead of
+      ISOT alone &mdash; fixes any of the specific weaknesses seen earlier, while
+      keeping the total amount of fake-class training data exactly the same.
+    </p>
+    <div class="chart-card">
+      <div class="chart-title">F1 score by training setup and test set</div>
+      <div class="chart-note">Same total fake-class size (500) throughout. Each panel names exactly what was trained and what it was tested on.</div>
+      <div class="legend">
+        <span class="sw"><span class="dot" style="background:var(--real)"></span>Tested on LIAR</span>
+        <span class="sw"><span class="dot" style="background:var(--realfake)"></span>Tested on WELFake</span>
+      </div>
+      <div id="chart-multisource"></div>
+    </div>
+    <div class="finding good">
+      <strong>Every model improves &mdash; and it fixes two things that were
+      completely broken.</strong> SVM's F1 rises from 0.000 to 0.313, and more
+      importantly its ranking ability (AUC-ROC) goes from pure chance
+      (0.500) to near-perfect (0.976) &mdash; the earlier "predicts real for
+      everything" collapse is gone. CNN's F1 rises from 0.711 to 0.897, and its
+      AUC-ROC &mdash; which was <em>inverted</em> at 0.054 (confidently backwards)
+      &mdash; recovers to 0.998. LR and BERT, which weren't broken to begin with,
+      still improve (BERT reaches a near-perfect 1.000 F1 / AUC-ROC).
+    </div>
+    <div class="finding">
+      Diversifying where the synthetic fake news comes from doesn't just add more
+      data &mdash; it removes the narrow, single-source "tell" that SVM and CNN were
+      either failing to find or latching onto backwards. Same total training size,
+      same total fake-class count, only the source mix changed.
+    </div>
+    <div class="finding critical">
+      <strong>Checked against a third dataset the training never touched (WELFake)
+      &mdash; the fix mostly holds, with one exception.</strong> Since the LIAR-sourced
+      synthetic data is built from LIAR's own real-labeled statements, it's fair to
+      ask whether the improvement above is genuine, or just the model getting a
+      preview of LIAR's writing style. WELFake was never touched by either
+      synthetic-generation step, so it's a clean check. Ranking ability (AUC-ROC)
+      improves for every method here too (SVM 0.50&rarr;0.66, CNN 0.45&rarr;0.86, LR
+      0.64&rarr;0.80, BERT 0.63&rarr;0.95) &mdash; real evidence this is about
+      construction diversity, not a peek at the test domain. The exception: BERT's
+      F1 on WELFake actually drops (0.71&rarr;0.30) despite its better ranking &mdash;
+      precision stays near-perfect (0.999) but recall collapses to 0.18, meaning it
+      becomes too conservative about calling anything fake. That looks like a
+      default-threshold miscalibration specific to this composition/dataset pair,
+      not a broken model, but it means the fix isn't a uniform win across every
+      metric and every dataset.
+    </div>
+  </section>
+
+  <section id="crossdomain">
+    <div class="q-eyebrow">Objective 2 &middot; Cross-domain generalization</div>
+    <h2 class="q">Does the detector still work on fake news from a totally different source?</h2>
+    <p class="lede">
+      Testing on LIAR (short political statements, ~11 words) is a harsh test for a
+      model trained on full news articles (~250&ndash;380 words) &mdash; some of any
+      failure could just be "never seen a document this short" rather than a real
+      generalization problem. So <strong>every recipe used anywhere in this
+      report</strong> was also tested against a second, independent dataset,
+      <strong>WELFake</strong>, which &mdash; like ISOT &mdash; is made of
+      full-length articles. Comparing the two tells apart a genuine content
+      problem from a format problem, for all six recipes at once.
+    </p>
+    <div class="chart-card">
+      <div class="chart-title">F1 score on two different unseen fake-news sources, all 6 recipes</div>
+      <div class="chart-note">Same trained models, two different test sets. LIAR is short statements; WELFake is full articles like the training data.</div>
+      <div class="legend">
+        <span class="sw"><span class="dot" style="background:var(--real)"></span>LIAR (short statements)</span>
+        <span class="sw"><span class="dot" style="background:var(--realfake)"></span>WELFake (full articles)</span>
+      </div>
+      <div id="chart-crossdomain"></div>
+    </div>
+    <div class="finding good">
+      <strong>Real + Real and Real + Mixed score noticeably higher on WELFake than on LIAR</strong>,
+      for every method &mdash; confirming that part of the "poor generalization" seen
+      on LIAR really is the short-format shift, not a content problem.
+    </div>
+    <div class="finding critical">
+      <strong>Real + Synthetic's SVM collapse happens on WELFake too</strong> (F1 still 0.000)
+      &mdash; proving that specific failure is real and has nothing to do with LIAR's
+      short format. Training only on AI-generated fake news genuinely doesn't transfer,
+      regardless of what you test it against.
+    </div>
+    <div class="finding">
+      <strong>The other three recipes tell the same story, each in its own way.</strong>
+      The authorship-shortcut inversion (Synthetic real + Synthetic fake) is
+      confidently backwards on WELFake too, not just LIAR &mdash; part of why
+      it's treated as a real finding rather than a fluke in the validity-check
+      section. The diverse-sourcing fix (last panel) improves ranking ability
+      for every model on WELFake as well as LIAR, which is what confirmed it
+      wasn't just the model previewing LIAR's writing style &mdash; except for
+      BERT, whose F1 on WELFake specifically regresses despite the better
+      ranking, a threshold-calibration wrinkle covered in the "diverse
+      sources" section.
+    </div>
+  </section>
+
+  <section id="style">
+    <div class="q-eyebrow">Objective 4 &middot; Style robustness</div>
+    <h2 class="q">Can you fool the detector by just changing the tone?</h2>
+    <p class="lede">
+      A different kind of attack: take real held-out articles and have an LLM rewrite
+      them &mdash; making real news sound more sensational, and fake news sound calm
+      and neutral &mdash; without changing a single fact. The true label never
+      changes. A model reading for content should barely notice; a model that's
+      secretly using "sounds dramatic" as a shortcut for "fake" will get fooled. This
+      chart shows BERT's <em>flip rate</em>: of the articles it got right originally,
+      the fraction that became wrong after the tone-only rewrite.
+    </p>
+    <div class="chart-card">
+      <div class="chart-title">BERT flip rate after a tone-only rewrite, by training recipe</div>
+      <div class="chart-note">Lower is better &mdash; 0% means the tone change fooled nobody.</div>
+      <div id="chart-style"></div>
+    </div>
+    <div class="finding critical">
+      <strong>Real + Mixed is the most easily fooled</strong> &mdash; 10.5% of
+      originally-correct predictions flip after a tone-only rewrite. Generic synthetic
+      fake news alone doesn't protect against style attacks; it can make things worse.
+    </div>
+    <div class="finding good">
+      <strong>Training deliberately on both tones fixes it.</strong> A follow-up
+      recipe ("style-robust") pairs each real article with a sensationalized twin
+      still labeled real, and each fake article with a neutralized twin still labeled
+      fake &mdash; so tone can no longer act as a shortcut for the label. Flip rate
+      drops to 0.0%, with no loss in baseline accuracy: F1 on the original
+      (non-attacked) test set is 0.868 (LR), 0.899 (SVM), 0.993 (CNN) and 0.991
+      (BERT) &mdash; flat-to-better than training on real fake news alone (0.857,
+      0.908, 0.957, 0.964 respectively), not a trade-off against it.
+    </div>
+    <div class="finding good">
+      <strong>The fix generalizes to the opposite attack too, though not quite as
+      completely.</strong> Everything above only tested one direction (real made
+      dramatic, fake made calm). Testing the reverse (real made calm, fake made
+      dramatic) on the same style-robust models: flip rate rises a little for every
+      method &mdash; BERT 0.0%&nbsp;&rarr;&nbsp;1.5%, CNN 0.5%&nbsp;&rarr;&nbsp;2.0%,
+      SVM 2.6%&nbsp;&rarr;&nbsp;4.1%, LR 3.1%&nbsp;&rarr;&nbsp;4.6% &mdash; but stays
+      under 5% for all four, versus Real&nbsp;+&nbsp;Mixed's 10&ndash;18% on the
+      original direction. The fix isn't narrowly overfit to the one attack it was
+      built against; it generalizes, just not perfectly.
+    </div>
+    <p class="lede" style="margin-top:22px; margin-bottom:10px;">A concrete example &mdash; a real article, before and after the tone-only rewrite, that fooled the "Real + Mixed" model but not the style-robust one:</p>
+    <div class="quote-pair">
+      <div class="quote before">
+        <div class="quote-label">Before &middot; correctly identified as real</div>
+        "Treasury's Mnuchin: Difficult not to cut taxes for top 10 percent. WASHINGTON
+        (Reuters) &mdash; U.S. Treasury Secretary Steven Mnuchin said on Friday that it
+        was difficult for the Trump administration's tax plan not to cut taxes for the
+        wealthiest earners&hellip;"
+      </div>
+      <div class="quote after">
+        <div class="quote-label">After &middot; misclassified as fake</div>
+        "Tax Cuts for the Rich: Mnuchin Sounds Alarm on Wealthy 10%! WASHINGTON (Reuters)
+        &mdash; In a shocking revelation, U.S. Treasury Secretary Steven Mnuchin declared
+        on Friday that the Trump administration's tax plan is almost certain to benefit
+        the wealthiest earners!&hellip;"
+      </div>
+    </div>
+  </section>
+
+  <section id="tables">
+    <div class="q-eyebrow">Reference</div>
+    <h2 class="q">All the numbers</h2>
+    <p class="lede">Full precision, for anyone who wants to check the charts above or cite exact figures.</p>
+
+    <details class="table-wrap" open>
+      <summary>Replacement &mdash; F1 by method &times; recipe (test: LIAR)</summary>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Method</th><th>Real + Real</th><th>Real + Mixed</th><th>Real + Synthetic</th></tr></thead>
+          <tbody>
+            <tr><td>LR</td><td>0.8569</td><td>0.9372</td><td>0.8851</td></tr>
+            <tr><td>SVM</td><td>0.9079</td><td>0.8029</td><td>0.0000</td></tr>
+            <tr><td>CNN</td><td>0.9565</td><td>0.8752</td><td>0.7109</td></tr>
+            <tr><td>BERT</td><td>0.9641</td><td>0.9981</td><td>0.6731</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="table-wrap">
+      <summary>Objective 1 &mdash; single-source vs. multi-source synthetic fake news (test: LIAR)</summary>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Method</th><th></th><th>F1</th><th>AUC-ROC</th></tr></thead>
+          <tbody>
+            <tr><td rowspan="2">LR</td><td>ISOT only</td><td>0.8851</td><td>0.9433</td></tr>
+            <tr><td>ISOT + LIAR</td><td>0.9765</td><td>0.9991</td></tr>
+            <tr><td rowspan="2">SVM</td><td>ISOT only</td><td>0.0000</td><td>0.5000</td></tr>
+            <tr><td>ISOT + LIAR</td><td>0.3129</td><td>0.9755</td></tr>
+            <tr><td rowspan="2">CNN</td><td>ISOT only</td><td>0.7109</td><td>0.0538</td></tr>
+            <tr><td>ISOT + LIAR</td><td>0.8966</td><td>0.9977</td></tr>
+            <tr><td rowspan="2">BERT</td><td>ISOT only</td><td>0.6731</td><td>0.5175</td></tr>
+            <tr><td>ISOT + LIAR</td><td>0.9998</td><td>1.0000</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="table-wrap">
+      <summary>Balance-controlled synthetic-fraction sweep (F1, test: LIAR)</summary>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Method</th><th>0%</th><th>25%</th><th>50%</th><th>75%</th><th>100%</th></tr></thead>
+          <tbody>
+            <tr><td>LR</td><td>0.8569</td><td>0.9248</td><td>0.9372</td><td>0.9255</td><td>0.8851</td></tr>
+            <tr><td>SVM</td><td>0.9079</td><td>0.9150</td><td>0.8029</td><td>0.0070</td><td>0.0000</td></tr>
+            <tr><td>CNN</td><td>0.9529</td><td>0.9468</td><td>0.8762</td><td>0.7776</td><td>0.7181</td></tr>
+            <tr><td>BERT</td><td>0.9503</td><td>0.9975</td><td>0.9890</td><td>0.9776</td><td>0.6691</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="table-wrap">
+      <summary>LIAR vs. WELFake cross-domain F1</summary>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Method</th><th>Recipe</th><th>LIAR</th><th>WELFake</th></tr></thead>
+          <tbody>
+            <tr><td>LR</td><td>Real + Real</td><td>0.8569</td><td>0.9441</td></tr>
+            <tr><td>LR</td><td>Real + Mixed</td><td>0.9372</td><td>0.9445</td></tr>
+            <tr><td>LR</td><td>Real + Synthetic</td><td>0.8851</td><td>0.5384</td></tr>
+            <tr><td>SVM</td><td>Real + Real</td><td>0.9079</td><td>0.9581</td></tr>
+            <tr><td>SVM</td><td>Real + Mixed</td><td>0.8029</td><td>0.9235</td></tr>
+            <tr><td>SVM</td><td>Real + Synthetic</td><td>0.0000</td><td>0.0000</td></tr>
+            <tr><td>CNN</td><td>Real + Real</td><td>0.9565</td><td>0.9866</td></tr>
+            <tr><td>CNN</td><td>Real + Mixed</td><td>0.8752</td><td>0.9084</td></tr>
+            <tr><td>CNN</td><td>Real + Synthetic</td><td>0.7109</td><td>0.7241</td></tr>
+            <tr><td>BERT</td><td>Real + Real</td><td>0.9641</td><td>0.9968</td></tr>
+            <tr><td>BERT</td><td>Real + Mixed</td><td>0.9981</td><td>0.9973</td></tr>
+            <tr><td>BERT</td><td>Real + Synthetic</td><td>0.6731</td><td>0.7070</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="table-wrap">
+      <summary>Style-attack flip rate, all 4 methods</summary>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Method</th><th>Real + Real</th><th>Real + Mixed</th><th>Real + Synthetic</th><th>Style-robust</th></tr></thead>
+          <tbody>
+            <tr><td>LR</td><td>0.1152</td><td>0.1789</td><td>0.5913</td><td>0.0312</td></tr>
+            <tr><td>SVM</td><td>0.0928</td><td>0.1551</td><td>0.0000</td><td>0.0259</td></tr>
+            <tr><td>CNN</td><td>0.0101</td><td>0.1813</td><td>0.0000</td><td>0.0050</td></tr>
+            <tr><td>BERT</td><td>0.0200</td><td>0.1050</td><td>0.1545</td><td>0.0000</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="table-wrap">
+      <summary>Style-robust vs. Real + Real baseline performance (test: LIAR, no attack)</summary>
+      <div class="table-scroll">
+        <table class="data">
+          <thead><tr><th>Method</th><th>Recipe</th><th>Accuracy</th><th>F1</th><th>AUC-ROC</th></tr></thead>
+          <tbody>
+            <tr><td>LR</td><td>Real + Real</td><td>0.8549</td><td>0.8569</td><td>0.9795</td></tr>
+            <tr><td>LR</td><td>Style-robust</td><td>0.8648</td><td>0.8681</td><td>0.9788</td></tr>
+            <tr><td>SVM</td><td>Real + Real</td><td>0.9026</td><td>0.9079</td><td>0.9872</td></tr>
+            <tr><td>SVM</td><td>Style-robust</td><td>0.8938</td><td>0.8986</td><td>0.9866</td></tr>
+            <tr><td>CNN</td><td>Real + Real</td><td>0.9524</td><td>0.9565</td><td>0.9984</td></tr>
+            <tr><td>CNN</td><td>Style-robust</td><td>0.9916</td><td>0.9925</td><td>0.9982</td></tr>
+            <tr><td>BERT</td><td>Real + Real</td><td>0.9605</td><td>0.9641</td><td>0.9985</td></tr>
+            <tr><td>BERT</td><td>Style-robust</td><td>0.9896</td><td>0.9908</td><td>0.9983</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <footer>
+    This page replaces the interactive Streamlit dashboard as the shareable summary.
+    Full underlying data, per-seed results, and the code that produced every number
+    above live in <code>results/</code> and <code>results/extra/</code> in the project
+    repository. Section labels above follow the proposal's 4 objectives directly;
+    the full mapping (including the added validity check, which isn't one of the
+    4) is documented in <code>README.md</code>'s Research Question Map.
+  </footer>
+</div>
+
+<script>
+(function () {
+  const NS = "http://www.w3.org/2000/svg";
+  const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  function el(tag, attrs) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  // Grouped bar chart. series: [{name, color, values:[...]}], categories: [...]
+  function groupedBarChart(container, categories, series, opts) {
+    opts = opts || {};
+    const W = opts.width || 680, H = opts.height || 260;
+    const padL = 34, padR = 8, padT = 14, padB = 30;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const maxVal = opts.max !== undefined ? opts.max : 1;
+
+    const svg = el("svg", { class: "chart", viewBox: `0 0 ${W} ${H}` });
+
+    // gridlines + y labels at 0, .25, .5, .75, 1 (or scaled)
+    const steps = 4;
+    for (let i = 0; i <= steps; i++) {
+      const v = (maxVal / steps) * i;
+      const y = padT + plotH - (v / maxVal) * plotH;
+      svg.appendChild(el("line", { class: "grid-line", x1: padL, x2: W - padR, y1: y, y2: y }));
+      const t = el("text", { x: padL - 8, y: y + 3, "text-anchor": "end", "font-size": "10.5" });
+      t.textContent = v.toFixed(2);
+      svg.appendChild(t);
+    }
+    svg.appendChild(el("line", { class: "axis-line", x1: padL, x2: W - padR, y1: padT + plotH, y2: padT + plotH }));
+
+    const groupW = plotW / categories.length;
+    const barGap = 3;
+    const barW = (groupW - barGap * (series.length + 1)) / series.length;
+
+    categories.forEach((cat, ci) => {
+      const groupX = padL + ci * groupW;
+      series.forEach((s, si) => {
+        const v = s.values[ci];
+        const barH = (v / maxVal) * plotH;
+        const x = groupX + barGap + si * (barW + barGap);
+        const y = padT + plotH - barH;
+        const rect = el("rect", {
+          class: "bar", x: x, y: y, width: barW, height: Math.max(barH, 0.5),
+          fill: s.color, rx: 2,
+        });
+        const title = el("title");
+        title.textContent = `${s.name} – ${cat}: ${v.toFixed(3)}`;
+        rect.appendChild(title);
+        svg.appendChild(rect);
+        if (barW > 16) {
+          const lbl = el("text", { class: "val-label", x: x + barW / 2, y: y - 4 });
+          lbl.textContent = v.toFixed(2);
+          svg.appendChild(lbl);
+        }
+      });
+      const catLbl = el("text", { class: "cat-label", x: groupX + groupW / 2, y: H - 8 });
+      catLbl.textContent = cat;
+      svg.appendChild(catLbl);
+    });
+
+    container.appendChild(svg);
+  }
+
+  // Line chart. series: [{name, color, values:[...]}], categories (x labels)
+  function lineChart(container, categories, series, opts) {
+    opts = opts || {};
+    const W = opts.width || 680, H = opts.height || 280;
+    const padL = 34, padR = 14, padT = 14, padB = 30;
+    const plotW = W - padL - padR, plotH = H - padT - padB;
+    const maxVal = opts.max !== undefined ? opts.max : 1;
+    const minVal = opts.min !== undefined ? opts.min : 0;
+    const range = maxVal - minVal;
+
+    const svg = el("svg", { class: "chart", viewBox: `0 0 ${W} ${H}` });
+
+    const steps = 4;
+    for (let i = 0; i <= steps; i++) {
+      const v = minVal + (range / steps) * i;
+      const y = padT + plotH - ((v - minVal) / range) * plotH;
+      svg.appendChild(el("line", { class: "grid-line", x1: padL, x2: W - padR, y1: y, y2: y }));
+      const t = el("text", { x: padL - 8, y: y + 3, "text-anchor": "end", "font-size": "10.5" });
+      t.textContent = v.toFixed(2);
+      svg.appendChild(t);
+    }
+    svg.appendChild(el("line", { class: "axis-line", x1: padL, x2: W - padR, y1: padT + plotH, y2: padT + plotH }));
+
+    const xStep = categories.length > 1 ? plotW / (categories.length - 1) : plotW;
+    categories.forEach((cat, ci) => {
+      const x = padL + ci * xStep;
+      const catLbl = el("text", { class: "cat-label", x: x, y: H - 8 });
+      catLbl.textContent = cat;
+      svg.appendChild(catLbl);
+    });
+
+    series.forEach((s) => {
+      const pts = s.values.map((v, i) => {
+        const x = padL + i * xStep;
+        const y = padT + plotH - ((v - minVal) / range) * plotH;
+        return [x, y];
+      });
+      const path = el("polyline", {
+        points: pts.map((p) => p.join(",")).join(" "),
+        fill: "none", stroke: s.color, "stroke-width": 2.25,
+        "stroke-linecap": "round", "stroke-linejoin": "round",
+      });
+      svg.appendChild(path);
+      pts.forEach(([x, y], i) => {
+        const c = el("circle", { cx: x, cy: y, r: 3.5, fill: s.color });
+        const title = el("title");
+        title.textContent = `${s.name} – ${categories[i]}: ${s.values[i].toFixed(3)}`;
+        c.appendChild(title);
+        svg.appendChild(c);
+      });
+    });
+
+    container.appendChild(svg);
+  }
+
+  // ---- Chart 1: Replacement -- full matrix, all 5 recipes (the last two
+  // make the REAL side synthetic too; see the "Detecting fake, or detecting
+  // AI?" section right after this one for what that's testing) ----
+  groupedBarChart(
+    document.getElementById("chart-replace"),
+    ["LR", "SVM", "CNN", "BERT"],
+    [
+      { name: "Real + Real", color: cssVar("--real"), values: [0.8569, 0.9079, 0.9565, 0.9641] },
+      { name: "Real + Mixed", color: cssVar("--realfake"), values: [0.9372, 0.8029, 0.8752, 0.9981] },
+      { name: "Real + Synthetic", color: cssVar("--synfake"), values: [0.8851, 0.0000, 0.7109, 0.6731] },
+      { name: "Synthetic real + Real fake", color: "#4a3aa7", values: [0.7933, 0.7905, 0.7329, 0.6402] },
+      { name: "Synthetic real + Synthetic fake", color: "#e34948", values: [0.4985, 0.6073, 0.1372, 0.5570] },
+    ],
+    { max: 1, width: 720 }
+  );
+
+  // ---- Chart 1b: Authorship-shortcut check (C2 vs C3 AUC-ROC), LIAR + WELFake ----
+  const authContainer = document.getElementById("chart-authorship");
+  const authData = {
+    "Tested on LIAR":    { c2: [0.7969, 0.8091, 0.9584, 0.7717], c3: [0.0641, 0.1008, 0.0274, 0.0213] },
+    "Tested on WELFake": { c2: [0.9339, 0.8959, 0.9898, 0.9455], c3: [0.1527, 0.2257, 0.0530, 0.2063] },
+  };
+  const authGrid = document.createElement("div");
+  authGrid.style.display = "grid";
+  authGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(220px, 1fr))";
+  authGrid.style.gap = "10px";
+  Object.keys(authData).forEach((label) => {
+    const wrap = document.createElement("div");
+    const lbl = document.createElement("div");
+    lbl.style.cssText = "font-size:12px;color:var(--ink-2);text-align:center;margin-bottom:4px;font-weight:600;";
+    lbl.textContent = label;
+    wrap.appendChild(lbl);
+    groupedBarChart(
+      wrap,
+      ["LR", "SVM", "CNN", "BERT"],
+      [
+        { name: "Only fake class AI-written", color: cssVar("--real"), values: authData[label].c2 },
+        { name: "Both classes AI-written", color: cssVar("--realfake"), values: authData[label].c3 },
+      ],
+      { max: 1, width: 330, height: 240 }
+    );
+    authGrid.appendChild(wrap);
+  });
+  authContainer.appendChild(authGrid);
+
+  // ---- Chart 2: Sweep ----
+  lineChart(
+    document.getElementById("chart-sweep"),
+    ["0%", "25%", "50%", "75%", "100%"],
+    [
+      { name: "LR", color: cssVar("--model-lr"), values: [0.8569, 0.9248, 0.9372, 0.9255, 0.8851] },
+      { name: "SVM", color: cssVar("--model-svm"), values: [0.9079, 0.9150, 0.8029, 0.0070, 0.0000] },
+      { name: "CNN", color: cssVar("--model-cnn"), values: [0.9529, 0.9468, 0.8762, 0.7776, 0.7181] },
+      { name: "BERT", color: cssVar("--model-bert"), values: [0.9503, 0.9975, 0.9890, 0.9776, 0.6691] },
+    ],
+    { max: 1, min: 0 }
+  );
+
+  // ---- Chart 3: Cross-domain LIAR vs WELFake (small multiples) ----
+  const cdContainer = document.getElementById("chart-crossdomain");
+  const cdData = {
+    "Real + Real":      { LIAR: [0.8569, 0.9079, 0.9565, 0.9641], WELFake: [0.9441, 0.9581, 0.9866, 0.9968] },
+    "Real + Mixed":      { LIAR: [0.9372, 0.8029, 0.8752, 0.9981], WELFake: [0.9445, 0.9235, 0.9084, 0.9973] },
+    "Real + Synthetic":  { LIAR: [0.8851, 0.0000, 0.7109, 0.6731], WELFake: [0.5384, 0.0000, 0.7241, 0.7070] },
+    "Synthetic real + Real fake":     { LIAR: [0.7933, 0.7905, 0.7329, 0.6402], WELFake: [0.8705, 0.8701, 0.9536, 0.8862] },
+    "Synthetic real + Synthetic fake": { LIAR: [0.4985, 0.6073, 0.1372, 0.5570], WELFake: [0.6479, 0.6789, 0.4404, 0.6898] },
+    "Real + Synthetic (diverse-sourced)": { LIAR: [0.9765, 0.3129, 0.8966, 0.9998], WELFake: [0.5820, 0.0021, 0.8072, 0.3022] },
+  };
+  const cdGrid = document.createElement("div");
+  cdGrid.style.display = "grid";
+  cdGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(200px, 1fr))";
+  cdGrid.style.gap = "10px";
+  Object.keys(cdData).forEach((comp) => {
+    const wrap = document.createElement("div");
+    const label = document.createElement("div");
+    label.style.cssText = "font-size:12px;color:var(--ink-2);text-align:center;margin-bottom:4px;font-weight:600;";
+    label.textContent = comp;
+    wrap.appendChild(label);
+    groupedBarChart(
+      wrap,
+      ["LR", "SVM", "CNN", "BERT"],
+      [
+        { name: "LIAR", color: cssVar("--real"), values: cdData[comp].LIAR },
+        { name: "WELFake", color: cssVar("--realfake"), values: cdData[comp].WELFake },
+      ],
+      { max: 1, width: 300, height: 220 }
+    );
+    cdGrid.appendChild(wrap);
+  });
+  cdContainer.appendChild(cdGrid);
+
+  // ---- Chart 3b: Objective 1 -- three train/test setups, side by side ----
+  const msContainer = document.getElementById("chart-multisource");
+  const msPanels = [
+    { label: "Trained: ISOT only → Tested: LIAR", color: cssVar("--real"),
+      values: [0.8851, 0.0000, 0.7109, 0.6731] },
+    { label: "Trained: ISOT + LIAR → Tested: LIAR", color: cssVar("--real"),
+      values: [0.9765, 0.3129, 0.8966, 0.9998] },
+    { label: "Trained: ISOT + LIAR → Tested: WELFake", color: cssVar("--realfake"),
+      values: [0.5820, 0.0021, 0.8072, 0.3022] },
+  ];
+  const msGrid = document.createElement("div");
+  msGrid.style.display = "grid";
+  msGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(200px, 1fr))";
+  msGrid.style.gap = "10px";
+  msPanels.forEach((panel) => {
+    const wrap = document.createElement("div");
+    const label = document.createElement("div");
+    label.style.cssText = "font-size:12px;color:var(--ink-2);text-align:center;margin-bottom:4px;font-weight:600;";
+    label.textContent = panel.label;
+    wrap.appendChild(label);
+    groupedBarChart(
+      wrap,
+      ["LR", "SVM", "CNN", "BERT"],
+      [{ name: "F1", color: panel.color, values: panel.values }],
+      { max: 1, width: 300, height: 220 }
+    );
+    msGrid.appendChild(wrap);
+  });
+  msContainer.appendChild(msGrid);
+
+  // ---- Chart 4: Style flip rate (BERT) ----
+  groupedBarChart(
+    document.getElementById("chart-style"),
+    ["Real + Real", "Real + Mixed", "Real + Synthetic", "Style-robust"],
+    [
+      { name: "BERT flip rate", color: cssVar("--critical"), values: [0.0200, 0.1050, 0.1545, 0.0000] },
+    ],
+    { max: 0.2 }
+  );
+})();
+</script>

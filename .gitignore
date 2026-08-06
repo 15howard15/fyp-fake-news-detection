@@ -1,0 +1,24 @@
+# Secrets -- never commit
+.env
+
+# Virtual environment
+venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Large generated artifacts (regeneratable via src/ pipeline -- see README run order)
+models/
+data/raw/
+data/processed/
+data/synthetic/
+
+# Keep folder structure even though contents are ignored
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/synthetic/.gitkeep
+!models/.gitkeep
+
+# Local agent/editor config (machine-specific)
+.claude/
