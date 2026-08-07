@@ -160,6 +160,53 @@ def matched_block():
     return out
 
 
+def families_block(comps):
+    """RQ3 -- model-family consistency, which has two independent halves.
+
+    "Consistent" can mean two different things and the models rank differently
+    on each, so both are computed rather than collapsing them into one score:
+      - spread ACROSS COMPOSITIONS: how much a family's score swings depending
+        on what it was trained on (small = robust to the data recipe);
+      - spread ACROSS SEEDS: how much the SAME setup moves between runs
+        (small = a single reported number can be trusted). LR and SVM are
+        deterministic given fixed data, so their seed spread is exactly zero
+        by construction rather than by measurement -- which is itself part of
+        the answer.
+    """
+    import statistics as st
+    out = {"comps": comps, "byModel": {}}
+    for m in MODELS:
+        vals = []
+        for c in comps:
+            d = _metrics_json(m, c)
+            if d:
+                vals.append(d["f1"])
+        if not vals:
+            continue
+        out["byModel"][m] = {
+            "values": vals,
+            "min": round(min(vals), 4), "max": round(max(vals), 4),
+            "mean": round(sum(vals) / len(vals), 4),
+            "range": round(max(vals) - min(vals), 4),
+            "std": round(st.pstdev(vals), 4) if len(vals) > 1 else 0.0,
+        }
+    # seed spread, averaged over the conditions each model was re-run on
+    p = EXTRA / "multiseed_results.csv"
+    seed = {}
+    if p.exists():
+        df = pd.read_csv(p)
+        df = df[df.test == "crossdomain"]
+        g = df.groupby(["model", "comp"])["f1"].std().groupby("model")
+        for model, s in g.mean().items():
+            seed[model] = {"mean_std": round(float(s), 4),
+                           "max_std": round(float(g.max()[model]), 4),
+                           "deterministic": False}
+    for m in ("LR", "SVM"):
+        seed[m] = {"mean_std": 0.0, "max_std": 0.0, "deterministic": True}
+    out["seedSpread"] = seed
+    return out
+
+
 def seed_block():
     p = EXTRA / "multiseed_results.csv"
     if not p.exists():
@@ -236,11 +283,15 @@ def collect():
         "rq1": {"comps": rq1_comps, "liar": liar_block(rq1_comps),
                 "welfake": welfake_block(rq1_comps)},
         "rq2": sweep_block(),
-        "rq3": {"comps": rq3_comps, "liar": liar_block(rq3_comps),
-                "welfake": welfake_block(rq3_comps), "length": length_block()},
+        # RQ3 is the model-family comparison; the LIAR-vs-WELFake material it
+        # used to hold is the cross-domain protocol common to all four
+        # questions, so it lives under "framework" instead of being one RQ.
+        "rq3": {"families": families_block(rq3_comps), "seeds": seed_block(),
+                "matched": matched_block()},
         "rq4": style_block(),
-        "validity": {"seeds": seed_block(), "matched": matched_block(),
-                     "quality": quality_block(), "leakage": leakage_block()},
+        "framework": {"comps": rq3_comps, "liar": liar_block(rq3_comps),
+                      "welfake": welfake_block(rq3_comps), "length": length_block(),
+                      "quality": quality_block(), "leakage": leakage_block()},
     }
 
 
@@ -252,10 +303,11 @@ def main():
     out.write_text(html, encoding="utf-8")
     kb = len(html) / 1024
     print(f"Wrote {out} ({kb:.0f} KB)")
-    print(f"  RQ1 recipes : {len(data['rq1']['liar'])}")
-    print(f"  RQ3 recipes : {len(data['rq3']['liar'])}")
-    print(f"  seed rows   : {len(data['validity']['seeds'])}")
-    print(f"  sweep points: {len(data['rq2']['fractions'])}")
+    print(f"  RQ1 recipes    : {len(data['rq1']['liar'])}")
+    print(f"  RQ3 families   : {len(data['rq3']['families']['byModel'])}")
+    print(f"  seed rows      : {len(data['rq3']['seeds'])}")
+    print(f"  sweep points   : {len(data['rq2']['fractions'])}")
+    print(f"  framework rows : {len(data['framework']['liar'])}")
 
 
 if __name__ == "__main__":

@@ -11,8 +11,7 @@
   --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
   --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
   --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#4a3aa7;
-  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b;
-  --good-ink:#006300;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-ink:#006300;
 }
 @media (prefers-color-scheme: dark){
   :root:where(:not([data-theme="light"])){
@@ -33,41 +32,26 @@
   --good-ink:#0ca30c;
 }
 *{box-sizing:border-box}
-body{
-  margin:0; background:var(--page); color:var(--ink);
-  font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;
-  -webkit-font-smoothing:antialiased;
-}
+body{margin:0;background:var(--page);color:var(--ink);
+  font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1080px;margin:0 auto;padding:32px 20px 80px}
-header.top{margin-bottom:26px}
 h1{font-size:30px;line-height:1.22;margin:0 0 8px;letter-spacing:-.02em}
 .sub{color:var(--ink-2);margin:0;max-width:70ch}
 .meta{color:var(--muted);font-size:13px;margin-top:12px}
-
-/* tabs */
 .tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin:26px 0 0}
-.tab{
-  appearance:none;border:0;background:none;cursor:pointer;
-  font:600 14px/1 system-ui,sans-serif;color:var(--ink-2);
-  padding:12px 14px;border-bottom:2px solid transparent;margin-bottom:-1px;
-  border-radius:6px 6px 0 0;
-}
+.tab{appearance:none;border:0;background:none;cursor:pointer;font:600 14px/1 system-ui,sans-serif;
+  color:var(--ink-2);padding:12px 14px;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:6px 6px 0 0}
 .tab:hover{color:var(--ink);background:var(--surface)}
 .tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--s1)}
 .tab:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
 .panel{display:none;padding-top:26px}
 .panel.active{display:block}
-
 h2{font-size:23px;line-height:1.3;margin:0 0 10px;letter-spacing:-.01em}
 h3{font-size:16px;margin:30px 0 8px}
 p{margin:0 0 14px;color:var(--ink-2);max-width:72ch}
 p.lead{color:var(--ink)}
-
-/* answer callout */
-.answer{
-  background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--s1);
-  border-radius:8px;padding:14px 16px;margin:0 0 22px;
-}
+.answer{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--s1);
+  border-radius:8px;padding:14px 16px;margin:0 0 22px}
 .answer .k{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px}
 .answer p{margin:0;color:var(--ink)}
 .note{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 15px;margin:16px 0}
@@ -76,23 +60,17 @@ p.lead{color:var(--ink)}
 .note.good{border-left:3px solid var(--good)}
 .note p{margin:0;font-size:14px}
 .note strong{color:var(--ink)}
-
-/* stat tiles */
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}
 .tile{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 15px}
 .tile .v{font-size:25px;font-weight:650;letter-spacing:-.02em;line-height:1.1}
 .tile .l{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
-
-/* chart card */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 16px 10px;margin:16px 0}
 .card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:4px}
 .card-t{font-size:14.5px;font-weight:640;color:var(--ink)}
 .card-n{font-size:12.5px;color:var(--muted);margin-top:3px;max-width:70ch}
-.seg{display:flex;gap:2px;background:var(--page);border:1px solid var(--border);border-radius:7px;padding:2px}
-.seg button{
-  appearance:none;border:0;background:none;cursor:pointer;border-radius:5px;
-  font:600 12px/1 system-ui,sans-serif;color:var(--ink-2);padding:6px 9px;
-}
+.seg{display:flex;gap:2px;background:var(--page);border:1px solid var(--border);border-radius:7px;padding:2px;flex-wrap:wrap}
+.seg button{appearance:none;border:0;background:none;cursor:pointer;border-radius:5px;
+  font:600 12px/1 system-ui,sans-serif;color:var(--ink-2);padding:6px 9px}
 .seg button:hover{color:var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 2px;font-size:12.5px;color:var(--ink-2)}
@@ -105,12 +83,9 @@ svg.chart{display:block;width:100%;height:auto;min-width:520px}
 .ref-line{stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3}
 text{fill:var(--muted);font:11px system-ui,sans-serif}
 text.val{fill:var(--ink-2);font-size:10px;text-anchor:middle;font-variant-numeric:tabular-nums}
-text.cat{fill:var(--ink-2);font-size:11.5px;text-anchor:middle}
-text.axtitle{fill:var(--muted);font-size:11px}
+text.cat{fill:var(--ink-2);font-size:12.5px;text-anchor:middle}
 rect.bar{transition:opacity .12s}
 rect.bar:hover{opacity:.78}
-
-/* tables */
 details.tbl{margin:12px 0;border:1px solid var(--border);border-radius:9px;background:var(--surface);overflow:hidden}
 details.tbl>summary{cursor:pointer;padding:12px 15px;font-weight:600;font-size:13.5px;list-style:none}
 details.tbl>summary::-webkit-details-marker{display:none}
@@ -123,7 +98,6 @@ th,td{padding:8px 12px;text-align:right;border-bottom:1px solid var(--border);wh
 th:first-child,td:first-child{text-align:left}
 thead th{background:var(--page);font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:650}
 tbody tr:last-child td{border-bottom:0}
-td.dim{color:var(--muted)}
 td.bad{color:var(--crit);font-weight:600}
 td.good{color:var(--good-ink);font-weight:600}
 footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px}
@@ -133,87 +107,76 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 </head>
 <body>
 <div class="wrap">
-<header class="top">
+<header>
   <h1>Can AI-generated fake news train a fake-news detector?</h1>
-  <p class="sub">Four research questions, four model families (Logistic Regression, SVM, CNN, BERT),
-  evaluated on two unseen test corpora. Every number on this page is read directly from the
-  project's results files at build time.</p>
-  <p class="meta">Training data: ISOT · Test data: LIAR and WELFake · Synthetic text: GPT-4o-mini</p>
+  <p class="sub">Four research questions, four model families (Logistic Regression, SVM, CNN, BERT).
+  Every question is answered by training on ISOT and testing on unseen LIAR and WELFake data, so
+  cross-domain generalization is the shared evaluation framework rather than a separate question.</p>
+  <p class="meta">Training: ISOT · Testing: LIAR and WELFake (both unseen) · Synthetic text: GPT-4o-mini</p>
 </header>
 
 <div class="tabs" role="tablist">
-  <button class="tab" role="tab" data-panel="rq1" aria-selected="true">RQ1 · Replace</button>
-  <button class="tab" role="tab" data-panel="rq2" aria-selected="false">RQ2 · Augment</button>
-  <button class="tab" role="tab" data-panel="rq3" aria-selected="false">RQ3 · Generalize</button>
+  <button class="tab" role="tab" data-panel="rq1" aria-selected="true">RQ1 · Replacement</button>
+  <button class="tab" role="tab" data-panel="rq2" aria-selected="false">RQ2 · Augmentation</button>
+  <button class="tab" role="tab" data-panel="rq3" aria-selected="false">RQ3 · Model families</button>
   <button class="tab" role="tab" data-panel="rq4" aria-selected="false">RQ4 · Style attacks</button>
-  <button class="tab" role="tab" data-panel="val" aria-selected="false">Validity checks</button>
+  <button class="tab" role="tab" data-panel="fw" aria-selected="false">Evaluation framework</button>
 </div>
 
 <!-- ============ RQ1 ============ -->
 <section class="panel active" id="rq1" role="tabpanel">
-  <h2>RQ1 — Can AI-written fake news replace real fake news for training?</h2>
-  <div class="answer">
-    <span class="k">Short answer</span>
+  <h2>RQ1 — Can LLM-generated fake news replace real fake news for training?</h2>
+  <div class="answer"><span class="k">Short answer</span>
     <p><strong>Partly, and only if the real-news side stays genuine.</strong> Replacing the fake class
-    with synthetic articles keeps LR, CNN and BERT usable but costs accuracy, and breaks SVM
-    completely. Replacing <em>both</em> classes produces a model that is confidently backwards.</p>
-  </div>
-  <p>Five training recipes, all evaluated on the same unseen LIAR test set. The first three vary only
-  where the fake-news examples come from. The last two also make the real side synthetic, which is
-  what exposes the shortcut described below.</p>
-
+    with synthetic articles keeps LR, CNN and BERT usable but costs accuracy, and breaks SVM entirely.
+    Replacing <em>both</em> classes produces a model that is confidently backwards.</p></div>
+  <p>Five training recipes, each tested on unseen LIAR fake news. The first three vary only where the
+  fake-news examples come from. The last two also make the real side synthetic, which is what exposes
+  the shortcut described below.</p>
   <div class="card">
     <div class="card-h">
-      <div>
-        <div class="card-t">Performance by recipe and model</div>
-        <div class="card-n">Tested on LIAR — fake news from a source no model trained on. Switch metric to see how the picture changes.</div>
-      </div>
+      <div><div class="card-t">Detection performance by method and training recipe</div>
+      <div class="card-n">Higher is better. Tested on real news + LIAR fake news, never seen during training.</div></div>
       <div class="seg" data-metric-for="c-rq1"></div>
     </div>
     <div class="legend" id="l-rq1"></div>
     <div class="plot"><div id="c-rq1"></div></div>
   </div>
-  <details class="tbl"><summary>All metrics — every recipe × model (LIAR)</summary>
+  <details class="tbl"><summary>All metrics — every recipe × model (tested on LIAR)</summary>
     <div class="tscroll"><div id="t-rq1"></div></div></details>
 
-  <h3>The validity check: is it detecting fake news, or detecting AI writing?</h3>
-  <p>If a model scores well on AI-generated fake news, it might have learned "this text was written by
-  a machine" rather than "this claim is false" — a different and far less useful skill. The last two
-  recipes test this by making the real class AI-written too.</p>
+  <h3>Validity check: detecting fake news, or detecting AI writing?</h3>
+  <p>If a model scores well on AI-generated fake news, it may have learned "this text was written by a
+  machine" rather than "this claim is false" — a different and far less useful skill. The last two
+  recipes test exactly that by making the real class AI-written too.</p>
   <div class="card">
-    <div class="card-h"><div>
-      <div class="card-t">AUC-ROC when both classes are AI-authored, vs. only the fake class</div>
-      <div class="card-n">1.0 = perfect ranking · 0.5 = random guessing · below 0.5 = confidently backwards. Shown on both test sets so it can't be dismissed as one dataset's quirk.</div>
-    </div></div>
+    <div class="card-h"><div><div class="card-t">AUC-ROC when both classes are AI-authored, vs. only the fake class</div>
+    <div class="card-n">1.0 = perfect ranking · 0.5 = random guessing · below 0.5 = confidently backwards. Shown on both corpora so it can't be dismissed as one dataset's quirk.</div></div>
+    <div class="seg" id="seg-auth"></div></div>
     <div class="legend" id="l-auth"></div>
     <div class="plot"><div id="c-auth"></div></div>
   </div>
   <div class="note crit"><p><strong>F1 hides this; AUC-ROC exposes it.</strong> With both classes
-  AI-written, AUC-ROC falls far below 0.50 for all four models on both test sets — the models did not
+  AI-written, AUC-ROC falls far below 0.50 for all four models on both corpora — the models did not
   become uncertain, they learned a consistent rule pointing the wrong way. The cause is in how the data
   was built: the "real" examples were AI-paraphrased throughout while the "fake" ones kept their
-  original wording, so the models never saw genuine unedited writing labelled real.</p></div>
+  original wording, so no model ever saw genuine unedited writing labelled real.</p></div>
 </section>
 
 <!-- ============ RQ2 ============ -->
 <section class="panel" id="rq2" role="tabpanel">
-  <h2>RQ2 — Does adding synthetic fake news on top help, instead of replacing?</h2>
-  <div class="answer">
-    <span class="k">Short answer</span>
-    <p><strong>Yes, but only in moderation and only for some models.</strong> A blend of roughly
-    25–50% synthetic holds or improves performance for LR, SVM and BERT. Past that SVM collapses and
-    BERT falls away. CNN never benefits at any level.</p>
-  </div>
+  <h2>RQ2 — Does adding synthetic fake news on top of real data improve performance, rather than replacing it?</h2>
+  <div class="answer"><span class="k">Short answer</span>
+    <p><strong>Yes, but only in moderation and only for some models.</strong> Roughly 25–50% synthetic
+    holds or improves cross-domain performance for LR, SVM and BERT. Past that SVM collapses and BERT
+    falls away. CNN never benefits at any level.</p></div>
   <p>The fake class is held at exactly 500 examples throughout — only the proportion that is synthetic
-  changes. Holding the size fixed means any movement is attributable to the data's composition rather
-  than to having more of it.</p>
-
+  changes. Fixing the size means any movement reflects the data's composition rather than simply having
+  more of it.</p>
   <div class="card">
     <div class="card-h">
-      <div>
-        <div class="card-t">Performance as synthetic fake news replaces more of the fake class</div>
-        <div class="card-n">X-axis: share of the 500 fake-news training examples that are AI-generated. Tested on LIAR.</div>
-      </div>
+      <div><div class="card-t">Performance as synthetic fake news replaces more of the fake class</div>
+      <div class="card-n">X-axis: share of the 500 fake-news training examples that are AI-generated. Tested on LIAR.</div></div>
       <div class="seg" data-metric-for="c-rq2"></div>
     </div>
     <div class="legend" id="l-rq2"></div>
@@ -221,7 +184,6 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   </div>
   <details class="tbl"><summary>All metrics across the sweep</summary>
     <div class="tscroll"><div id="t-rq2"></div></div></details>
-
   <div class="note warn"><p><strong>CNN is the exception worth explaining.</strong> Its errors are the
   same kind at every blend level — genuine real articles called fake, never the reverse — and the same
   stylistically distinctive articles (opinion-led rather than plain wire copy) keep reappearing. Its
@@ -230,50 +192,130 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   SVM does.</p></div>
 </section>
 
-<!-- ============ RQ3 ============ -->
+<!-- ============ RQ3 — MODEL FAMILIES ============ -->
 <section class="panel" id="rq3" role="tabpanel">
-  <h2>RQ3 — Does the detector still generalize to fake news from a completely different source?</h2>
-  <div class="answer">
-    <span class="k">Short answer</span>
-    <p><strong>It depends on the recipe, not on the model alone.</strong> Recipes built on real fake
-    news transfer reliably. Full replacement transfers unevenly. And the second test corpus turns out
-    to be much less independent than it appears, which changes how these numbers should be read.</p>
-  </div>
-  <p>Every recipe is evaluated against two unseen corpora: LIAR (short political statements) and
-  WELFake (full-length articles). Using two rather than one is what makes it possible to tell a genuine
-  finding from one dataset's quirk.</p>
+  <h2>RQ3 — Do transformer-based detectors offer more consistent robustness than deep-learning and traditional models?</h2>
+  <div class="answer"><span class="k">Short answer</span>
+    <p><strong>No — not once "consistent" is separated into its two meanings.</strong> BERT is the most
+    stable model across training recipes and reaches the highest peaks, but it is by far the
+    <em>least</em> stable across random seeds. The traditional models are perfectly reproducible yet
+    swing the most when the training data changes. No family wins on both.</p></div>
+  <p>Consistency can mean two different things, and the families rank differently on each. One is
+  robustness to <em>what the model was trained on</em>; the other is reproducibility of <em>the same
+  setup run again</em>. Both are measured below.</p>
+
+  <div class="tiles" id="tiles-fam"></div>
 
   <div class="card">
+    <div class="card-h"><div><div class="card-t">Spread across training recipes — how much does the data composition move each model?</div>
+    <div class="card-n">Bar = mean F1 over all six recipes. The line spans that model's worst and best recipe. A short line means the family is insensitive to which recipe it was trained on.</div></div></div>
+    <div class="legend" id="l-fam"></div>
+    <div class="plot"><div id="c-fam"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div><div class="card-t">Spread across random seeds — can a single reported run be trusted?</div>
+    <div class="card-n">Same data, same settings, three different random seeds. Bar = mean, line = lowest to highest run. LR and SVM are deterministic, so their spread is exactly zero by construction.</div></div></div>
+    <div class="legend" id="l-seed"></div>
+    <div class="plot"><div id="c-seed"></div></div>
+  </div>
+  <div class="note crit"><p><strong>The transformer is the least reproducible model here.</strong>
+  BERT's seed-to-seed standard deviation averages <span id="v-bertstd"></span> across the conditions
+  re-run, reaching <span id="v-bertmax"></span> in the worst case, against
+  <span id="v-cnnstd"></span> for CNN and exactly zero for LR and SVM. Any single BERT figure in this
+  study is one draw from a wide distribution, and its highest scores sit at the top of that range
+  rather than in the middle.</p></div>
+
+  <h3>Is the comparison even fair?</h3>
+  <p>By default the four models do not read the same amount of each article: TF-IDF has no length limit
+  so LR and SVM read all of it, BERT stops at 512 tokens and CNN at 300 — and 64.5% of training
+  articles run longer than 300 words. Retraining everything with all inputs capped at the same 300
+  words removes that confound.</p>
+  <div class="card">
+    <div class="card-h"><div><div class="card-t">F1 with full text vs. all models capped at 300 words</div>
+    <div class="card-n">Same recipes, same test set — the only change is that no model reads more of an article than another.</div></div>
+    <div class="seg" id="seg-match"></div></div>
+    <div class="legend" id="l-match"></div>
+    <div class="plot"><div id="c-match"></div></div>
+  </div>
+  <div class="note crit"><p><strong>LR's advantage under full replacement is largely a length artifact.</strong>
+  Given the same input as everyone else, LR loses more than any other model in any condition and drops
+  from best to worst of the three working models on Real + Synthetic. The LR/SVM half of this is
+  deterministic and exactly reproducible; the CNN/BERT half is a single run in BERT's least stable
+  condition, so "LR's advantage disappears" carries far more weight than "BERT becomes best".</p></div>
+  <details class="tbl"><summary>Full text vs. 300-word cap, all models</summary>
+    <div class="tscroll"><div id="t-match"></div></div></details>
+</section>
+
+<!-- ============ RQ4 ============ -->
+<section class="panel" id="rq4" role="tabpanel">
+  <h2>RQ4 — Can style-diverse synthetic training resist stylistic and sentiment-based attacks?</h2>
+  <div class="answer"><span class="k">Short answer</span>
+    <p><strong>Yes, and it costs nothing in ordinary accuracy.</strong> Pairing every article with a
+    tone-shifted twin under the same label drops the attack success rate to near zero. But generic
+    synthetic data alone gives no such protection — and can make a model easier to fool.</p></div>
+  <p>200 held-out articles were rewritten to change only their tone: real articles made sensational,
+  fake ones made calm and neutral, with every fact and label unchanged. The <em>flip rate</em> is how
+  often a model that was originally correct changes its answer after the rewrite. Lower is better.</p>
+  <div class="card">
+    <div class="card-h"><div><div class="card-t">Flip rate after a tone-only rewrite, by training recipe</div>
+    <div class="card-n">Lower is better — 0% means the tone change fooled the model on nothing it previously got right.</div></div></div>
+    <div class="legend" id="l-rq4"></div>
+    <div class="plot"><div id="c-rq4"></div></div>
+  </div>
+  <div class="note warn"><p><strong>Read the two 0.0% cells under Real + Synthetic with care.</strong>
+  SVM and CNN score 0.0% there not because they resist the attack but because that recipe already makes
+  them predict one class for almost everything, leaving almost no correct predictions available to
+  flip. A near-zero flip rate only means something alongside a working baseline F1.</p></div>
+  <h3>Does the fix survive an attack it wasn't trained for?</h3>
+  <p>The style-robust recipe was built against one attack direction. Testing the reverse — real made
+  calm, fake made sensational — on the same trained models, with no further training:</p>
+  <div class="card">
+    <div class="card-h"><div><div class="card-t">Style-robust flip rate: trained direction vs. the untested reverse</div>
+    <div class="card-n">Rises for every model, but stays far below the 10.5–18.1% of the vulnerable Real + Mixed recipe.</div></div></div>
+    <div class="legend" id="l-rev"></div>
+    <div class="plot"><div id="c-rev"></div></div>
+  </div>
+  <details class="tbl"><summary>Does robustness cost ordinary accuracy? (no attack applied)</summary>
+    <div class="tscroll"><div id="t-rq4"></div></div></details>
+  <div class="note good"><p><strong>Not a trade-off.</strong> Every model performs as well or better
+  under the style-robust recipe than under Real + Real on the untouched test set, so the robustness
+  gain is real rather than a model becoming uniformly more cautious.</p></div>
+</section>
+
+<!-- ============ FRAMEWORK ============ -->
+<section class="panel" id="fw" role="tabpanel">
+  <h2>The cross-domain evaluation framework</h2>
+  <p class="lead">Every question above is answered by training on ISOT and testing on data no model saw
+  during training. That shared protocol — not a separate research question — is what binds RQ1 to RQ4
+  together. This tab covers how well it holds up.</p>
+  <div class="card">
     <div class="card-h">
-      <div>
-        <div class="card-t">Same models, two different unseen corpora</div>
-        <div class="card-n">Pick a training recipe and a metric. Each model shows its score on LIAR beside its score on WELFake.</div>
-      </div>
-      <div class="seg" data-metric-for="c-rq3"></div>
+      <div><div class="card-t">Same models, two different unseen corpora</div>
+      <div class="card-n">Pick a training recipe and a metric. Each model shows its score on LIAR beside its score on WELFake.</div></div>
+      <div class="seg" data-metric-for="c-fw"></div>
     </div>
-    <div class="seg" id="seg-rq3-recipe" style="margin:8px 0 2px"></div>
-    <div class="legend" id="l-rq3"></div>
-    <div class="plot"><div id="c-rq3"></div></div>
+    <div class="seg" id="seg-fw-recipe" style="margin:8px 0 2px"></div>
+    <div class="legend" id="l-fw"></div>
+    <div class="plot"><div id="c-fw"></div></div>
   </div>
   <details class="tbl"><summary>All metrics on both corpora</summary>
-    <div class="tscroll"><div id="t-rq3"></div></div></details>
+    <div class="tscroll"><div id="t-fw"></div></div></details>
 
   <div class="note crit"><p><strong>WELFake is not an independent corpus.</strong> Measured directly,
   <span id="v-overlap"></span> of the WELFake fake articles used here are exact text matches for
   articles that also appear in ISOT, the training corpus — against 0.0% for LIAR. WELFake is a merged
   dataset that includes the same underlying collection ISOT derives from. Scores on WELFake are
-  therefore closer to an in-domain test than a cross-domain one, and the gap between LIAR and WELFake
-  is partly corpus overlap rather than genre.</p></div>
+  therefore closer to an in-domain test than a cross-domain one, and the gap between the two corpora is
+  partly corpus overlap rather than genre.</p></div>
 
   <h3>Is the LIAR gap really about document length?</h3>
-  <p>LIAR statements are far shorter than ISOT articles, so a natural explanation for weaker LIAR
-  scores is length rather than domain. That is testable: hold the domain fixed, shorten the WELFake
-  test set, and re-score the same models.</p>
+  <p>LIAR statements are far shorter than ISOT articles, so a natural explanation for weaker LIAR scores
+  is length rather than domain. That is testable: hold the domain fixed, shorten the WELFake test set,
+  and re-score the same models.</p>
   <div class="card">
-    <div class="card-h"><div>
-      <div class="card-t">F1 as the test articles are progressively truncated</div>
-      <div class="card-n">Domain held constant — only length changes. If short text were the problem, these lines would fall.</div>
-    </div></div>
+    <div class="card-h"><div><div class="card-t">F1 as the test articles are progressively truncated</div>
+    <div class="card-n">Domain held constant — only length changes. If short text were the problem, these lines would fall.</div></div></div>
     <div class="legend" id="l-len"></div>
     <div class="plot"><div id="c-len"></div></div>
   </div>
@@ -282,100 +324,11 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   fake class, which reproduces LIAR's long-real / short-fake structure, raises F1 further still, because
   length itself becomes a usable clue. The LIAR gap is therefore a genuine domain effect, which makes
   the generalization challenge more real than a format artifact would have been.</p></div>
-</section>
 
-<!-- ============ RQ4 ============ -->
-<section class="panel" id="rq4" role="tabpanel">
-  <h2>RQ4 — Can style-diverse synthetic training resist stylistic and sentiment-based attacks?</h2>
-  <div class="answer">
-    <span class="k">Short answer</span>
-    <p><strong>Yes, and it costs nothing in ordinary accuracy.</strong> Pairing every article with a
-    tone-shifted twin under the same label drops the attack success rate to near zero. But generic
-    synthetic data alone gives no such protection — and can make a model easier to fool.</p>
-  </div>
-  <p>200 held-out articles were rewritten to change only their tone: real articles made sensational,
-  fake ones made calm and neutral, with every fact and label unchanged. The <em>flip rate</em> is how
-  often a model that was originally correct changes its answer after the rewrite. Lower is better.</p>
-
-  <div class="card">
-    <div class="card-h"><div>
-      <div class="card-t">Flip rate after a tone-only rewrite, by training recipe</div>
-      <div class="card-n">Lower is better — 0% means the tone change fooled the model on nothing it previously got right.</div>
-    </div></div>
-    <div class="legend" id="l-rq4"></div>
-    <div class="plot"><div id="c-rq4"></div></div>
-  </div>
-  <div class="note warn"><p><strong>Read the two 0.0% cells under Real + Synthetic with care.</strong>
-  SVM and CNN score 0.0% there not because they resist the attack but because that recipe already makes
-  them predict one class for almost everything, leaving almost no correct predictions available to
-  flip. A near-zero flip rate is only meaningful alongside a working baseline F1.</p></div>
-
-  <h3>Does the fix survive an attack it wasn't trained for?</h3>
-  <p>The style-robust recipe was built against one attack direction. Testing the reverse direction —
-  real made calm, fake made sensational — on the same trained models, with no further training:</p>
-  <div class="card">
-    <div class="card-h"><div>
-      <div class="card-t">Style-robust flip rate: trained direction vs. the untested reverse</div>
-      <div class="card-n">Rises for every model, but stays far below the 10.5–18.1% of the vulnerable Real + Mixed recipe.</div>
-    </div></div>
-    <div class="legend" id="l-rev"></div>
-    <div class="plot"><div id="c-rev"></div></div>
-  </div>
-  <details class="tbl"><summary>Does robustness cost ordinary accuracy? (no attack applied)</summary>
-    <div class="tscroll"><div id="t-rq4"></div></div></details>
-  <div class="note good"><p><strong>Not a trade-off.</strong> Every model performs as well or better
-  under the style-robust recipe than under Real + Real on the untouched test set, so the robustness gain
-  is real rather than a model becoming uniformly more cautious.</p></div>
-</section>
-
-<!-- ============ VALIDITY ============ -->
-<section class="panel" id="val" role="tabpanel">
-  <h2>Validity checks</h2>
-  <p class="lead">Checks that cut across all four questions — how stable the numbers are, whether the
-  model comparison is fair, whether the generated data is any good, and whether any training text
-  leaked into the test sets.</p>
-
-  <h3>Seed stability — which findings are trustworthy?</h3>
-  <p>LR and SVM are deterministic: the same data always gives the same answer. CNN and BERT start from
-  random weights, so each reported number is one draw. All 18 reported model × recipe pairs were re-run
-  at three seeds.</p>
-  <div class="card">
-    <div class="card-h"><div>
-      <div class="card-t">Cross-domain F1 across 3 seeds — mean, with the full observed range</div>
-      <div class="card-n">The bar is the mean; the vertical line spans the lowest and highest of the three runs. Long lines mean the single-run number is unreliable.</div>
-    </div></div>
-    <div class="legend" id="l-seed"></div>
-    <div class="plot"><div id="c-seed"></div></div>
-  </div>
-  <div class="note warn"><p><strong>BERT's core recipes are unstable; everything else is not.</strong>
-  BERT swings widely on Real + Real, Real + Mixed and Real + Synthetic, so those single-run figures
-  should be read as one draw from a wide range. The style-robust and diverse-sourced recipes are stable
-  across seeds for both deep models, so the RQ4 and diverse-sourcing conclusions do not inherit that
-  instability.</p></div>
-
-  <h3>Is the model comparison fair?</h3>
-  <p>By default the four models do not read the same amount of each article: TF-IDF has no length limit
-  so LR and SVM read all of it, BERT stops at 512 tokens and CNN at 300 — and 64.5% of training
-  articles are longer than 300 words. Retraining everything with all inputs truncated to the same 300
-  words removes that confound.</p>
-  <div class="card">
-    <div class="card-h"><div>
-      <div class="card-t">F1 with full text vs. all models capped at 300 words</div>
-      <div class="card-n">Same recipe, same test set — the only change is that no model reads more of an article than another.</div>
-    </div></div>
-    <div class="legend" id="l-match"></div>
-    <div class="plot"><div id="c-match"></div></div>
-  </div>
-  <div class="note crit"><p><strong>LR's advantage under full replacement is largely a length artifact.</strong>
-  Given the same input as everyone else, LR loses the most of any model in any condition and drops from
-  best to worst of the three working models on Real + Synthetic. The LR/SVM half of this is deterministic
-  and exactly reproducible; the CNN/BERT half is a single run in BERT's least stable condition, so
-  "LR's advantage disappears" carries much more weight than "BERT becomes best".</p></div>
-
-  <h3>Is the generated text actually any good?</h3>
+  <h3>Is the generated text any good?</h3>
   <p>The only quality gate during generation was a length-ratio filter, which catches refusals and
   truncations but supports no claim about whether the text reads plausibly or whether the intended fact
-  actually changed. Both were measured after the fact.</p>
+  actually changed. Both were measured afterwards.</p>
   <div class="tiles" id="tiles-q"></div>
   <details class="tbl"><summary>Diversity — is the generator repeating itself?</summary>
     <div class="tscroll"><div id="t-div"></div></div></details>
@@ -383,9 +336,9 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   full source article was saved the rate is <span id="v-factfull"></span>, against
   <span id="v-facttrunc"></span> where only a 1,000-character preview was kept — so the shortfall is a
   limit of the audit trail, not evidence that the edits failed.</p></div>
-  <div class="note warn"><p><strong>Plausibility rating carries a caveat.</strong> An LLM judge rates the
-  synthetic articles above real fake news for reading like professional news writing — expected, since
-  they are real articles with one fact altered while real fake news is stylistically distinctive
+  <div class="note warn"><p><strong>The plausibility rating carries a caveat.</strong> An LLM judge rates
+  the synthetic articles above real fake news for reading like professional news writing — expected,
+  since they are real articles with one fact altered while real fake news is stylistically distinctive
   low-quality writing. But the judge is the same model family that generated the text, so
   self-preference bias cannot be ruled out from this measurement alone.</p></div>
 
@@ -406,7 +359,6 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 
 <script>
 const DATA = /*__DATA__*/null;
-
 (function(){
 "use strict";
 const NS="http://www.w3.org/2000/svg";
@@ -414,95 +366,93 @@ const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim(
 const SER=()=>[cv("--s1"),cv("--s2"),cv("--s3"),cv("--s4"),cv("--s5"),cv("--s6")];
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
 const METRIC_LABEL={f1:"F1 score",auc_roc:"AUC-ROC",accuracy:"Accuracy",precision:"Precision",recall:"Recall"};
-const fmt=v=>v==null?"—":v.toFixed(3);
-// Axis labels need to be short or the rotated text runs off the plot; the full
-// recipe names stay in the legends, tables and prose.
-const SHORT={"Real + Real":"Real+Real","Real + Mixed":"Real+Mixed",
- "Real + Synthetic":"Real+Synth","Synthetic-real + Real-fake":"S-real+Real-fake",
- "Synthetic-real + Synthetic-fake":"S-real+S-fake",
- "Real + Synthetic (diverse-sourced)":"Real+Synth (div)","Style-robust":"Style-robust"};
-const shorten=s=>SHORT[s]||s;
+const L=DATA.labels;
 
-/* ---------- grouped bar chart ---------- */
+/* A bar at 0.998 must not be labelled "1.00" -- a flat-topped bar reading as a
+   perfect score is the most misleading thing a chart here could do. Show the
+   fewest decimals that still distinguish the value from 1. */
+function lab(v){
+  if(v==null) return "";
+  if(v>=1) return "1.00";
+  for(const d of [2,3,4]){ const s=v.toFixed(d); if(parseFloat(s)<1) return s; }
+  return v.toFixed(4);
+}
+const fmt=v=>v==null?"—":v.toFixed(4).replace(/0+$/,"").replace(/\.$/,"");
+
+/* ---------- grouped bars: categories on x, one bar per series ---------- */
 function bars(host,cfg){
   host.innerHTML="";
-  const cats=cfg.categories, series=cfg.series;
-  const W=Math.max(560,cats.length*Math.max(78,series.length*26)), H=cfg.height||300;
-  const L=42,R=cfg.rotate?58:10,T=16,B=cfg.rotate?80:34;
-  const pw=W-L-R, ph=H-T-B, max=cfg.max||1;
+  const cats=cfg.categories,series=cfg.series;
+  const W=cfg.width||760,H=cfg.height||300;
+  const Lp=44,R=12,T=18,B=34;
+  const pw=W-Lp-R,ph=H-T-B,max=cfg.max||1;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
   for(let i=0;i<=4;i++){
-    const v=max/4*i, y=T+ph-(v/max)*ph;
-    svg.appendChild(el("line",{class:"grid-line",x1:L,x2:W-R,y1:y,y2:y}));
-    const t=el("text",{x:L-7,y:y+3.5,"text-anchor":"end"});t.textContent=v.toFixed(2);svg.appendChild(t);
+    const v=max/4*i,y=T+ph-(v/max)*ph;
+    svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
+    const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});
+    t.textContent=max<=0.7?v.toFixed(2):v.toFixed(2);svg.appendChild(t);
   }
   let refY=null;
-  if(cfg.ref!=null){
-    refY=T+ph-(cfg.ref/max)*ph;
-    svg.appendChild(el("line",{class:"ref-line",x1:L,x2:W-R,y1:refY,y2:refY}));
-  }
-  svg.appendChild(el("line",{class:"axis-line",x1:L,x2:W-R,y1:T+ph,y2:T+ph}));
-  const gw=pw/cats.length, gap=3;
+  if(cfg.ref!=null){refY=T+ph-(cfg.ref/max)*ph;
+    svg.appendChild(el("line",{class:"ref-line",x1:Lp,x2:W-R,y1:refY,y2:refY}));}
+  svg.appendChild(el("line",{class:"axis-line",x1:Lp,x2:W-R,y1:T+ph,y2:T+ph}));
+  const gw=pw/cats.length,gap=3;
   const bw=Math.max(4,(gw-gap*(series.length+1))/series.length);
   cats.forEach((c,ci)=>{
-    const gx=L+ci*gw;
+    const gx=Lp+ci*gw;
     series.forEach((s,si)=>{
-      const v=s.values[ci]; if(v==null) return;
-      const bh=Math.max((v/max)*ph,1.5), x=gx+gap+si*(bw+gap), y=T+ph-bh;
+      const v=s.values[ci]; if(v==null)return;
+      const bh=Math.max((v/max)*ph,1.5),x=gx+gap+si*(bw+gap),y=T+ph-bh;
       const r=el("rect",{class:"bar",x,y,width:bw,height:bh,fill:s.color,rx:Math.min(4,bw/2)});
-      const ti=el("title");ti.textContent=`${s.name} — ${c}: ${v.toFixed(3)}`;r.appendChild(ti);
+      const ti=el("title");ti.textContent=`${s.name} — ${c}: ${v.toFixed(4)}`;r.appendChild(ti);
       svg.appendChild(r);
-      if(bw>=17){const t=el("text",{class:"val",x:x+bw/2,y:y-4});t.textContent=v.toFixed(2);svg.appendChild(t);}
+      if(bw>=15){const t=el("text",{class:"val",x:x+bw/2,y:y-4});t.textContent=lab(v);svg.appendChild(t);}
     });
-    if(cfg.rotate){
-      const t=el("text",{class:"cat",x:gx+gw/2,y:T+ph+13,transform:`rotate(-32 ${gx+gw/2} ${T+ph+13})`,"text-anchor":"end"});
-      t.textContent=c;svg.appendChild(t);
-    }else{
-      const t=el("text",{class:"cat",x:gx+gw/2,y:T+ph+16});t.textContent=c;svg.appendChild(t);
-    }
+    const t=el("text",{class:"cat",x:gx+gw/2,y:T+ph+17});t.textContent=c;svg.appendChild(t);
   });
-  // Reference label last, on a surface-coloured plate, so bars drawn above the
-  // line can't obscure it (they did before this was moved out of the grid pass).
   if(refY!=null&&cfg.refLabel){
-    const txt=cfg.refLabel, w=txt.length*5.6+10;
-    svg.appendChild(el("rect",{x:W-R-w-2,y:refY-14,width:w,height:13,
-      fill:cv("--surface"),opacity:.92,rx:3}));
-    const t=el("text",{x:W-R-7,y:refY-4,"text-anchor":"end"});
-    t.textContent=txt;svg.appendChild(t);
+    const w=cfg.refLabel.length*5.6+10;
+    svg.appendChild(el("rect",{x:W-R-w-2,y:refY-14,width:w,height:13,fill:cv("--surface"),opacity:.92,rx:3}));
+    const t=el("text",{x:W-R-7,y:refY-4,"text-anchor":"end"});t.textContent=cfg.refLabel;svg.appendChild(t);
   }
   host.appendChild(svg);
 }
 
-/* ---------- bar chart with min/max range whiskers ---------- */
+/* ---------- bars with a min/max range line ---------- */
 function barsRange(host,cfg){
   host.innerHTML="";
-  const cats=cfg.categories, series=cfg.series;
-  const W=Math.max(560,cats.length*96), H=310, L=42,R=10,T=16,B=70;
-  const pw=W-L-R, ph=H-T-B, max=1;
+  const cats=cfg.categories,series=cfg.series;
+  const W=cfg.width||760,H=cfg.height||300,Lp=44,R=12,T=18,B=34;
+  const pw=W-Lp-R,ph=H-T-B;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
   for(let i=0;i<=4;i++){
-    const v=max/4*i,y=T+ph-v*ph;
-    svg.appendChild(el("line",{class:"grid-line",x1:L,x2:W-R,y1:y,y2:y}));
-    const t=el("text",{x:L-7,y:y+3.5,"text-anchor":"end"});t.textContent=v.toFixed(2);svg.appendChild(t);
+    const v=i/4,y=T+ph-v*ph;
+    svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
+    const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});t.textContent=v.toFixed(2);svg.appendChild(t);
   }
-  svg.appendChild(el("line",{class:"axis-line",x1:L,x2:W-R,y1:T+ph,y2:T+ph}));
+  svg.appendChild(el("line",{class:"axis-line",x1:Lp,x2:W-R,y1:T+ph,y2:T+ph}));
   const gw=pw/cats.length,gap=4,bw=(gw-gap*(series.length+1))/series.length;
   cats.forEach((c,ci)=>{
-    const gx=L+ci*gw;
+    const gx=Lp+ci*gw;
     series.forEach((s,si)=>{
-      const d=s.values[ci]; if(!d) return;
+      const d=s.values[ci]; if(!d)return;
       const bh=Math.max(d.mean*ph,1.5),x=gx+gap+si*(bw+gap),y=T+ph-bh;
       const r=el("rect",{class:"bar",x,y,width:bw,height:bh,fill:s.color,rx:Math.min(4,bw/2)});
       const ti=el("title");
-      ti.textContent=`${s.name} — ${c}: mean ${d.mean.toFixed(3)}, range ${d.min.toFixed(3)}–${d.max.toFixed(3)} (n=${d.n})`;
+      ti.textContent=`${s.name} — ${c}: mean ${d.mean.toFixed(4)}, range ${d.min.toFixed(4)}–${d.max.toFixed(4)}`
+        +(d.n?` (n=${d.n})`:"");
       r.appendChild(ti);svg.appendChild(r);
-      const cx=x+bw/2, yTop=T+ph-d.max*ph, yBot=T+ph-d.min*ph;
-      svg.appendChild(el("line",{x1:cx,x2:cx,y1:yTop,y2:yBot,stroke:cv("--ink"),"stroke-width":1.4,opacity:.75}));
-      svg.appendChild(el("line",{x1:cx-3.5,x2:cx+3.5,y1:yTop,y2:yTop,stroke:cv("--ink"),"stroke-width":1.4,opacity:.75}));
-      svg.appendChild(el("line",{x1:cx-3.5,x2:cx+3.5,y1:yBot,y2:yBot,stroke:cv("--ink"),"stroke-width":1.4,opacity:.75}));
+      const cx=x+bw/2,yT=T+ph-d.max*ph,yB=T+ph-d.min*ph;
+      const ink=cv("--ink");
+      if(Math.abs(yB-yT)>0.6){
+        svg.appendChild(el("line",{x1:cx,x2:cx,y1:yT,y2:yB,stroke:ink,"stroke-width":1.4,opacity:.7}));
+        svg.appendChild(el("line",{x1:cx-3.5,x2:cx+3.5,y1:yT,y2:yT,stroke:ink,"stroke-width":1.4,opacity:.7}));
+        svg.appendChild(el("line",{x1:cx-3.5,x2:cx+3.5,y1:yB,y2:yB,stroke:ink,"stroke-width":1.4,opacity:.7}));
+      }
+      if(bw>=15){const t=el("text",{class:"val",x:cx,y:yT-5});t.textContent=lab(d.mean);svg.appendChild(t);}
     });
-    const t=el("text",{class:"cat",x:gx+gw/2,y:T+ph+13,transform:`rotate(-30 ${gx+gw/2} ${T+ph+13})`,"text-anchor":"end"});
-    t.textContent=c;svg.appendChild(t);
+    const t=el("text",{class:"cat",x:gx+gw/2,y:T+ph+17});t.textContent=c;svg.appendChild(t);
   });
   host.appendChild(svg);
 }
@@ -511,249 +461,223 @@ function barsRange(host,cfg){
 function lines(host,cfg){
   host.innerHTML="";
   const cats=cfg.categories,series=cfg.series;
-  const W=680,H=300,L=42,R=14,T=16,B=44;
-  const pw=W-L-R,ph=H-T-B,max=cfg.max||1;
+  const W=760,H=300,Lp=44,R=16,T=18,B=40;
+  const pw=W-Lp-R,ph=H-T-B,max=cfg.max||1;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
   for(let i=0;i<=4;i++){
     const v=max/4*i,y=T+ph-(v/max)*ph;
-    svg.appendChild(el("line",{class:"grid-line",x1:L,x2:W-R,y1:y,y2:y}));
-    const t=el("text",{x:L-7,y:y+3.5,"text-anchor":"end"});t.textContent=v.toFixed(2);svg.appendChild(t);
+    svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
+    const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});t.textContent=v.toFixed(2);svg.appendChild(t);
   }
-  svg.appendChild(el("line",{class:"axis-line",x1:L,x2:W-R,y1:T+ph,y2:T+ph}));
+  svg.appendChild(el("line",{class:"axis-line",x1:Lp,x2:W-R,y1:T+ph,y2:T+ph}));
   const xs=cats.length>1?pw/(cats.length-1):pw;
-  cats.forEach((c,i)=>{
-    const t=el("text",{class:"cat",x:L+i*xs,y:T+ph+17});t.textContent=c;svg.appendChild(t);
-  });
+  cats.forEach((c,i)=>{const t=el("text",{class:"cat",x:Lp+i*xs,y:T+ph+18});t.textContent=c;svg.appendChild(t);});
   series.forEach(s=>{
-    const pts=[];
-    s.values.forEach((v,i)=>{if(v!=null)pts.push([L+i*xs,T+ph-(v/max)*ph,v,i]);});
+    const pts=[];s.values.forEach((v,i)=>{if(v!=null)pts.push([Lp+i*xs,T+ph-(v/max)*ph,v,i]);});
     if(!pts.length)return;
     svg.appendChild(el("polyline",{points:pts.map(p=>p[0]+","+p[1]).join(" "),fill:"none",
       stroke:s.color,"stroke-width":2,"stroke-linecap":"round","stroke-linejoin":"round"}));
     pts.forEach(([x,y,v,i])=>{
       svg.appendChild(el("circle",{cx:x,cy:y,r:5.5,fill:cv("--surface")}));
       const c=el("circle",{cx:x,cy:y,r:4,fill:s.color});
-      const ti=el("title");ti.textContent=`${s.name} — ${cats[i]}: ${v.toFixed(3)}`;c.appendChild(ti);
+      const ti=el("title");ti.textContent=`${s.name} — ${cats[i]}: ${v.toFixed(4)}`;c.appendChild(ti);
       svg.appendChild(c);
     });
   });
   host.appendChild(svg);
 }
 
-/* ---------- legend & table helpers ---------- */
-function legend(host,items){
-  host.innerHTML="";
-  items.forEach(it=>{
-    const s=document.createElement("span");
-    const i=document.createElement("i");i.style.background=it.color;
-    s.appendChild(i);s.appendChild(document.createTextNode(it.name));
-    host.appendChild(s);
-  });
-}
+/* ---------- helpers ---------- */
+function legend(host,items){host.innerHTML="";items.forEach(it=>{
+  const s=document.createElement("span");const i=document.createElement("i");
+  i.style.background=it.color;s.appendChild(i);s.appendChild(document.createTextNode(it.name));host.appendChild(s);});}
 function table(host,cols,rows){
-  const t=document.createElement("table");
-  const th=document.createElement("thead");const tr=document.createElement("tr");
+  const t=document.createElement("table"),th=document.createElement("thead"),tr=document.createElement("tr");
   cols.forEach(c=>{const e=document.createElement("th");e.textContent=c;tr.appendChild(e);});
   th.appendChild(tr);t.appendChild(th);
   const tb=document.createElement("tbody");
-  rows.forEach(r=>{
-    const tr=document.createElement("tr");
-    r.forEach((c,i)=>{
-      const e=document.createElement("td");
-      if(c&&typeof c==="object"){e.textContent=c.v;if(c.cls)e.className=c.cls;}
-      else e.textContent=c;
-      tr.appendChild(e);
-    });
-    tb.appendChild(tr);
-  });
+  rows.forEach(r=>{const x=document.createElement("tr");
+    r.forEach(c=>{const e=document.createElement("td");
+      if(c&&typeof c==="object"){e.textContent=c.v;if(c.cls)e.className=c.cls;}else e.textContent=c;
+      x.appendChild(e);});tb.appendChild(x);});
   t.appendChild(tb);host.innerHTML="";host.appendChild(t);
 }
-function metricSeg(host,onPick,metrics){
+function seg(host,items,onPick,initial){
   host.innerHTML="";
-  (metrics||DATA.metrics).forEach((m,i)=>{
-    const b=document.createElement("button");
-    b.textContent=METRIC_LABEL[m]; b.setAttribute("aria-pressed",i===0?"true":"false");
+  items.forEach((it,i)=>{const b=document.createElement("button");
+    b.textContent=it.label;b.setAttribute("aria-pressed",i===(initial||0)?"true":"false");
     b.onclick=()=>{[...host.children].forEach(c=>c.setAttribute("aria-pressed","false"));
-      b.setAttribute("aria-pressed","true");onPick(m);};
-    host.appendChild(b);
-  });
+      b.setAttribute("aria-pressed","true");onPick(it.value);};
+    host.appendChild(b);});
 }
+const metricSeg=(host,onPick,ms)=>seg(host,(ms||DATA.metrics).map(m=>({label:METRIC_LABEL[m],value:m})),onPick);
 
-/* ================= RQ1 ================= */
-const L=DATA.labels;
+/* ================= RQ1 — models on x, recipes as series ================= */
+const RQ1C=DATA.rq1.comps;
 function rq1(metric){
-  const comps=DATA.rq1.comps, cats=comps.map(c=>shorten(L[c]));
   const cols=SER();
   bars(document.getElementById("c-rq1"),{
-    categories:cats, rotate:true, height:330,
-    ref:metric==="auc_roc"?0.5:null, refLabel:"random guessing",
-    series:DATA.models.map((m,i)=>({name:m,color:cols[i],
-      values:comps.map(c=>(DATA.rq1.liar[c]&&DATA.rq1.liar[c][m])?DATA.rq1.liar[c][m][metric]:null)}))
-  });
+    categories:DATA.models,height:320,
+    ref:metric==="auc_roc"?0.5:null,refLabel:"random guessing",
+    series:RQ1C.map((c,i)=>({name:L[c],color:cols[i],
+      values:DATA.models.map(m=>{const d=DATA.rq1.liar[c]&&DATA.rq1.liar[c][m];return d?d[metric]:null;})}))});
 }
-legend(document.getElementById("l-rq1"),DATA.models.map((m,i)=>({name:m,color:SER()[i]})));
+legend(document.getElementById("l-rq1"),RQ1C.map((c,i)=>({name:L[c],color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq1"]'),rq1);
 rq1("f1");
 table(document.getElementById("t-rq1"),
   ["Recipe","Model","Accuracy","Precision","Recall","F1","AUC-ROC"],
-  DATA.rq1.comps.flatMap(c=>DATA.models.map(m=>{
-    const d=DATA.rq1.liar[c]&&DATA.rq1.liar[c][m];
-    return [L[c],m,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),
-      fmt(d&&d.f1),{v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];
-  })));
+  RQ1C.flatMap(c=>DATA.models.map(m=>{const d=DATA.rq1.liar[c]&&DATA.rq1.liar[c][m];
+    return [L[c],m,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),
+      {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];})));
 
-/* authorship: C2 vs C3 AUC on both corpora */
-(function(){
+/* authorship — corpus switch keeps it to 4 categories */
+let AUTH="liar";
+function auth(){
+  const src=AUTH==="liar"?DATA.rq1.liar:DATA.rq1.welfake,cols=SER();
   const c2="c2_synreal_realfake",c3="c3_synreal_synfake";
-  const cats=[];const v2=[];const v3=[];
-  DATA.models.forEach(m=>{
-    cats.push(m+" · LIAR");
-    v2.push(DATA.rq1.liar[c2]&&DATA.rq1.liar[c2][m]?DATA.rq1.liar[c2][m].auc_roc:null);
-    v3.push(DATA.rq1.liar[c3]&&DATA.rq1.liar[c3][m]?DATA.rq1.liar[c3][m].auc_roc:null);
-  });
-  DATA.models.forEach(m=>{
-    cats.push(m+" · WELFake");
-    v2.push(DATA.rq1.welfake[c2]&&DATA.rq1.welfake[c2][m]?DATA.rq1.welfake[c2][m].auc_roc:null);
-    v3.push(DATA.rq1.welfake[c3]&&DATA.rq1.welfake[c3][m]?DATA.rq1.welfake[c3][m].auc_roc:null);
-  });
-  const cols=SER();
-  legend(document.getElementById("l-auth"),[
-    {name:"Only the fake class is AI-written",color:cols[0]},
-    {name:"Both classes are AI-written",color:cols[1]}]);
-  bars(document.getElementById("c-auth"),{categories:cats,rotate:true,height:330,
-    ref:0.5,refLabel:"random guessing",
-    series:[{name:"Only fake AI-written",color:cols[0],values:v2},
-            {name:"Both AI-written",color:cols[1],values:v3}]});
-})();
+  bars(document.getElementById("c-auth"),{categories:DATA.models,height:280,ref:0.5,
+    refLabel:"random guessing",
+    series:[{name:"Only the fake class is AI-written",color:cols[0],
+      values:DATA.models.map(m=>src[c2]&&src[c2][m]?src[c2][m].auc_roc:null)},
+      {name:"Both classes are AI-written",color:cols[1],
+      values:DATA.models.map(m=>src[c3]&&src[c3][m]?src[c3][m].auc_roc:null)}]});
+}
+legend(document.getElementById("l-auth"),[{name:"Only the fake class is AI-written",color:SER()[0]},
+  {name:"Both classes are AI-written",color:SER()[1]}]);
+seg(document.getElementById("seg-auth"),[{label:"Tested on LIAR",value:"liar"},
+  {label:"Tested on WELFake",value:"welfake"}],v=>{AUTH=v;auth();});
+auth();
 
 /* ================= RQ2 ================= */
 function rq2(metric){
   const cols=SER();
-  lines(document.getElementById("c-rq2"),{
-    categories:DATA.rq2.fractions,
+  lines(document.getElementById("c-rq2"),{categories:DATA.rq2.fractions,
     series:DATA.models.map((m,i)=>({name:m,color:cols[i],
       values:(DATA.rq2.series[m]&&DATA.rq2.series[m][metric])||[]}))});
 }
 legend(document.getElementById("l-rq2"),DATA.models.map((m,i)=>({name:m,color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq2"]'),rq2,["f1","auc_roc","precision","recall"]);
 rq2("f1");
-table(document.getElementById("t-rq2"),
-  ["Synthetic share","Model","Precision","Recall","F1","AUC-ROC"],
-  DATA.rq2.fractions.flatMap((f,fi)=>DATA.models.map(m=>{
-    const s=DATA.rq2.series[m]||{};
-    return [f,m,fmt(s.precision&&s.precision[fi]),fmt(s.recall&&s.recall[fi]),
-      fmt(s.f1&&s.f1[fi]),{v:fmt(s.auc_roc&&s.auc_roc[fi]),
-        cls:(s.auc_roc&&s.auc_roc[fi]<0.5)?"bad":""}];
-  })));
+table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","Recall","F1","AUC-ROC"],
+  DATA.rq2.fractions.flatMap((f,fi)=>DATA.models.map(m=>{const s=DATA.rq2.series[m]||{};
+    return [f,m,fmt(s.precision&&s.precision[fi]),fmt(s.recall&&s.recall[fi]),fmt(s.f1&&s.f1[fi]),
+      {v:fmt(s.auc_roc&&s.auc_roc[fi]),cls:(s.auc_roc&&s.auc_roc[fi]<0.5)?"bad":""}];})));
 
-/* ================= RQ3 ================= */
-let RQ3_METRIC="f1", RQ3_COMP=DATA.rq3.comps[0];
-function rq3(){
-  const c=RQ3_COMP, metric=RQ3_METRIC, cols=SER();
-  const vL=DATA.models.map(m=>{const d=DATA.rq3.liar[c]&&DATA.rq3.liar[c][m];return d?d[metric]:null;});
-  const vW=DATA.models.map(m=>{const d=DATA.rq3.welfake[c]&&DATA.rq3.welfake[c][m];return d?d[metric]:null;});
-  bars(document.getElementById("c-rq3"),{categories:DATA.models,height:290,
-    ref:metric==="auc_roc"?0.5:null,refLabel:"random guessing",
-    series:[{name:"LIAR",color:cols[0],values:vL},{name:"WELFake",color:cols[1],values:vW}]});
-}
-legend(document.getElementById("l-rq3"),[{name:"Tested on LIAR",color:SER()[0]},
-  {name:"Tested on WELFake",color:SER()[1]}]);
-metricSeg(document.querySelector('[data-metric-for="c-rq3"]'),m=>{RQ3_METRIC=m;rq3();});
+/* ================= RQ3 — model families ================= */
 (function(){
-  const host=document.getElementById("seg-rq3-recipe");
-  DATA.rq3.comps.forEach((c,i)=>{
-    const b=document.createElement("button");
-    b.textContent=L[c].replace("Synthetic-real","S-real").replace(" (diverse-sourced)"," (diverse)");
-    b.setAttribute("aria-pressed",i===0?"true":"false");
-    b.onclick=()=>{[...host.children].forEach(x=>x.setAttribute("aria-pressed","false"));
-      b.setAttribute("aria-pressed","true");RQ3_COMP=c;rq3();};
-    host.appendChild(b);
-  });
-})();
-rq3();
-table(document.getElementById("t-rq3"),
-  ["Recipe","Model","Corpus","Accuracy","Precision","Recall","F1","AUC-ROC"],
-  DATA.rq3.comps.flatMap(c=>DATA.models.flatMap(m=>
-    [["LIAR",DATA.rq3.liar],["WELFake",DATA.rq3.welfake]].map(([nm,src])=>{
-      const d=src[c]&&src[c][m];
-      return [L[c],m,nm,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),
-        fmt(d&&d.f1),{v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];
-    }))));
-(function(){
-  const c=DATA.validity.leakage.corpus||[];
-  const w=c.find(x=>/welfake/i.test(x.name));
-  document.getElementById("v-overlap").textContent=w?w.pct.toFixed(1)+"%":"a large share";
+  const F=DATA.rq3.families,BM=F.byModel,SS=F.seedSpread,cols=SER();
+  const t=document.getElementById("tiles-fam");t.innerHTML="";
+  const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
+    d.innerHTML=`<div class="v">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
+  const byRange=Object.entries(BM).sort((a,b)=>a[1].range-b[1].range);
+  const bySeed=Object.entries(SS).filter(([,v])=>!v.deterministic).sort((a,b)=>a[1].mean_std-b[1].mean_std);
+  add(byRange[0][0],`Most stable across training recipes — F1 range of only ${byRange[0][1].range.toFixed(3)} over six recipes.`);
+  add(byRange[byRange.length-1][0],`Least stable across recipes — F1 range of ${byRange[byRange.length-1][1].range.toFixed(3)}.`);
+  add(bySeed[bySeed.length-1][0],`Least reproducible across seeds — mean std ${bySeed[bySeed.length-1][1].mean_std.toFixed(3)}, worst case ${bySeed[bySeed.length-1][1].max_std.toFixed(3)}.`);
+  add("LR · SVM","Deterministic — identical output on every re-run, so seed spread is exactly zero.");
+
+  legend(document.getElementById("l-fam"),[{name:"Mean F1 across the six recipes (line = worst to best recipe)",color:cols[0]}]);
+  barsRange(document.getElementById("c-fam"),{categories:DATA.models,height:290,
+    series:[{name:"Across recipes",color:cols[0],
+      values:DATA.models.map(m=>BM[m]?{mean:BM[m].mean,min:BM[m].min,max:BM[m].max}:null)}]});
+
+  const S=DATA.rq3.seeds,names=Object.keys(S);
+  legend(document.getElementById("l-seed"),[{name:"CNN",color:cols[2]},{name:"BERT",color:cols[3]}]);
+  barsRange(document.getElementById("c-seed"),{categories:names.map(n=>n.replace("Synthetic-real","S-real").replace(" (diverse-sourced)","(div)")),
+    width:Math.max(760,names.length*104),height:300,
+    series:[{name:"CNN",color:cols[2],values:names.map(n=>S[n].CNN)},
+            {name:"BERT",color:cols[3],values:names.map(n=>S[n].BERT)}]});
+  if(SS.BERT){document.getElementById("v-bertstd").textContent=SS.BERT.mean_std.toFixed(3);
+    document.getElementById("v-bertmax").textContent=SS.BERT.max_std.toFixed(3);}
+  if(SS.CNN)document.getElementById("v-cnnstd").textContent=SS.CNN.mean_std.toFixed(3);
 })();
 (function(){
-  const Ld=DATA.rq3.length; if(!Ld||!Ld.both_labels) return;
-  const keys=Object.keys(Ld.both).sort(); const cols=SER();
-  const series=keys.map((k,i)=>({name:k,color:cols[i%cols.length],
-    values:Ld.both[k].map((v,j)=>v)}));
-  legend(document.getElementById("l-len"),series.map(s=>({name:s.name,color:s.color})));
-  lines(document.getElementById("c-len"),{categories:Ld.both_labels,series:series});
+  const M=DATA.rq3.matched;if(!M)return;
+  const names=Object.keys(M);let cur=names[0];
+  const cols=SER();
+  function draw(){
+    bars(document.getElementById("c-match"),{categories:DATA.models,height:280,
+      series:[{name:"Full text",color:cols[0],values:DATA.models.map(m=>M[cur][m]?M[cur][m].f1_full:null)},
+        {name:"Capped at 300 words",color:cols[1],values:DATA.models.map(m=>M[cur][m]?M[cur][m].f1_max300:null)}]});
+  }
+  legend(document.getElementById("l-match"),[{name:"Full text",color:cols[0]},
+    {name:"All models capped at 300 words",color:cols[1]}]);
+  seg(document.getElementById("seg-match"),names.map(n=>({label:n,value:n})),v=>{cur=v;draw();});
+  draw();
+  table(document.getElementById("t-match"),["Recipe","Model","F1 full","F1 @300w","Δ F1","AUC full","AUC @300w"],
+    names.flatMap(n=>DATA.models.map(m=>{const d=M[n][m];if(!d)return [n,m,"—","—","—","—","—"];
+      const dl=d.f1_max300-d.f1_full;
+      return [n,m,fmt(d.f1_full),fmt(d.f1_max300),
+        {v:(dl>=0?"+":"")+dl.toFixed(3),cls:dl<-0.05?"bad":(dl>0.02?"good":"")},
+        fmt(d.auc_full),fmt(d.auc_max300)];})));
 })();
 
 /* ================= RQ4 ================= */
 (function(){
-  const f=DATA.rq4.flips, recipes=Object.keys(f), cols=SER();
-  legend(document.getElementById("l-rq4"),DATA.models.map((m,i)=>({name:m,color:cols[i]})));
-  bars(document.getElementById("c-rq4"),{categories:recipes.map(shorten),rotate:true,height:320,max:0.65,
-    series:DATA.models.map((m,i)=>({name:m,color:cols[i],values:recipes.map(r=>f[r][m])}))});
-  const cols2=SER();
-  legend(document.getElementById("l-rev"),[{name:"Trained direction",color:cols2[0]},
-    {name:"Reverse (untested) direction",color:cols2[1]}]);
+  const f=DATA.rq4.flips,recipes=Object.keys(f),cols=SER();
+  legend(document.getElementById("l-rq4"),recipes.map((r,i)=>({name:r,color:cols[i]})));
+  bars(document.getElementById("c-rq4"),{categories:DATA.models,height:300,max:0.65,
+    series:recipes.map((r,i)=>({name:r,color:cols[i],values:DATA.models.map(m=>f[r][m])}))});
+  legend(document.getElementById("l-rev"),[{name:"Trained direction",color:cols[0]},
+    {name:"Reverse (untested) direction",color:cols[1]}]);
   bars(document.getElementById("c-rev"),{categories:DATA.models,height:250,max:0.08,
-    series:[{name:"Trained direction",color:cols2[0],values:DATA.models.map(m=>DATA.rq4.original[m])},
-            {name:"Reverse direction",color:cols2[1],values:DATA.models.map(m=>DATA.rq4.reverse[m])}]});
-  const b=DATA.rq4.baseline, names=Object.keys(b);
-  table(document.getElementById("t-rq4"),
-    ["Recipe","Model","Accuracy","Precision","Recall","F1","AUC-ROC"],
-    names.flatMap(n=>DATA.models.map(m=>{
-      const d=b[n][m];
-      return [n,m,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),fmt(d&&d.auc_roc)];
-    })));
+    series:[{name:"Trained direction",color:cols[0],values:DATA.models.map(m=>DATA.rq4.original[m])},
+      {name:"Reverse direction",color:cols[1],values:DATA.models.map(m=>DATA.rq4.reverse[m])}]});
+  const b=DATA.rq4.baseline,names=Object.keys(b);
+  table(document.getElementById("t-rq4"),["Recipe","Model","Accuracy","Precision","Recall","F1","AUC-ROC"],
+    names.flatMap(n=>DATA.models.map(m=>{const d=b[n][m];
+      return [n,m,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),fmt(d&&d.auc_roc)];})));
 })();
 
-/* ================= VALIDITY ================= */
-(function(){
-  const s=DATA.validity.seeds, names=Object.keys(s), cols=SER();
-  legend(document.getElementById("l-seed"),DATA.models.filter(m=>m==="CNN"||m==="BERT")
-    .map((m,i)=>({name:m,color:cols[i+2]})));
-  barsRange(document.getElementById("c-seed"),{categories:names.map(shorten),
-    series:[{name:"CNN",color:cols[2],values:names.map(n=>s[n].CNN)},
-            {name:"BERT",color:cols[3],values:names.map(n=>s[n].BERT)}]});
-})();
-(function(){
-  const m=DATA.validity.matched; if(!m) return;
-  const names=Object.keys(m), cats=[], full=[], cut=[];
-  names.forEach(n=>DATA.models.forEach(md=>{
-    cats.push(md+" · "+shorten(n)); const d=m[n][md];
-    full.push(d?d.f1_full:null); cut.push(d?d.f1_max300:null);
-  }));
+/* ================= FRAMEWORK ================= */
+let FW_M="f1",FW_C=DATA.framework.comps[0];
+function fw(){
   const cols=SER();
-  legend(document.getElementById("l-match"),[{name:"Full text",color:cols[0]},
-    {name:"All models capped at 300 words",color:cols[1]}]);
-  bars(document.getElementById("c-match"),{categories:cats,rotate:true,height:340,
-    series:[{name:"Full text",color:cols[0],values:full},
-            {name:"Capped at 300 words",color:cols[1],values:cut}]});
+  const vL=DATA.models.map(m=>{const d=DATA.framework.liar[FW_C]&&DATA.framework.liar[FW_C][m];return d?d[FW_M]:null;});
+  const vW=DATA.models.map(m=>{const d=DATA.framework.welfake[FW_C]&&DATA.framework.welfake[FW_C][m];return d?d[FW_M]:null;});
+  bars(document.getElementById("c-fw"),{categories:DATA.models,height:290,
+    ref:FW_M==="auc_roc"?0.5:null,refLabel:"random guessing",
+    series:[{name:"LIAR",color:cols[0],values:vL},{name:"WELFake",color:cols[1],values:vW}]});
+}
+legend(document.getElementById("l-fw"),[{name:"Tested on LIAR",color:SER()[0]},
+  {name:"Tested on WELFake",color:SER()[1]}]);
+metricSeg(document.querySelector('[data-metric-for="c-fw"]'),m=>{FW_M=m;fw();});
+seg(document.getElementById("seg-fw-recipe"),
+  DATA.framework.comps.map(c=>({label:L[c].replace("Synthetic-real","S-real").replace(" (diverse-sourced)"," (div)"),value:c})),
+  v=>{FW_C=v;fw();});
+fw();
+table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Precision","Recall","F1","AUC-ROC"],
+  DATA.framework.comps.flatMap(c=>DATA.models.flatMap(m=>
+    [["LIAR",DATA.framework.liar],["WELFake",DATA.framework.welfake]].map(([nm,src])=>{
+      const d=src[c]&&src[c][m];
+      return [L[c],m,nm,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),
+        {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];}))));
+(function(){
+  const c=DATA.framework.leakage.corpus||[],w=c.find(x=>/welfake/i.test(x.name));
+  document.getElementById("v-overlap").textContent=w?w.pct.toFixed(1)+"%":"a large share";
 })();
 (function(){
-  const q=DATA.validity.quality; if(!q) return;
-  const t=document.getElementById("tiles-q"); t.innerHTML="";
+  const Ld=DATA.framework.length;if(!Ld||!Ld.both_labels)return;
+  const keys=Object.keys(Ld.both).sort(),cols=SER();
+  const series=keys.map((k,i)=>({name:k,color:cols[i%cols.length],values:Ld.both[k]}));
+  legend(document.getElementById("l-len"),series.map(s=>({name:s.name,color:s.color})));
+  lines(document.getElementById("c-len"),{categories:Ld.both_labels,series});
+})();
+(function(){
+  const q=DATA.framework.quality;if(!q)return;
+  const t=document.getElementById("tiles-q");t.innerHTML="";
   const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
     d.innerHTML=`<div class="v">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
   const syn=(q.diversity||[]).find(x=>x.file==="synthetic_fake");
   const ref=(q.diversity||[]).find(x=>/reference/.test(x.file));
   if(syn&&ref)add(syn.d3.toFixed(3)+" / "+ref.d3.toFixed(3),"Distinct-3 — synthetic vs. real fake news. Near-identical means the generator is not repeating itself.");
-  const j=(q.judge||[]).find(x=>x.file==="synthetic_fake");
-  const jr=(q.judge||[]).find(x=>/reference/.test(x.file));
+  const j=(q.judge||[]).find(x=>x.file==="synthetic_fake"),jr=(q.judge||[]).find(x=>/reference/.test(x.file));
   if(j&&jr)add(j.mean.toFixed(2)+" / "+jr.mean.toFixed(2),"Mean plausibility (1–5) — synthetic vs. real fake news, judged by an LLM.");
   const tr=(q.truncation||[])[0];
   if(tr)add(tr.full.toFixed(1)+"%","Fact edits verifiable where the full source article was saved.");
-  const dv=(q.diversity||[]);
-  table(document.getElementById("t-div"),
-    ["Corpus","n","Distinct-1","Distinct-2","Distinct-3","Mean pairwise similarity"],
-    dv.map(r=>[r.file,r.n,r.d1.toFixed(4),r.d2.toFixed(4),r.d3.toFixed(4),r.sim.toFixed(4)]));
+  table(document.getElementById("t-div"),["Corpus","n","Distinct-1","Distinct-2","Distinct-3","Mean pairwise similarity"],
+    (q.diversity||[]).map(r=>[r.file,r.n,r.d1.toFixed(4),r.d2.toFixed(4),r.d3.toFixed(4),r.sim.toFixed(4)]));
   const fc=(q.fact||[]).find(x=>x.file==="synthetic_fake");
   if(fc)document.getElementById("v-fact").textContent=
     `Across ${fc.n} ISOT-sourced articles, ${fc.verified}% of the recorded fact edits verify end to end.`;
@@ -761,20 +685,18 @@ table(document.getElementById("t-rq3"),
     document.getElementById("v-facttrunc").textContent=tr.trunc.toFixed(1)+"%";}
 })();
 (function(){
-  const lk=DATA.validity.leakage; if(!lk) return;
-  const t=document.getElementById("tiles-leak"); t.innerHTML="";
+  const lk=DATA.framework.leakage;if(!lk)return;
+  const t=document.getElementById("tiles-leak");t.innerHTML="";
   const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
     d.innerHTML=`<div class="v">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
   add(lk.worst_tt.toFixed(2)+"%","Worst train/test text overlap across the reported recipes (threshold: 2%).");
-  const w=(lk.corpus||[]).find(x=>/welfake/i.test(x.name));
-  const li=(lk.corpus||[]).find(x=>/liar/i.test(x.name));
+  const w=(lk.corpus||[]).find(x=>/welfake/i.test(x.name)),li=(lk.corpus||[]).find(x=>/liar/i.test(x.name));
   if(w)add(w.pct.toFixed(1)+"%","of the WELFake test articles also exist in ISOT — it is not an independent corpus.");
   if(li)add(li.pct.toFixed(1)+"%","of the LIAR test articles exist in ISOT — genuinely unseen.");
   const df=(lk.dups||[]).find(x=>/isot_fake/.test(x.name));
   if(df)add(df.pct.toFixed(1)+"%","of ISOT's fake articles are exact duplicates of another row — the source of the small overlap above.");
 })();
 
-/* ---------- tabs ---------- */
 const tabs=[...document.querySelectorAll(".tab")];
 tabs.forEach(t=>t.onclick=()=>{
   tabs.forEach(x=>x.setAttribute("aria-selected","false"));
