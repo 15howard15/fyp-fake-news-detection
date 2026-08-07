@@ -578,6 +578,87 @@ def cmd_hard_examples(args):
         print(f"\nSaved {len(saved_rows)} examples to {out}")
 
 
+def cmd_length_sweep(args):
+    """Separate the LENGTH confound from the DOMAIN confound in RQ3.
+
+    Every cross-domain result compares ISOT-trained models against LIAR, but
+    LIAR differs from ISOT in two ways at once: different source/topics AND
+    radically different length (~11-17 words per statement vs 250-380 words
+    per article). A drop on LIAR could be either.
+
+    This holds the domain fixed and varies only length: the full-length
+    WELFake test set is progressively truncated to the first N words and
+    re-evaluated with the SAME checkpoints (inference only, no retraining).
+    Whatever performance is lost is attributable to length alone, since
+    nothing else about the test set changed. Comparing that loss against the
+    actual LIAR gap shows how much of the LIAR drop length can account for.
+    """
+    test_path = cfg.PROCESSED_DIR / "test_crossdomain2.csv"
+    if not test_path.exists():
+        print(f"{test_path} not found -- run build_test_sets.py with WELFake available.")
+        return
+    base = pd.read_csv(test_path)
+
+    liar = pd.read_csv(cfg.PROCESSED_DIR / "test_crossdomain.csv")
+    liar_fake_len = liar[liar.label == 1]["text"].astype(str).str.split().str.len().median()
+    print(f"Median LIAR fake-statement length: {liar_fake_len:.0f} words")
+    print("Truncating the WELFake test set to each length below and re-scoring "
+          "the same checkpoints (domain held constant, only length varies).\n")
+
+    lengths = args.lengths or [None, 300, 150, 75, 40, 20]
+    rows = []
+    for comp in args.comp:
+        for model in args.model:
+            fname = "lr" if model == "lr" else "svm"
+            vec_p = cfg.MODELS_DIR / f"tfidf_{comp}.joblib"
+            clf_p = cfg.MODELS_DIR / f"{fname}_{comp}.joblib"
+            if not (vec_p.exists() and clf_p.exists()):
+                print(f"  (skipping {model}/{comp} -- checkpoint not found)")
+                continue
+            vec, clf = joblib.load(vec_p), joblib.load(clf_p)
+            print(f"=== {model.upper()} | {comp} ===")
+            for L in lengths:
+                if L is None:
+                    txt = base["text"].astype(str)
+                    tag = "full"
+                else:
+                    # --truncate-class fake reproduces LIAR's structure, where
+                    # only the FAKE class is short and the real class stays
+                    # full-length. Truncating both classes equally (the default)
+                    # removes that asymmetry, so both are worth running: if the
+                    # asymmetry itself is what models exploit, only the
+                    # fake-only variant will show it.
+                    def _cut(s):
+                        return " ".join(str(s).split()[:L])
+                    if args.truncate_class == "fake":
+                        txt = base.apply(
+                            lambda r: _cut(r["text"]) if r["label"] == 1
+                            else str(r["text"]), axis=1)
+                        tag = f"{L}w/fake"
+                    else:
+                        txt = base["text"].astype(str).apply(_cut)
+                        tag = f"{L}w"
+                X = vec.transform(clean_series(txt))
+                m = compute_metrics(base["label"].values, clf.predict(X),
+                                    clf.predict_proba(X)[:, 1])
+                print(f"  truncated to {tag:>5s}: F1={m['f1']:.3f}  AUC={m['auc_roc']:.3f}")
+                rows.append({"model": model.upper(), "comp": comp,
+                             "truncated_to": tag, "f1": round(m["f1"], 4),
+                             "auc_roc": round(m["auc_roc"], 4)})
+            print()
+
+    # Merge rather than overwrite, so running the 'both' and 'fake' variants in
+    # separate invocations doesn't silently discard the earlier one (same
+    # pattern as run_multiseed_robustness.py).
+    out = EXTRA_DIR / "length_sweep_results.csv"
+    df_new = pd.DataFrame(rows)
+    if out.exists():
+        df_new = pd.concat([pd.read_csv(out), df_new], ignore_index=True) \
+                   .drop_duplicates(subset=["model", "comp", "truncated_to"], keep="last")
+    df_new.to_csv(out, index=False)
+    print(f"Saved to {out} ({len(df_new)} rows)")
+
+
 def cmd_leakage(args):
     """Verify no training text appears in any test set, and measure how much
     each cross-domain test corpus actually overlaps ISOT.
@@ -908,6 +989,22 @@ def main():
     he.add_argument("--dataset", default="liar", help="'liar', 'welfake', or a raw test-set stem")
     he.add_argument("--n", type=int, default=5, help="max examples to print/save per composition")
 
+    ls = sub.add_parser(
+        "length-sweep",
+        help="truncate the WELFake test set to varying lengths to separate the length "
+             "confound from the domain confound in RQ3 (see function docstring)",
+    )
+    ls.add_argument("--model", nargs="+", choices=["lr", "svm"], default=["lr", "svm"],
+                     help="LR/SVM only -- deterministic and inference-only, so the "
+                          "comparison isn't muddied by CNN/BERT run-to-run variance")
+    ls.add_argument("--comp", nargs="+", default=["real_real", "mixed"],
+                     help="composition checkpoints to sweep")
+    ls.add_argument("--lengths", nargs="+", type=int, default=None,
+                     help="word limits to test (default: full 300 150 75 40 20)")
+    ls.add_argument("--truncate-class", choices=["both", "fake"], default="both",
+                     help="'both' shortens the whole test set; 'fake' shortens only the "
+                          "fake class, reproducing LIAR's long-real/short-fake asymmetry")
+
     lk = sub.add_parser(
         "leakage",
         help="verify no train text appears in any test set + measure ISOT overlap of each test corpus",
@@ -931,6 +1028,8 @@ def main():
         cmd_hard_examples(args)
     elif args.command == "leakage":
         cmd_leakage(args)
+    elif args.command == "length-sweep":
+        cmd_length_sweep(args)
 
 
 if __name__ == "__main__":
