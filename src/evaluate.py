@@ -578,6 +578,135 @@ def cmd_hard_examples(args):
         print(f"\nSaved {len(saved_rows)} examples to {out}")
 
 
+def cmd_leakage(args):
+    """Verify no training text appears in any test set, and measure how much
+    each cross-domain test corpus actually overlaps ISOT.
+
+    Two separate things get checked here, because they fail for different
+    reasons and matter for different claims:
+
+    1. TRAIN/TEST CONTAMINATION -- exact-text overlap between every
+       train_*.csv and every test_*.csv. A non-zero count here does NOT
+       automatically mean the split logic is broken: ISOT ships with genuine
+       duplicate articles (~1% of real, ~24% of fake are exact repeats), and
+       the split is done on rows, so a duplicated article can legitimately
+       land on both sides. That is why this fails on a THRESHOLD rather than
+       on any overlap at all -- a sudden jump above the documented baseline
+       is what would indicate a real regression in the splitting code.
+
+    2. CORPUS INDEPENDENCE -- how much of each cross-domain test corpus
+       exists anywhere in ISOT. This is the number that justifies (or
+       undermines) calling a test set "independent". LIAR is genuinely
+       disjoint from ISOT; WELFake is not, because WELFake is a merged
+       corpus that includes the same Kaggle fake-news data ISOT derives
+       from. Any claim that a result "holds on an independent dataset"
+       depends on this figure, so it is measured rather than assumed.
+    """
+    tests = {}
+    for stem in ("test_indomain", "test_crossdomain", "test_crossdomain2"):
+        p = cfg.PROCESSED_DIR / f"{stem}.csv"
+        if p.exists():
+            tests[stem] = pd.read_csv(p)
+    if not tests:
+        print("No test sets found. Run build_test_sets.py first.")
+        return
+
+    train_paths = sorted(cfg.PROCESSED_DIR.glob("train_*.csv"))
+    if not train_paths:
+        print("No train_*.csv found. Run the build_*_datasets.py scripts first.")
+        return
+
+    # Compositions that draw on the FULL ISOT fake pool (or a much larger slice
+    # of it) rather than the balanced 500-article sample every headline result
+    # uses. Overlap with the held-out test set is an unavoidable consequence of
+    # that design, not a splitting bug -- README already flags augmented_full as
+    # "NOT a controlled pair ... report separately". Their numbers are still
+    # printed and saved; they are just excluded from the pass/fail threshold so
+    # a by-design overlap can't mask a real regression elsewhere.
+    FULL_POOL_COMPS = {
+        "train_augmented_full",   # entire ISOT real-fake pool + synthetic on top
+        "train_c6_full_augmented",
+        "train_lowres_real",      # 1,000-article fake baseline, not the 500 sample
+        "train_lowres_aug",
+    }
+
+    test_texts = {k: set(v["text"].astype(str)) for k, v in tests.items()}
+
+    rows = []
+    worst_pct = 0.0
+    worst_name = "-"
+    print("\n=== 1. TRAIN/TEST CONTAMINATION (exact text matches) ===")
+    print("  (* = draws on the full ISOT pool by design; excluded from the threshold)")
+    header = f"{'train file':34s}" + "".join(f"{k.replace('test_', ''):>16s}" for k in tests)
+    print(header)
+    for tp in train_paths:
+        tr = set(pd.read_csv(tp)["text"].astype(str))
+        by_design = tp.stem in FULL_POOL_COMPS
+        cells = []
+        for stem, tt in test_texts.items():
+            n = len(tr & tt)
+            pct = 100.0 * n / max(len(tt), 1)
+            if not by_design and pct > worst_pct:
+                worst_pct, worst_name = pct, f"{tp.stem} vs {stem}"
+            cells.append(f"{n} ({pct:.2f}%)")
+            rows.append({"check": "train_test_overlap", "train": tp.stem,
+                         "test": stem, "n_overlap": n, "pct_of_test": round(pct, 3),
+                         "by_design_full_pool": by_design})
+        label = f"{tp.stem}{' *' if by_design else ''}"
+        print(f"{label:34s}" + "".join(f"{c:>16s}" for c in cells))
+
+    print("\n=== 2. CORPUS INDEPENDENCE (is the test corpus really unseen?) ===")
+    isot_all = set()
+    for stem in ("isot_real", "isot_fake"):
+        p = cfg.PROCESSED_DIR / f"{stem}.csv"
+        if p.exists():
+            isot_all |= set(pd.read_csv(p)["text"].astype(str))
+
+    if isot_all:
+        for stem, df in tests.items():
+            if "source" not in df.columns:
+                continue
+            for src, g in df.groupby("source"):
+                if src == "isot":
+                    continue  # real class is ISOT-by-construction; not informative
+                n = g["text"].astype(str).isin(isot_all).sum()
+                pct = 100.0 * n / max(len(g), 1)
+                print(f"  {stem:22s} source={src:10s} {n:5d}/{len(g):5d} "
+                      f"({pct:5.1f}%) of its rows also exist in ISOT")
+                rows.append({"check": "corpus_overlap_with_isot", "train": "-",
+                             "test": f"{stem}:{src}", "n_overlap": int(n),
+                             "pct_of_test": round(pct, 3)})
+
+    print("\n=== 3. DUPLICATE ARTICLES WITHIN EACH SOURCE CORPUS ===")
+    for stem in ("isot_real", "isot_fake", "liar_fake", "welfake_fake"):
+        p = cfg.PROCESSED_DIR / f"{stem}.csv"
+        if not p.exists():
+            continue
+        t = pd.read_csv(p)["text"].astype(str)
+        dup = int(t.duplicated().sum())
+        pct = 100.0 * dup / max(len(t), 1)
+        print(f"  {stem:16s} {len(t):7,} rows, {t.nunique():7,} unique, "
+              f"{dup:6,} duplicated ({pct:.1f}%)")
+        rows.append({"check": "within_corpus_duplicates", "train": "-",
+                     "test": stem, "n_overlap": dup, "pct_of_test": round(pct, 3)})
+
+    out = EXTRA_DIR / "leakage_report.csv"
+    pd.DataFrame(rows).to_csv(out, index=False)
+    print(f"\nSaved full report to {out}")
+
+    if worst_pct > args.max_pct:
+        raise SystemExit(
+            f"\nFAIL: train/test overlap reached {worst_pct:.2f}% of a test set "
+            f"({worst_name}), above the --max-pct {args.max_pct}% threshold.\n"
+            f"Expected baseline is well under 2% and comes from ISOT's own duplicate "
+            f"articles. A figure above the threshold means the split logic changed -- "
+            f"check build_test_sets.py and the build_*_datasets.py scripts."
+        )
+    print(f"PASS: worst train/test overlap among threshold-checked compositions is "
+          f"{worst_pct:.2f}% ({worst_name}), within the {args.max_pct}% threshold "
+          f"and consistent with ISOT's known duplicate articles.")
+
+
 def cmd_seed_summary(args):
     """Collapse results/extra/multiseed_results.csv (3 seeds x 5 compositions,
     CNN + BERT) into a mean +/- std table -- so the thesis can cite seed-
@@ -779,6 +908,14 @@ def main():
     he.add_argument("--dataset", default="liar", help="'liar', 'welfake', or a raw test-set stem")
     he.add_argument("--n", type=int, default=5, help="max examples to print/save per composition")
 
+    lk = sub.add_parser(
+        "leakage",
+        help="verify no train text appears in any test set + measure ISOT overlap of each test corpus",
+    )
+    lk.add_argument("--max-pct", type=float, default=2.0,
+                     help="fail if train/test overlap exceeds this %% of a test set "
+                          "(default 2.0 -- ISOT's own duplicates put the baseline near 1%%)")
+
     args = ap.parse_args()
     if args.command == "master":
         cmd_master(args)
@@ -792,6 +929,8 @@ def main():
         cmd_case_studies(args)
     elif args.command == "hard-examples":
         cmd_hard_examples(args)
+    elif args.command == "leakage":
+        cmd_leakage(args)
 
 
 if __name__ == "__main__":

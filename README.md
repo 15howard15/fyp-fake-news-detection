@@ -79,6 +79,7 @@ python src/generate_synthetic_real.py --n 1000    # OpenAI: synthetic REAL (para
 python src/build_core_datasets.py       # assemble real_real/mixed/real_syn (Objective 1: full replacement)
 python src/build_augmented_datasets.py  # augmented / lowres_real / lowres_aug (Objective 1: partial augmentation)
 python src/build_test_sets.py           # test_indomain vs test_crossdomain (separated!)
+python src/evaluate.py leakage          # VERIFY: no train text in any test set + how independent each test corpus really is
 python src/build_synthetic_real_datasets.py  # C2/C3 (needs generate_synthetic_real.py run first, optional -- validity check)
 python src/train.py --model all   # LR+SVM+CNN+BERT (replacement, on test_crossdomain)
 python src/evaluate.py master     # gather train.py's metrics into master_results.csv
