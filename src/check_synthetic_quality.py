@@ -29,6 +29,15 @@ Three checks, in increasing cost:
    a random sample for plausibility as a news article. Off by default because
    it spends OPENAI_API_KEY budget; everything above runs offline.
 
+   IMPORTANT CAVEAT: the judge is cfg.OPENAI_MODEL, the same model that
+   generated the text being rated. Models are known to favour their own
+   output, so a high score here is weaker evidence than the same score from
+   an independent judge or a human sample would be. The real ISOT fake news
+   is rated alongside as a reference point, which is what makes the
+   comparison interpretable at all -- but the absolute numbers should be
+   reported with the shared-model-family caveat attached, not as a neutral
+   quality measurement.
+
 Writes results/extra/synthetic_quality.csv.
 """
 import argparse
