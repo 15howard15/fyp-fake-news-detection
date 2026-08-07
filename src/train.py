@@ -363,6 +363,14 @@ def main():
     ap.add_argument("--seed", type=int, default=cfg.SEED,
                      help="override cfg.SEED for a BERT repeat run (results saved "
                           "under a separate '<dataset>_seed<N>' label, not overwritten)")
+    ap.add_argument("--max-words", type=int, default=None, metavar="N",
+                     help="truncate every train AND test document to its first N words "
+                          "before any model sees it, and save results under a separate "
+                          "'<dataset>_max<N>' label. Use this for a FAIR model-family "
+                          "comparison: by default the four models read different amounts "
+                          "of each article (TF-IDF has no length limit so LR/SVM read all "
+                          "of it, BERT truncates at 512 tokens, CNN at 300), which is an "
+                          "uncontrolled confound when comparing architectures.")
     args = ap.parse_args()
 
     models = ["lr_svm", "cnn", "bert"] if "all" in args.model else args.model
@@ -371,9 +379,24 @@ def main():
     print(f"Device: {DEVICE}")
     test = load_test()
 
+    def _truncate(df):
+        out = df.copy()
+        out["text"] = out["text"].astype(str).apply(
+            lambda s: " ".join(s.split()[:args.max_words]))
+        return out
+
+    if args.max_words:
+        print(f"Matched-length mode: every document truncated to {args.max_words} words "
+              f"for ALL models (train and test).")
+        test = _truncate(test)
+
     for comp in datasets:
-        print(f"\n{'='*50}\nComposition: {comp}\n{'='*50}")
+        label = comp if not args.max_words else f"{comp}_max{args.max_words}"
+        print(f"\n{'='*50}\nComposition: {label}\n{'='*50}")
         train = load_train(comp)
+        if args.max_words:
+            train = _truncate(train)
+            comp = label  # keeps checkpoints/metrics separate from the full-text runs
         if "lr_svm" in models:
             train_lr_svm(train, test, comp)
         if "cnn" in models:

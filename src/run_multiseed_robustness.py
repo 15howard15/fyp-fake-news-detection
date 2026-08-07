@@ -34,7 +34,12 @@ EXTRA_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 COMPS = ["real_real", "mixed", "real_syn", "swap_025", "swap_075",
-         "c2_synreal_realfake", "c3_synreal_synfake"]
+         "c2_synreal_realfake", "c3_synreal_synfake",
+         # Added last: these two were the only reported compositions still
+         # resting on a single run. Note that swap_000/050/100 are NOT missing
+         # -- they are the same data as real_real/mixed/real_syn above, so all
+         # five sweep points are covered by this list.
+         "style_robust", "real_syn_multisource"]
 SEEDS = [42, 1, 2]  # 42 = the seed already used everywhere else in the project
 
 
@@ -151,9 +156,20 @@ def run_bert(tests, rows, grad_accum=1):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", nargs="+", choices=["cnn", "bert"], default=["cnn", "bert"])
+    ap.add_argument("--comps", nargs="+", default=None,
+                    help="subset of COMPS to run (default: all). Results merge into the "
+                         "existing CSV, so re-running everything just to add one "
+                         "composition wastes hours of GPU time for no new information.")
     args = ap.parse_args()
 
+    if args.comps:
+        unknown = set(args.comps) - set(COMPS)
+        if unknown:
+            ap.error(f"unknown composition(s): {sorted(unknown)}. Known: {COMPS}")
+        COMPS[:] = args.comps
+
     print(f"Device: {DEVICE}")
+    print(f"Compositions this run: {COMPS}")
     tests = load_tests()
     rows = []
     if "cnn" in args.models:
