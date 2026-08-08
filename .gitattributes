@@ -1,0 +1,10 @@
+# Data files must survive a round trip byte-for-byte. The synthetic corpora
+# contain article text with newlines inside quoted CSV fields, and these are the
+# exact files the reported results were computed from -- letting git rewrite
+# their line endings per-platform would mean a clone on another OS no longer
+# holds the same bytes that produced those numbers.
+*.csv -text
+*.json -text
+
+# Everything else follows the normal per-platform convention.
+* text=auto

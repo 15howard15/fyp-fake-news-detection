@@ -8,16 +8,23 @@ venv/
 __pycache__/
 *.pyc
 
-# Large generated artifacts (regeneratable via src/ pipeline -- see README run order)
+# Large artifacts that can be rebuilt from what IS committed:
+#   models/        -- retrain via train.py
+#   data/raw/      -- ISOT, LIAR and WELFake are public; download them again
+#   data/processed/-- rebuilt by the build_*_datasets.py scripts from raw + synthetic
 models/
 data/raw/
 data/processed/
-data/synthetic/
+
+# data/synthetic/ is deliberately NOT ignored. Everything else here can be
+# regenerated for free, but the synthetic corpora cannot: they came from paid
+# OpenAI calls and are non-deterministic, so re-running the generators produces
+# DIFFERENT text and would not reproduce the reported results. They are the
+# actual research artifact of this project (~8 MB), so they are versioned.
 
 # Keep folder structure even though contents are ignored
 !data/raw/.gitkeep
 !data/processed/.gitkeep
-!data/synthetic/.gitkeep
 !models/.gitkeep
 
 # Local agent/editor config (machine-specific)
