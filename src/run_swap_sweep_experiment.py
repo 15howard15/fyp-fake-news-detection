@@ -17,6 +17,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from torch.utils.data import DataLoader
 
+import repro
 import config as cfg
 from metrics import compute_metrics
 from preprocessing import clean_series
@@ -82,8 +83,7 @@ def run_cnn(tests):
     vocab, _ = get_cnn_vocab_and_embed()
 
     for label, fname in SWEEP_POINTS:
-        torch.manual_seed(cfg.SEED)
-        np.random.seed(cfg.SEED)
+        repro.set_determinism(cfg.SEED)
         tr = pd.read_csv(cfg.PROCESSED_DIR / f"train_{fname}.csv")
         tr["clean"] = clean_series(tr["text"])
         gen = torch.Generator().manual_seed(cfg.SEED)
@@ -135,8 +135,7 @@ def run_bert(tests, grad_accum):
     tok = AutoTokenizer.from_pretrained(cfg.BERT_MODEL_NAME)
     rows = []
     for label, fname in SWEEP_POINTS:
-        torch.manual_seed(cfg.SEED)
-        np.random.seed(cfg.SEED)
+        repro.set_determinism(cfg.SEED)
         tr = pd.read_csv(cfg.PROCESSED_DIR / f"train_{fname}.csv")
         tr["clean"] = clean_series(tr["text"], aggressive=False)
         gen = torch.Generator().manual_seed(cfg.SEED)

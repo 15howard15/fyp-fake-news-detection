@@ -37,8 +37,9 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
-from torch.utils.data import DataLoader, Dataset
 
+from torch.utils.data import DataLoader, Dataset
+import repro
 import config as cfg
 from metrics import compute_metrics, print_metrics, save_metrics
 from preprocessing import clean_series
@@ -198,9 +199,7 @@ def get_cnn_vocab_and_embed():
 
 
 def train_cnn(train, test, comp):
-    # Reseed before EACH composition -- see the matching comment in train_bert().
-    torch.manual_seed(cfg.SEED)
-    np.random.seed(cfg.SEED)
+    repro.set_determinism(cfg.SEED)
     vocab, embed = get_cnn_vocab_and_embed()
 
     train_c = clean_series(train["text"])
@@ -275,8 +274,7 @@ def train_bert(train, test, comp, grad_accum=1, seed=None):
     # trained before it in this run consumed, so results would silently
     # shift if --dataset order changed.
     seed = cfg.SEED if seed is None else seed
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+    repro.set_determinism(seed)
 
     tokenizer = get_bert_tokenizer()
     train_c = clean_series(train["text"], aggressive=False)   # BERT: minimal cleaning only

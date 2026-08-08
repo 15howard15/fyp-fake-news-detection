@@ -217,16 +217,31 @@ def check_fact_changes(rows):
         print(f"    {'EDIT VERIFIED (loose/loose/strict, see code)':44s} "
               f"{'':10s} {100*combined/n:9.1f}%")
 
-        # That headline figure is dragged down by an artefact of the audit
-        # trail, not by bad generation. generate_synthetic_fake.py stores only
-        # truncate_article(article, 1000) in `source_text` -- a 1,000-character
-        # preview -- while ISOT articles typically run 1,500-2,500 characters.
-        # When the altered fact came from later in the article, the evidence
-        # needed to verify it was never saved. Splitting on whether the stored
-        # source is complete separates "the edit failed" from "the edit cannot
-        # be checked", which are very different claims:
+        # That headline figure can be dragged down by an artefact of the audit
+        # trail rather than by bad generation. HISTORICALLY, the generators
+        # stored only truncate_article(article, 1000) in `source_text` -- a
+        # 1,000-character preview -- while ISOT articles typically run
+        # 1,500-2,500 characters. When the altered fact came from later in the
+        # article, the evidence needed to verify it was never saved, so a real
+        # edit registered as "unverifiable".
+        #
+        # The generators now store up to cfg.FULL_SOURCE_CAP (10,000) chars,
+        # which is effectively the whole article, so data generated AFTER that
+        # change has no truncation artefact and this split simply reports ~100%
+        # complete. The split is kept because older corpora (and the committed
+        # results) still carry the 1,000-char previews; it separates "the edit
+        # failed" from "the edit cannot be checked", which are very different
+        # claims. A source_text counts as "truncated" only if its length sits
+        # exactly AT a known cap boundary (historic 1000, or current
+        # cfg.FULL_SOURCE_CAP). We test against those known caps rather than the
+        # data's own max -- otherwise, in a fully complete corpus, the single
+        # longest genuine article would be mislabelled as "truncated" and
+        # everything shorter as "complete", inventing a split that isn't real.
+        # New-cap data therefore has zero truncated rows and the split below
+        # simply doesn't run, which is correct.
         src_len = df["source_text"].astype(str).str.len()
-        complete = src_len < 1000
+        caps = {1000, getattr(cfg, "FULL_SOURCE_CAP", 10_000)}
+        complete = ~src_len.isin(caps)
         if complete.any() and (~complete).any():
             tr = pd.Series(
                 [_fuzzy_in(str(m).split("->")[0], s)

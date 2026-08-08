@@ -48,6 +48,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
 
+import repro
 import config as cfg
 from preprocessing import clean_series
 from metrics import compute_metrics
@@ -215,8 +216,7 @@ def run_deep(test_df, models):
             path = cfg.PROCESSED_DIR / f"train_{comp}.csv"
             if not path.exists():
                 continue
-            torch.manual_seed(cfg.SEED)
-            np.random.seed(cfg.SEED)
+            repro.set_determinism(cfg.SEED)
             print(f"[CNN] training on {comp} ...")
             tr = pd.read_csv(path)
             tr["clean"] = clean_series(tr["text"])
@@ -264,8 +264,7 @@ def run_deep(test_df, models):
             path = cfg.PROCESSED_DIR / f"train_{comp}.csv"
             if not path.exists():
                 continue
-            torch.manual_seed(cfg.SEED)
-            np.random.seed(cfg.SEED)
+            repro.set_determinism(cfg.SEED)
             print(f"[BERT] training on {comp} ...")
             tr = pd.read_csv(path)
             tr["clean"] = clean_series(tr["text"], aggressive=False)

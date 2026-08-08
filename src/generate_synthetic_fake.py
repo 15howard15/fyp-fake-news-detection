@@ -1,4 +1,3 @@
-
 import argparse
 import os
 import random
@@ -131,7 +130,7 @@ def main():
             "source": "synthetic",
             "transformation": strategy,
             "modified_fact": data.get("modified_fact", ""),
-            "source_text": truncate_article(article, 1000),
+            "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP),
         })
         pbar.update(1)
 

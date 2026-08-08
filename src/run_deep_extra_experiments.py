@@ -7,12 +7,12 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+import repro
 import config as cfg
 from preprocessing import clean_series
 from metrics import compute_metrics
 
-torch.manual_seed(cfg.SEED)
-np.random.seed(cfg.SEED)
+repro.set_determinism(cfg.SEED)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 EXTRA_DIR = cfg.RESULTS_DIR / "extra"
@@ -76,8 +76,7 @@ def run_cnn(train_sets, tests):
         # script run -- so results silently shift whenever train_sets is
         # reordered or extended (this is why re-running with mixed/real_syn
         # added earlier in the list changed augmented/lowres_aug's numbers).
-        torch.manual_seed(cfg.SEED)
-        np.random.seed(cfg.SEED)
+        repro.set_determinism(cfg.SEED)
         print(f"[CNN] training on {ts} ...")
         tr = pd.read_csv(cfg.PROCESSED_DIR / f"{ts}.csv")
         tr["clean"] = clean_series(tr["text"])
@@ -131,8 +130,7 @@ def run_bert(train_sets, tests, grad_accum):
             continue
         # See the matching comment in run_cnn() -- reseed per composition so
         # results don't depend on train_sets ordering/length.
-        torch.manual_seed(cfg.SEED)
-        np.random.seed(cfg.SEED)
+        repro.set_determinism(cfg.SEED)
         print(f"[BERT] training on {ts} ...")
         tr = pd.read_csv(cfg.PROCESSED_DIR / f"{ts}.csv")
         tr["clean"] = clean_series(tr["text"], aggressive=False)

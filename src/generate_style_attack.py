@@ -1,4 +1,3 @@
-
 """
 generate_style_attack.py -- Objective 4: does the model rely on stylistic/
 sentiment cues rather than content when judging real vs. fake?
@@ -90,7 +89,7 @@ def main():
             continue
         results.append({
             "orig_id": orig_id, "text": styled, "label": cfg.LABEL_REAL,
-            "source_text": truncate_article(article, 1000), "attack_type": "sensationalize",
+            "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP), "attack_type": "sensationalize",
         })
         made += 1
         pbar.update(1)
@@ -111,7 +110,7 @@ def main():
             continue
         results.append({
             "orig_id": orig_id, "text": styled, "label": cfg.LABEL_FAKE,
-            "source_text": truncate_article(article, 1000), "attack_type": "neutralize",
+            "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP), "attack_type": "neutralize",
         })
         made += 1
         pbar.update(1)

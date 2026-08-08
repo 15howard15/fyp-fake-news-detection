@@ -24,6 +24,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+import repro
 import config as cfg
 from metrics import compute_metrics
 from preprocessing import clean_series
@@ -68,7 +69,7 @@ def run_cnn(tests, rows):
 
     for comp in COMPS:
         for seed in SEEDS:
-            torch.manual_seed(seed); np.random.seed(seed)
+            repro.set_determinism(seed)
             embed = embed_base.clone()
             tr = pd.read_csv(cfg.PROCESSED_DIR / f"train_{comp}.csv")
             tr["clean"] = clean_series(tr["text"])
@@ -107,7 +108,7 @@ def run_bert(tests, rows, grad_accum=1):
 
     for comp in COMPS:
         for seed in SEEDS:
-            torch.manual_seed(seed); np.random.seed(seed)
+            repro.set_determinism(seed)
             tr = pd.read_csv(cfg.PROCESSED_DIR / f"train_{comp}.csv")
             tr["clean"] = clean_series(tr["text"], aggressive=False)
             gen = torch.Generator().manual_seed(seed)

@@ -1,4 +1,3 @@
-
 """
 generate_synthetic_real.py -- generate SYNTHETIC REAL news (paraphrase-only,
 fact-preserving rewrites of authentic ISOT real articles).
@@ -127,7 +126,7 @@ def main():
             "text": data["paraphrased_article"],
             "label": cfg.LABEL_REAL,
             "source": "synthetic_real",
-            "source_text": truncate_article(article, 1000),
+            "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP),
         })
         pbar.update(1)
 

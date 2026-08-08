@@ -1,4 +1,3 @@
-
 """
 generate_style_attack_reverse.py -- Q4 follow-up: does the style_robust fix
 generalize to the OPPOSITE tone shift, or only the direction it was tested
@@ -136,7 +135,7 @@ def main():
             continue
         results.append({
             "orig_id": orig_id, "text": styled, "label": cfg.LABEL_REAL,
-            "source_text": truncate_article(article, 1000), "attack_type": "neutralize_real",
+            "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP), "attack_type": "neutralize_real",
         })
         made += 1
         pbar.update(1)
@@ -160,7 +159,7 @@ def main():
             continue
         results.append({
             "orig_id": orig_id, "text": styled, "label": cfg.LABEL_FAKE,
-            "source_text": truncate_article(article, 1000), "attack_type": "sensationalize_fake",
+            "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP), "attack_type": "sensationalize_fake",
         })
         made += 1
         pbar.update(1)

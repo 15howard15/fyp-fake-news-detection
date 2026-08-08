@@ -32,6 +32,15 @@ for d in (PROCESSED_DIR, SYNTHETIC_DIR, MODELS_DIR, RESULTS_DIR):
 # ----------------------------------------------------------------------
 SEED = 42
 
+# Character cap for the source_text stored ALONGSIDE each generated row
+# (audit trail only -- NOT the prompt, which stays bounded by
+# truncate_article's default for cost). Was 1000, which truncated most
+# ISOT articles mid-body and made after-the-fact fact-change
+# verification impossible for edits appearing later in the article.
+# 10000 covers the full length of essentially every ISOT/LIAR item
+# while still guarding against a pathologically long outlier.
+FULL_SOURCE_CAP = 10_000
+
 # ----------------------------------------------------------------------
 # Data split (Section 3.2.5)
 # ----------------------------------------------------------------------

@@ -1,4 +1,3 @@
-
 """
 generate_synthetic_fake_liar.py -- Objective 1 fix: generates synthetic
 fake news from a SECOND real-news source (LIAR true/mostly-true/half-true
@@ -144,7 +143,7 @@ def main():
             "source_dataset": "liar",
             "transformation": strategy,
             "modified_fact": data.get("modified_fact", ""),
-            "source_text": truncate_article(statement, 1000),
+            "source_text": truncate_article(statement, cfg.FULL_SOURCE_CAP),
         })
         pbar.update(1)
 
