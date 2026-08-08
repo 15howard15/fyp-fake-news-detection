@@ -207,6 +207,27 @@ def families_block(comps):
     return out
 
 
+def seed_runs_block():
+    """The individual per-seed F1 scores, not just their summary.
+
+    mean +/- SD over three runs is a spread, not an interval: reconstructing
+    endpoints from it produces numbers that were never observed (for BERT under
+    full replacement it suggests roughly 0.06-0.83, where the actual runs were
+    0.002, 0.662 and 0.676). Carrying the raw runs through to the report means
+    the observed range can always be shown next to the SD.
+    """
+    p = EXTRA / "multiseed_results.csv"
+    if not p.exists():
+        return {}
+    df = pd.read_csv(p)
+    df = df[df.test == "crossdomain"]
+    out = {}
+    for (model, comp), g in df.groupby(["model", "comp"]):
+        out.setdefault(RECIPE_LABEL.get(comp, comp), {})[model] = \
+            [round(float(v), 4) for v in sorted(g.sort_values("seed")["f1"])]
+    return out
+
+
 def seed_block():
     p = EXTRA / "multiseed_results.csv"
     if not p.exists():
@@ -287,7 +308,7 @@ def collect():
         # used to hold is the cross-domain protocol common to all four
         # questions, so it lives under "framework" instead of being one RQ.
         "rq3": {"families": families_block(rq3_comps), "seeds": seed_block(),
-                "matched": matched_block()},
+                "seedRuns": seed_runs_block(), "matched": matched_block()},
         "rq4": style_block(),
         "framework": {"comps": rq3_comps, "liar": liar_block(rq3_comps),
                       "welfake": welfake_block(rq3_comps), "length": length_block(),

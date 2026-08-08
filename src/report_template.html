@@ -219,6 +219,14 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="legend" id="l-seed"></div>
     <div class="plot"><div id="c-seed"></div></div>
   </div>
+  <details class="tbl" open><summary>Seed detail — mean ± SD alongside the range actually observed</summary>
+    <div class="tscroll"><div id="t-seed"></div></div></details>
+  <div class="note warn"><p><strong>Read the ± as a spread, not as a range.</strong> With only three
+  runs per condition, mean ± SD is a summary statistic, not an interval the score falls inside —
+  arithmetic on it invents endpoints that were never observed. BERT's worst condition is the clearest
+  case: mean ± SD would suggest roughly 0.06–0.83, whereas the three runs actually produced
+  <span id="v-realsyn-runs"></span>. The real low is far below what the SD implies and the real high
+  well short of it, so the observed column is the one to quote.</p></div>
   <div class="note crit"><p><strong>The transformer is the least reproducible model here.</strong>
   BERT's seed-to-seed standard deviation averages <span id="v-bertstd"></span> across the conditions
   re-run, reaching <span id="v-bertmax"></span> in the worst case, against
@@ -378,6 +386,20 @@ function lab(v){
   return v.toFixed(4);
 }
 const fmt=v=>v==null?"—":v.toFixed(4).replace(/0+$/,"").replace(/\.$/,"");
+
+/* Same problem as lab(), one level down: a mean of 0.9995 printed as "1.000"
+   claims a perfect score, and an SD of 0.0003 printed as "0.000" claims zero
+   variance. Widen the precision until the digits stop lying. */
+function num(v,dp){
+  if(v==null) return "—";
+  dp=dp||3;
+  for(let d=dp;d<=5;d++){
+    const s=v.toFixed(d), f=parseFloat(s);
+    const roundedToWhole = (f===1&&v<1)||(f===0&&v>0);
+    if(!roundedToWhole) return s;
+  }
+  return v.toPrecision(2);
+}
 
 /* ---------- grouped bars: categories on x, one bar per series ---------- */
 function bars(host,cfg){
@@ -583,14 +605,38 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
       values:DATA.models.map(m=>BM[m]?{mean:BM[m].mean,min:BM[m].min,max:BM[m].max}:null)}]});
 
   const S=DATA.rq3.seeds,names=Object.keys(S);
+  // Nine conditions with full recipe names collide on a horizontal axis, so the
+  // chart gets abbreviations and the table below carries the full names.
+  const SHORT={"Real + Real":"R+R","Real + Mixed":"R+Mix","Real + Synthetic":"R+Syn",
+    "Synthetic-real + Real-fake":"C2","Synthetic-real + Synthetic-fake":"C3",
+    "Real + Synthetic (diverse-sourced)":"R+Syn div","Style-robust":"Style-rob",
+    "swap_025":"25% syn","swap_075":"75% syn"};
   legend(document.getElementById("l-seed"),[{name:"CNN",color:cols[2]},{name:"BERT",color:cols[3]}]);
-  barsRange(document.getElementById("c-seed"),{categories:names.map(n=>n.replace("Synthetic-real","S-real").replace(" (diverse-sourced)","(div)")),
-    width:Math.max(760,names.length*104),height:300,
+  barsRange(document.getElementById("c-seed"),{categories:names.map(n=>SHORT[n]||n),
+    width:Math.max(760,names.length*92),height:300,
     series:[{name:"CNN",color:cols[2],values:names.map(n=>S[n].CNN)},
             {name:"BERT",color:cols[3],values:names.map(n=>S[n].BERT)}]});
   if(SS.BERT){document.getElementById("v-bertstd").textContent=SS.BERT.mean_std.toFixed(3);
     document.getElementById("v-bertmax").textContent=SS.BERT.max_std.toFixed(3);}
   if(SS.CNN)document.getElementById("v-cnnstd").textContent=SS.CNN.mean_std.toFixed(3);
+
+  // Seed detail: mean +/- SD next to the range that was actually observed, plus
+  // the individual runs. Quoting mean +/- SD as though it were an interval is
+  // the specific error this table exists to make impossible.
+  const R=DATA.rq3.seedRuns||{};
+  table(document.getElementById("t-seed"),
+    ["Training recipe","Model","Mean ± SD","Observed range","Individual runs","n"],
+    names.flatMap(n=>["CNN","BERT"].map(m=>{
+      const d=S[n]&&S[n][m], runs=(R[n]&&R[n][m])||[];
+      if(!d)return [n,m,"—","—","—","—"];
+      const wide=d.std>=0.15;
+      return [n,m,{v:`${num(d.mean)} ± ${num(d.std)}`,cls:wide?"bad":""},
+        `${num(d.min)} – ${num(d.max)}`,
+        runs.map(v=>num(v)).join(", "), d.n];
+    })));
+  const rs=R["Real + Synthetic"]&&R["Real + Synthetic"].BERT;
+  if(rs)document.getElementById("v-realsyn-runs").textContent=
+    rs.map(v=>v.toFixed(3)).join(", ");
 })();
 (function(){
   const M=DATA.rq3.matched;if(!M)return;
