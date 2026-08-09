@@ -213,6 +213,36 @@ def families_block(comps):
     for m in ("LR", "SVM"):
         seed[m] = {"mean_std": 0.0, "max_std": 0.0, "deterministic": True}
     out["seedSpread"] = seed
+
+    # Roll the four models up into the three families the objective actually
+    # names, so the table answers the question as asked. LR and SVM belong
+    # together because determinism -- the thing that makes them interesting
+    # against BERT -- is a property of the family, not of either model alone.
+    FAMILIES = [
+        ("Traditional ML", ["LR", "SVM"]),
+        ("Deep learning", ["CNN"]),
+        ("Transformer", ["BERT"]),
+    ]
+    fam = []
+    for label, members in FAMILIES:
+        have = [m for m in members if m in out["byModel"]]
+        if not have:
+            continue
+        peak = max(out["byModel"][m]["max"] for m in have)
+        ranges = {m: out["byModel"][m]["range"] for m in have}
+        seeds = {m: seed.get(m, {}) for m in have}
+        deterministic = all(seed.get(m, {}).get("deterministic") for m in have)
+        fam.append({
+            "family": label,
+            "members": have,
+            "peak_f1": round(peak, 4),
+            "recipe_range": {m: round(v, 4) for m, v in ranges.items()},
+            "recipe_range_worst": round(max(ranges.values()), 4),
+            "seed_std_worst": round(max((s.get("max_std", 0.0) for s in seeds.values()),
+                                        default=0.0), 4),
+            "deterministic": deterministic,
+        })
+    out["byFamily"] = fam
     return out
 
 

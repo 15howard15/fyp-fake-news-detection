@@ -100,6 +100,10 @@ thead th{background:var(--page);font-size:11.5px;text-transform:uppercase;letter
 tbody tr:last-child td{border-bottom:0}
 td.bad{color:var(--crit);font-weight:600}
 td.good{color:var(--good-ink);font-weight:600}
+/* Prose cells must wrap. Left to nowrap, one sentence pushes the table wider
+   than its container and the summary you are meant to read at a glance turns
+   into a horizontal scroll. */
+td.wrap{white-space:normal;min-width:230px;max-width:340px;font-size:12.5px;color:var(--ink-2);line-height:1.45}
 footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px}
 code{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12.5px}
 @media (max-width:640px){h1{font-size:25px}.wrap{padding:22px 14px 60px}}
@@ -200,12 +204,29 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     stable model across training recipes and reaches the highest peaks, but it is by far the
     <em>least</em> stable across random seeds. The traditional models are perfectly reproducible yet
     swing the most when the training data changes. No family wins on both.</p></div>
-  <p>Consistency can mean two different things, and the families rank differently on each. One is
-  robustness to <em>what the model was trained on</em>; the other is reproducibility of <em>the same
-  setup run again</em>. Both are measured below.</p>
+  <p class="lead">"Consistent" is doing two jobs in that question, so this section separates them into
+  two measurable axes and scores every family on both.</p>
+  <div class="tiles">
+    <div class="tile"><div class="v" style="font-size:17px">Robustness</div>
+      <div class="l">Does performance hold when the <strong>training data changes</strong>?<br>
+      Measured as the F1 spread across the six training recipes. Smaller = more robust.</div></div>
+    <div class="tile"><div class="v" style="font-size:17px">Stability</div>
+      <div class="l">Does the <strong>same setup reproduce</strong> when it is run again?<br>
+      Measured as the F1 spread across three random seeds. Smaller = more stable.</div></div>
+  </div>
 
-  <div class="tiles" id="tiles-fam"></div>
+  <h3>The answer in one table</h3>
+  <p>Grouped into the three families the research question names. No family wins every column —
+  that is the finding.</p>
+  <details class="tbl" open><summary>Model families scored on both axes</summary>
+    <div class="tscroll"><div id="t-fam"></div></div></details>
+  <div class="note warn"><p><strong>Each family fails in its own way.</strong> The traditional models
+  never disagree with themselves but SVM stops working entirely under full replacement; CNN degrades
+  gently but its confidence inverts while F1 still looks usable; BERT holds up best across recipes yet
+  one run in three collapsed outright. The rest of this section is the evidence for those three
+  columns.</p></div>
 
+  <h3>Evidence 1 — robustness across training recipes</h3>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Spread across training recipes — how much does the data composition move each model?</div>
     <div class="card-n">Bar = mean F1 over all six recipes. The line spans that model's worst and best recipe. A short line means the family is insensitive to which recipe it was trained on.</div></div></div>
@@ -213,6 +234,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="plot"><div id="c-fam"></div></div>
   </div>
 
+  <h3>Evidence 2 — stability across random seeds</h3>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Spread across random seeds — can a single reported run be trusted?</div>
     <div class="card-n">Same data, same settings, three different random seeds. Bar = mean, line = lowest to highest run. LR and SVM are deterministic, so their spread is exactly zero by construction.</div></div></div>
@@ -589,15 +611,30 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
 /* ================= RQ3 — model families ================= */
 (function(){
   const F=DATA.rq3.families,BM=F.byModel,SS=F.seedSpread,cols=SER();
-  const t=document.getElementById("tiles-fam");t.innerHTML="";
-  const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
-    d.innerHTML=`<div class="v">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
-  const byRange=Object.entries(BM).sort((a,b)=>a[1].range-b[1].range);
-  const bySeed=Object.entries(SS).filter(([,v])=>!v.deterministic).sort((a,b)=>a[1].mean_std-b[1].mean_std);
-  add(byRange[0][0],`Most stable across training recipes — F1 range of only ${byRange[0][1].range.toFixed(3)} over six recipes.`);
-  add(byRange[byRange.length-1][0],`Least stable across recipes — F1 range of ${byRange[byRange.length-1][1].range.toFixed(3)}.`);
-  add(bySeed[bySeed.length-1][0],`Least reproducible across seeds — mean std ${bySeed[bySeed.length-1][1].mean_std.toFixed(3)}, worst case ${bySeed[bySeed.length-1][1].max_std.toFixed(3)}.`);
-  add("LR · SVM","Deterministic — identical output on every re-run, so seed spread is exactly zero.");
+
+  // Family summary -- the answer table. Verdict wording is derived from the
+  // measured numbers so it can't drift away from them, except the failure
+  // description, which is qualitative and names the specific behaviour each
+  // family shows (documented in the RQ1 and RQ3 findings).
+  const FAIL={
+    "Traditional ML":"SVM stops working entirely under full replacement — it predicts “real” for every article (F1 0.000). Loud and obvious.",
+    "Deep learning":"Degrades gently, but under full replacement its confidence inverts (AUC 0.054) while F1 still looks usable. Quiet and easy to miss.",
+    "Transformer":"Best across recipes, but one seed in three failed to train at all (F1 0.002 against 0.662 and 0.676)."
+  };
+  const rank=(v,all)=>{const s=[...all].sort((a,b)=>a-b);
+    return v===s[0]?"good":(v===s[s.length-1]?"bad":"");};
+  const fams=F.byFamily||[];
+  const allRange=fams.map(f=>f.recipe_range_worst), allSeed=fams.map(f=>f.seed_std_worst);
+  table(document.getElementById("t-fam"),
+    ["Family","Models","Peak F1","Robustness (spread across recipes)","Stability (spread across seeds)","Characteristic failure"],
+    fams.map(f=>[
+      f.family, f.members.join(" · "), num(f.peak_f1),
+      {v:Object.entries(f.recipe_range).map(([m,v])=>`${m} ${v.toFixed(3)}`).join(" · "),
+       cls:rank(f.recipe_range_worst,allRange)},
+      {v:f.deterministic?"0.000 — deterministic":`up to ${f.seed_std_worst.toFixed(3)}`,
+       cls:f.deterministic?"good":rank(f.seed_std_worst,allSeed)},
+      {v:FAIL[f.family]||"",cls:"wrap"}
+    ]));
 
   legend(document.getElementById("l-fam"),[{name:"Mean F1 across the six recipes (line = worst to best recipe)",color:cols[0]}]);
   barsRange(document.getElementById("c-fam"),{categories:DATA.models,height:290,
