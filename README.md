@@ -364,3 +364,7 @@ section in `results_report.html` (kept out to stay focused on the four
 research questions) — see `results/extra/multiseed_results.csv` for the
 full per-seed data, and write this up as a Limitations-section point rather
 than adding a report section for it.
+
+# --- Optional: pipeline walkthrough notebook (read-only, no training) ---
+# Regenerate with: python src/build_walkthrough.py
+# Open pipeline_walkthrough.ipynb in VS Code or Jupyter -- runs in ~15s, retrains nothing.
