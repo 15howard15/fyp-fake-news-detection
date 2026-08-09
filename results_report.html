@@ -64,6 +64,10 @@ p.lead{color:var(--ink)}
 .tile{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 15px}
 .tile .v{font-size:25px;font-weight:650;letter-spacing:-.02em;line-height:1.1}
 .tile .l{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+/* Leakage figures are big percentages where SMALLER is better, so unstyled they
+   read like achievements -- 63.8% looks like coverage rather than a problem. */
+.tile .v.good{color:var(--good-ink)}
+.tile .v.bad{color:var(--crit)}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 16px 10px;margin:16px 0}
 .card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:4px}
 .card-t{font-size:14.5px;font-weight:640;color:var(--ink)}
@@ -170,6 +174,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     </div>
     <div class="legend" id="l-rq1"></div>
     <div class="plot"><div id="c-rq1"></div></div>
+    <div id="warn-c-rq1"></div>
   </div>
   <details class="tbl"><summary>All metrics — every recipe × model (tested on LIAR)</summary>
     <div class="tscroll"><div id="t-rq1"></div></div></details>
@@ -210,6 +215,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     </div>
     <div class="legend" id="l-rq2"></div>
     <div class="plot"><div id="c-rq2"></div></div>
+    <div id="warn-c-rq2"></div>
   </div>
   <details class="tbl"><summary>All metrics across the sweep</summary>
     <div class="tscroll"><div id="t-rq2"></div></div></details>
@@ -317,7 +323,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   fake ones made calm and neutral, with every fact and label unchanged. The <em>flip rate</em> is how
   often a model that was originally correct changes its answer after the rewrite. Lower is better.</p>
   <div class="card">
-    <div class="card-h"><div><div class="card-t">Flip rate after a tone-only rewrite, by training recipe</div>
+    <div class="card-h"><div><div class="card-t">Flip rate after a tone-only rewrite, by training recipe &nbsp;↓</div>
     <div class="card-n">Lower is better — 0% means the tone change fooled the model on nothing it previously got right.</div></div></div>
     <div class="legend" id="l-rq4"></div>
     <div class="plot"><div id="c-rq4"></div></div>
@@ -330,7 +336,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <p>The style-robust recipe was built against one attack direction. Testing the reverse — real made
   calm, fake made sensational — on the same trained models, with no further training:</p>
   <div class="card">
-    <div class="card-h"><div><div class="card-t">Style-robust flip rate: trained direction vs. the untested reverse</div>
+    <div class="card-h"><div><div class="card-t">Style-robust flip rate: trained direction vs. the untested reverse &nbsp;↓</div>
     <div class="card-n">Rises for every model, but stays far below the 10.5–18.1% of the vulnerable Real + Mixed recipe.</div></div></div>
     <div class="legend" id="l-rev"></div>
     <div class="plot"><div id="c-rev"></div></div>
@@ -357,6 +363,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="seg" id="seg-fw-recipe" style="margin:8px 0 2px"></div>
     <div class="legend" id="l-fw"></div>
     <div class="plot"><div id="c-fw"></div></div>
+    <div id="warn-c-fw"></div>
   </div>
   <details class="tbl"><summary>All metrics on both corpora</summary>
     <div class="tscroll"><div id="t-fw"></div></div></details>
@@ -426,6 +433,22 @@ const SER=()=>[cv("--s1"),cv("--s2"),cv("--s3"),cv("--s4"),cv("--s5"),cv("--s6")
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
 const METRIC_LABEL={f1:"F1 score",auc_roc:"AUC-ROC",accuracy:"Accuracy",precision:"Precision",recall:"Recall"};
 const L=DATA.labels;
+
+/* Precision and recall are only safe read together. A model that almost never
+   says "fake" scores near-perfect precision on the handful it does flag, which
+   draws the tallest bar on the chart while being close to useless -- SVM on the
+   diverse-sourced recipe reaches precision 1.000 at recall 0.001. Whenever one
+   of the pair is on screen alone, say so. */
+const METRIC_CAUTION={
+  precision:"Precision alone can flatter a broken model: one that flags almost nothing scores near-perfect precision on the few it does flag. Check it against Recall — SVM on the diverse-sourced recipe reaches precision 1.000 with recall 0.001.",
+  recall:"Recall alone can flatter a model that simply says “fake” to everything. Check it against Precision.",
+  accuracy:"Accuracy is unweighted here; on a recipe where a model predicts one class for almost everything it tracks the class balance rather than skill. F1 and AUC-ROC are the more informative pair."
+};
+function caution(id,metric){
+  const el=document.getElementById(id); if(!el) return;
+  const msg=METRIC_CAUTION[metric];
+  el.innerHTML = msg ? `<div class="note warn" style="margin:10px 0 0"><p>${msg}</p></div>` : "";
+}
 
 /* A bar at 0.998 must not be labelled "1.00" -- a flat-topped bar reading as a
    perfect score is the most misleading thing a chart here could do. Show the
@@ -594,6 +617,7 @@ function rq1(metric){
     ref:metric==="auc_roc"?0.5:null,refLabel:"random guessing",
     series:RQ1C.map((c,i)=>({name:L[c],color:cols[i],
       values:DATA.models.map(m=>{const d=DATA.rq1.liar[c]&&DATA.rq1.liar[c][m];return d?d[metric]:null;})}))});
+  caution("warn-c-rq1",metric);
 }
 legend(document.getElementById("l-rq1"),RQ1C.map((c,i)=>({name:L[c],color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq1"]'),rq1);
@@ -628,6 +652,7 @@ function rq2(metric){
   lines(document.getElementById("c-rq2"),{categories:DATA.rq2.fractions,
     series:DATA.models.map((m,i)=>({name:m,color:cols[i],
       values:(DATA.rq2.series[m]&&DATA.rq2.series[m][metric])||[]}))});
+  caution("warn-c-rq2",metric);
 }
 legend(document.getElementById("l-rq2"),DATA.models.map((m,i)=>({name:m,color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq2"]'),rq2,["f1","auc_roc","precision","recall"]);
@@ -772,6 +797,7 @@ function fw(){
   bars(document.getElementById("c-fw"),{categories:DATA.models,height:290,
     ref:FW_M==="auc_roc"?0.5:null,refLabel:"random guessing",
     series:[{name:"LIAR",color:cols[0],values:vL},{name:"WELFake",color:cols[1],values:vW}]});
+  caution("warn-c-fw",FW_M);
 }
 legend(document.getElementById("l-fw"),[{name:"Tested on LIAR",color:SER()[0]},
   {name:"Tested on WELFake",color:SER()[1]}]);
@@ -820,14 +846,16 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
 (function(){
   const lk=DATA.framework.leakage;if(!lk)return;
   const t=document.getElementById("tiles-leak");t.innerHTML="";
-  const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
-    d.innerHTML=`<div class="v">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
-  add(lk.worst_tt.toFixed(2)+"%","Worst train/test text overlap across the reported recipes (threshold: 2%).");
+  // Every figure here is one where lower is better, so each carries a tone.
+  const add=(v,l,tone)=>{const d=document.createElement("div");d.className="tile";
+    d.innerHTML=`<div class="v ${tone||""}">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
+  add(lk.worst_tt.toFixed(2)+"%","↓ Worst train/test text overlap across the reported recipes. Under the 2% threshold the pipeline enforces.",
+      lk.worst_tt<=2?"good":"bad");
   const w=(lk.corpus||[]).find(x=>/welfake/i.test(x.name)),li=(lk.corpus||[]).find(x=>/liar/i.test(x.name));
-  if(w)add(w.pct.toFixed(1)+"%","of the WELFake test articles also exist in ISOT — it is not an independent corpus.");
-  if(li)add(li.pct.toFixed(1)+"%","of the LIAR test articles exist in ISOT — genuinely unseen.");
+  if(w)add(w.pct.toFixed(1)+"%","↓ of the WELFake test articles also exist in ISOT — so it is NOT an independent corpus. This is the problem figure on this page.","bad");
+  if(li)add(li.pct.toFixed(1)+"%","↓ of the LIAR test articles exist in ISOT — genuinely unseen, exactly what a cross-domain test needs.","good");
   const df=(lk.dups||[]).find(x=>/isot_fake/.test(x.name));
-  if(df)add(df.pct.toFixed(1)+"%","of ISOT's fake articles are exact duplicates of another row — the source of the small overlap above.");
+  if(df)add(df.pct.toFixed(1)+"%","↓ of ISOT's fake articles are exact duplicates of another row — a property of the source dataset, and the cause of the small overlap above.");
 })();
 
 const tabs=[...document.querySelectorAll(".tab")];
