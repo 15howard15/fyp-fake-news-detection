@@ -93,12 +93,12 @@ if you want to genuinely extend the research rather than just write it up:
 | `PROJECT_STATUS.md` | This file |
 | `results_report.html` | Live shareable results summary — GENERATED, do not hand-edit |
 | `src/build_report.py` + `src/report_template.html` | What generates it — edit these, then re-run |
-| `pipeline_structure.svg` | Diagram embedded in README (was missing from disk, restored just now) |
-| `figure_4_1_auc_roc.png` | RQ1 — F1/AUC-ROC by model × recipe, all 5 recipes |
-| `figure_4_1b_authorship_auc.png` | RQ1/RQ3 — authorship-shortcut AUC-ROC, LIAR vs WELFake |
-| `figure_4_2_sweep_f1.png` | RQ2 — augmentation sweep line chart |
-| `figure_4_3_crossdomain.png` | RQ3 — all 6 recipes, LIAR vs WELFake, 6-panel |
-| `figure_4_4_style_flip_rate.png` | RQ4 — style-attack flip rate, all 4 models |
+| `results/pipeline_structure.svg` | Diagram embedded in README (was missing from disk, restored just now) |
+| `results/figure_4_1_auc_roc.png` | RQ1 — F1/AUC-ROC by model × recipe, all 5 recipes |
+| `results/figure_4_1b_authorship_auc.png` | RQ1/RQ3 — authorship-shortcut AUC-ROC, LIAR vs WELFake |
+| `results/figure_4_2_sweep_f1.png` | RQ2 — augmentation sweep line chart |
+| `results/figure_4_3_crossdomain.png` | RQ3 — all 6 recipes, LIAR vs WELFake, 6-panel |
+| `results/figure_4_4_style_flip_rate.png` | RQ4 — style-attack flip rate, all 4 models |
 | `src/` | Full pipeline — see `README.md`'s pipeline diagram for the grouping |
 | `src/repro.py` | `set_determinism(seed)` — called at every neural training site |
 | `src/check_synthetic_quality.py` | Diversity, fact-change verification, optional LLM plausibility judge |
