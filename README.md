@@ -83,7 +83,7 @@ python src/evaluate.py leakage          # VERIFY: no train text in any test set 
 python src/build_synthetic_real_datasets.py  # C2/C3 (needs generate_synthetic_real.py run first, optional -- validity check)
 python src/train.py --model all   # LR+SVM+CNN+BERT (replacement, on test_crossdomain)
 python src/evaluate.py master     # gather train.py's metrics into master_results.csv
-python src/run_lr_svm_extra_experiments.py  # LR/SVM on augmented/lowres, test_indomain + test_crossdomain
+python src/run_train_extra_experiments.py   # LR/SVM on augmented/lowres, test_indomain + test_crossdomain
 python src/run_deep_extra_experiments.py --models cnn bert  # CNN/BERT on augmented/lowres, both test sets
 
 # --- Objective 1 follow-up: balance-controlled synthetic-fraction sweep (recommended read for the augmentation angle) ---

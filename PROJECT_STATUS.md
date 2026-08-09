@@ -16,10 +16,13 @@ changes. It is a snapshot, not documentation of the system itself (see
   no remaining duplicated logic — checked twice, most recently confirming
   the OpenAI-generation scripts' shared prompts/plumbing now live in
   `gen_common.py` rather than being copy-pasted six times.
-- `results_report.html` is the live, shareable summary — 8 sections, 14
-  charts, 6 reference tables, all internally consistent (every claim in the
-  text has a chart or table backing it, checked deliberately after a few
-  gaps were found and closed).
+- `results_report.html` is the live, shareable summary — one tab per research
+  question plus an evaluation-framework tab, 10 charts, with a metric selector
+  so accuracy/precision/recall/F1/AUC-ROC are all reachable rather than F1
+  alone. It is GENERATED: run `python src/build_report.py` after any
+  experiment that changes `results/`. Every figure is read from `results/` at
+  build time, so the page cannot disagree with the data (the old hand-written
+  version had drifted from it more than once).
 - `DEFENSE_PREP.md` has the findings ranked by strength, methodology
   justification, 7 named limitations, and prepared answers to the questions
   most likely to come up in a viva.
@@ -88,14 +91,20 @@ if you want to genuinely extend the research rather than just write it up:
 | `README.md` | Pipeline documentation, setup, research question map |
 | `DEFENSE_PREP.md` | Viva/defense prep — findings ranked, methodology justification, limitations, anticipated Q&A |
 | `PROJECT_STATUS.md` | This file |
-| `results_report.html` | Live shareable results summary |
+| `results_report.html` | Live shareable results summary — GENERATED, do not hand-edit |
+| `src/build_report.py` + `src/report_template.html` | What generates it — edit these, then re-run |
 | `pipeline_structure.svg` | Diagram embedded in README (was missing from disk, restored just now) |
 | `figure_4_1_auc_roc.png` | RQ1 — F1/AUC-ROC by model × recipe, all 5 recipes |
 | `figure_4_1b_authorship_auc.png` | RQ1/RQ3 — authorship-shortcut AUC-ROC, LIAR vs WELFake |
 | `figure_4_2_sweep_f1.png` | RQ2 — augmentation sweep line chart |
 | `figure_4_3_crossdomain.png` | RQ3 — all 6 recipes, LIAR vs WELFake, 6-panel |
 | `figure_4_4_style_flip_rate.png` | RQ4 — style-attack flip rate, all 4 models |
-| `src/` (26 files) | Full pipeline — see `README.md`'s pipeline diagram for the grouping |
+| `src/` | Full pipeline — see `README.md`'s pipeline diagram for the grouping |
+| `src/repro.py` | `set_determinism(seed)` — called at every neural training site |
+| `src/check_synthetic_quality.py` | Diversity, fact-change verification, optional LLM plausibility judge |
+| `evaluate.py leakage` | Train/test overlap + how independent each test corpus really is |
+| `evaluate.py length-sweep` | Truncation sweep isolating length from domain |
+| `data/synthetic/` | The generated corpora — versioned, because they cannot be regenerated |
 
 ## Immediate next steps, in order
 
@@ -103,3 +112,38 @@ if you want to genuinely extend the research rather than just write it up:
 2. Send pages 13–16 of the thesis PDF for a complete review.
 3. Send one-line summaries of the papers most relevant to the 8 citation gaps, prioritizing the stylometry/authorship-detection one.
 4. Decide whether to pursue any of the optional system work, or treat it as named future work in the thesis as-is.
+
+## Added since this file was first written
+
+Work completed after the original snapshot above, all committed and pushed:
+
+- **Reproducibility.** `repro.py`'s `set_determinism(seed)` now runs at every
+  neural training site (cuDNN deterministic, benchmark off,
+  `use_deterministic_algorithms`). Note this makes FUTURE runs reproducible —
+  the committed results predate it and should be described that way.
+- **Seed coverage is complete.** All 18 reported model × recipe pairs have 3
+  seeds. `swap_000/050/100` were never missing — they are the same data as
+  `real_real`/`mixed`/`real_syn` under sweep names.
+- **Leakage is measured, not assumed.** ISOT contains duplicate articles (23.7%
+  of the fake class), giving ~1% train/test overlap; `evaluate.py leakage`
+  fails above a 2% threshold. It also showed **63.8% of the WELFake fake
+  articles also exist in ISOT** — so WELFake is NOT an independent corpus, and
+  the thesis wording needs to say so.
+- **Length does not explain the LIAR gap.** Shortening the test articles leaves
+  performance flat or higher, so the gap is a genuine domain effect.
+- **Synthetic data quality is evidenced.** Diversity matches real ISOT fake news;
+  ~98% of fact edits verify where the full source was saved (the lower headline
+  figure is an audit-trail limit, since `source_text` was capped at 1,000 chars —
+  now `cfg.FULL_SOURCE_CAP`).
+- **RQ3 is now the model-family comparison**, matching the revised research
+  questions; cross-domain testing moved to the "evaluation framework" tab as the
+  protocol shared by all four questions.
+
+### Still outstanding
+
+1. Thesis text: fix the "0.06 to 0.83" range in the RQ3 section (the actual runs
+   were 0.002, 0.662, 0.676), add the recipe-spread table, and soften "WELFake is
+   an independent dataset" wherever it appears.
+2. 5.3.5 literature alignment and the 8 `[CITATION]` placeholders — still blocked
+   on one-line summaries of what each cited paper argues.
+3. `models/` is ~3 GB of checkpoints, gitignored, still never cleaned up.
