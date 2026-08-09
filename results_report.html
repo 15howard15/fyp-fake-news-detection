@@ -142,9 +142,6 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 <div class="wrap">
 <header>
   <h1>Can AI-generated fake news train a fake-news detector?</h1>
-  <p class="sub">Four research questions, four model families (Logistic Regression, SVM, CNN, BERT).
-  Every question is answered by training on ISOT and testing on unseen LIAR and WELFake data, so
-  cross-domain generalization is the shared evaluation framework rather than a separate question.</p>
   <p class="meta">Training: ISOT · Testing: LIAR and WELFake (both unseen) · Synthetic text: GPT-4o-mini</p>
 </header>
 
@@ -159,13 +156,6 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 <!-- ============ RQ1 ============ -->
 <section class="panel active" id="rq1" role="tabpanel">
   <h2>RQ1 — Can LLM-generated fake news replace real fake news for training?</h2>
-  <div class="answer"><span class="k">Short answer</span>
-    <p><strong>Partly, and only if the real-news side stays genuine.</strong> Replacing the fake class
-    with synthetic articles keeps LR, CNN and BERT usable but costs accuracy, and breaks SVM entirely.
-    Replacing <em>both</em> classes produces a model that is confidently backwards.</p></div>
-  <p>Five training recipes, each tested on unseen LIAR fake news. The first three vary only where the
-  fake-news examples come from. The last two also make the real side synthetic, which is what exposes
-  the shortcut described below.</p>
   <div class="card">
     <div class="card-h">
       <div><div class="card-t">Detection performance by method and training recipe</div>
@@ -180,9 +170,6 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="tscroll"><div id="t-rq1"></div></div></details>
 
   <h3>Validity check: detecting fake news, or detecting AI writing?</h3>
-  <p>If a model scores well on AI-generated fake news, it may have learned "this text was written by a
-  machine" rather than "this claim is false" — a different and far less useful skill. The last two
-  recipes test exactly that by making the real class AI-written too.</p>
   <div class="card">
     <div class="card-h"><div><div class="card-t">AUC-ROC when both classes are AI-authored, vs. only the fake class</div>
     <div class="card-n">1.0 = perfect ranking · 0.5 = random guessing · below 0.5 = confidently backwards. Shown on both corpora so it can't be dismissed as one dataset's quirk.</div></div>
@@ -190,23 +177,12 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="legend" id="l-auth"></div>
     <div class="plot"><div id="c-auth"></div></div>
   </div>
-  <div class="note crit"><p><strong>F1 hides this; AUC-ROC exposes it.</strong> With both classes
-  AI-written, AUC-ROC falls far below 0.50 for all four models on both corpora — the models did not
-  become uncertain, they learned a consistent rule pointing the wrong way. The cause is in how the data
-  was built: the "real" examples were AI-paraphrased throughout while the "fake" ones kept their
-  original wording, so no model ever saw genuine unedited writing labelled real.</p></div>
+  <div class="note crit"><p><strong>Confidently backwards, not uncertain.</strong> AUC-ROC falls below 0.50 for all four models on both corpora. The models learned that AI-paraphrased text means “real”, so genuine unedited articles look fake to them.</p></div>
 </section>
 
 <!-- ============ RQ2 ============ -->
 <section class="panel" id="rq2" role="tabpanel">
   <h2>RQ2 — Does adding synthetic fake news on top of real data improve performance, rather than replacing it?</h2>
-  <div class="answer"><span class="k">Short answer</span>
-    <p><strong>Yes, but only in moderation and only for some models.</strong> Roughly 25–50% synthetic
-    holds or improves cross-domain performance for LR, SVM and BERT. Past that SVM collapses and BERT
-    falls away. CNN never benefits at any level.</p></div>
-  <p>The fake class is held at exactly 500 examples throughout — only the proportion that is synthetic
-  changes. Fixing the size means any movement reflects the data's composition rather than simply having
-  more of it.</p>
   <div class="card">
     <div class="card-h">
       <div><div class="card-t">Performance as synthetic fake news replaces more of the fake class</div>
@@ -219,47 +195,18 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   </div>
   <details class="tbl"><summary>All metrics across the sweep</summary>
     <div class="tscroll"><div id="t-rq2"></div></div></details>
-  <div class="note warn"><p><strong>CNN is the exception worth explaining.</strong> Its errors are the
-  same kind at every blend level — genuine real articles called fake, never the reverse — and the same
-  stylistically distinctive articles (opinion-led rather than plain wire copy) keep reappearing. Its
-  confidence on those mistakes falls from about 96% to 63% as synthetic data increases, so it is
-  gradually losing its grip on a category it already found hard, not learning a new wrong rule the way
-  SVM does.</p></div>
+  <div class="note warn"><p><strong>CNN never benefits.</strong> The same error at every blend level — real articles called fake, never the reverse — and its confidence on those mistakes falls from 96% to 63%.</p></div>
 </section>
 
 <!-- ============ RQ3 — MODEL FAMILIES ============ -->
 <section class="panel" id="rq3" role="tabpanel">
   <h2>RQ3 — Do transformer-based detectors offer more consistent robustness than deep-learning and traditional models?</h2>
-  <div class="answer"><span class="k">Short answer</span>
-    <p><strong>No — not once "consistent" is separated into its two meanings.</strong> BERT is the most
-    stable model across training recipes and reaches the highest peaks, but it is by far the
-    <em>least</em> stable across random seeds. The traditional models are perfectly reproducible yet
-    swing the most when the training data changes. No family wins on both.</p></div>
-  <p class="lead">"Consistent" is doing two jobs in that question, so this section separates them into
-  two measurable axes and scores every family on both.</p>
-  <div class="tiles">
-    <div class="tile"><div class="v" style="font-size:17px">Robustness&nbsp;↓</div>
-      <div class="l">Does performance hold when the <strong>training data changes</strong>?<br>
-      Measured as how far F1 <em>moves</em> across the six training recipes — so this is a spread, not
-      a score: <strong>a smaller number is better</strong>. A model spanning 0.55–0.99 (spread 0.44)
-      is more dependable than one spanning 0.00–0.91 (spread 0.91), because you can predict what you
-      will get.</div></div>
-    <div class="tile"><div class="v" style="font-size:17px">Stability&nbsp;↓</div>
-      <div class="l">Does the <strong>same setup reproduce</strong> when it is run again?<br>
-      Measured as how far F1 moves across three random seeds with nothing else changed — again a
-      spread, so <strong>smaller is better</strong>, and 0.000 means the model gives an identical
-      answer every time.</div></div>
-  </div>
+  <div class="note"><p><strong>Two axes, both spreads — smaller is better.</strong>
+  <strong>Robustness&nbsp;↓</strong> = F1 spread across the six training recipes.
+  <strong>Stability&nbsp;↓</strong> = F1 spread across three random seeds.</p></div>
 
   <h3>The answer at a glance</h3>
-  <p>Grouped into the three families the research question names. <strong>↑ means higher is better;
-  ↓ means lower is better</strong>, because the last two rows are spreads rather than scores. Green
-  marks the best family on each row and red the worst — no family holds green on all three, and that
-  is the finding.</p>
   <div class="fam" id="fam-cards"></div>
-  <p>Each family also fails in a different <em>way</em>, which matters as much as how often: one
-  failure announces itself, one hides behind a healthy-looking F1, and one appears only on some runs.
-  The rest of this section is the evidence behind those three rows.</p>
 
   <h3>Evidence 1 — robustness across training recipes</h3>
   <div class="card">
@@ -278,24 +225,10 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   </div>
   <details class="tbl" open><summary>Seed detail — mean ± SD alongside the range actually observed</summary>
     <div class="tscroll"><div id="t-seed"></div></div></details>
-  <div class="note warn"><p><strong>Read the ± as a spread, not as a range.</strong> With only three
-  runs per condition, mean ± SD is a summary statistic, not an interval the score falls inside —
-  arithmetic on it invents endpoints that were never observed. BERT's worst condition is the clearest
-  case: mean ± SD would suggest roughly 0.06–0.83, whereas the three runs actually produced
-  <span id="v-realsyn-runs"></span>. The real low is far below what the SD implies and the real high
-  well short of it, so the observed column is the one to quote.</p></div>
-  <div class="note crit"><p><strong>The transformer is the least reproducible model here.</strong>
-  BERT's seed-to-seed standard deviation averages <span id="v-bertstd"></span> across the conditions
-  re-run, reaching <span id="v-bertmax"></span> in the worst case, against
-  <span id="v-cnnstd"></span> for CNN and exactly zero for LR and SVM. Any single BERT figure in this
-  study is one draw from a wide distribution, and its highest scores sit at the top of that range
-  rather than in the middle.</p></div>
+  <div class="note warn"><p><strong>± is a spread, not a range.</strong> Reconstructing endpoints from three runs invents numbers never observed: it implies ≈0.06–0.83 for BERT under full replacement, where the runs were <span id="v-realsyn-runs"></span>. Quote the observed column.</p></div>
+  <div class="note crit"><p><strong>BERT is the least reproducible model here.</strong> Mean seed SD <span id="v-bertstd"></span>, worst case <span id="v-bertmax"></span>, against <span id="v-cnnstd"></span> for CNN and exactly 0.000 for LR and SVM.</p></div>
 
   <h3>Is the comparison even fair?</h3>
-  <p>By default the four models do not read the same amount of each article: TF-IDF has no length limit
-  so LR and SVM read all of it, BERT stops at 512 tokens and CNN at 300 — and 64.5% of training
-  articles run longer than 300 words. Retraining everything with all inputs capped at the same 300
-  words removes that confound.</p>
   <div class="card">
     <div class="card-h"><div><div class="card-t">F1 with full text vs. all models capped at 300 words</div>
     <div class="card-n">Same recipes, same test set — the only change is that no model reads more of an article than another.</div></div>
@@ -303,11 +236,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="legend" id="l-match"></div>
     <div class="plot"><div id="c-match"></div></div>
   </div>
-  <div class="note crit"><p><strong>LR's advantage under full replacement is largely a length artifact.</strong>
-  Given the same input as everyone else, LR loses more than any other model in any condition and drops
-  from best to worst of the three working models on Real + Synthetic. The LR/SVM half of this is
-  deterministic and exactly reproducible; the CNN/BERT half is a single run in BERT's least stable
-  condition, so "LR's advantage disappears" carries far more weight than "BERT becomes best".</p></div>
+  <div class="note crit"><p><strong>LR's advantage is a length artifact.</strong> Given equal input it loses 0.218 F1 — the largest drop of any model in any condition — and falls from first to last. LR/SVM are deterministic here; the CNN/BERT half is single-seed.</p></div>
   <details class="tbl"><summary>Full text vs. 300-word cap, all models</summary>
     <div class="tscroll"><div id="t-match"></div></div></details>
 </section>
@@ -315,26 +244,14 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 <!-- ============ RQ4 ============ -->
 <section class="panel" id="rq4" role="tabpanel">
   <h2>RQ4 — Can style-diverse synthetic training resist stylistic and sentiment-based attacks?</h2>
-  <div class="answer"><span class="k">Short answer</span>
-    <p><strong>Yes, and it costs nothing in ordinary accuracy.</strong> Pairing every article with a
-    tone-shifted twin under the same label drops the attack success rate to near zero. But generic
-    synthetic data alone gives no such protection — and can make a model easier to fool.</p></div>
-  <p>200 held-out articles were rewritten to change only their tone: real articles made sensational,
-  fake ones made calm and neutral, with every fact and label unchanged. The <em>flip rate</em> is how
-  often a model that was originally correct changes its answer after the rewrite. Lower is better.</p>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Flip rate after a tone-only rewrite, by training recipe &nbsp;↓</div>
     <div class="card-n">Lower is better — 0% means the tone change fooled the model on nothing it previously got right.</div></div></div>
     <div class="legend" id="l-rq4"></div>
     <div class="plot"><div id="c-rq4"></div></div>
   </div>
-  <div class="note warn"><p><strong>Read the two 0.0% cells under Real + Synthetic with care.</strong>
-  SVM and CNN score 0.0% there not because they resist the attack but because that recipe already makes
-  them predict one class for almost everything, leaving almost no correct predictions available to
-  flip. A near-zero flip rate only means something alongside a working baseline F1.</p></div>
+  <div class="note warn"><p><strong>The two 0.0% cells are not robustness.</strong> Under Real + Synthetic, SVM and CNN already predict one class for almost everything, so almost nothing correct remains to flip.</p></div>
   <h3>Does the fix survive an attack it wasn't trained for?</h3>
-  <p>The style-robust recipe was built against one attack direction. Testing the reverse — real made
-  calm, fake made sensational — on the same trained models, with no further training:</p>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Style-robust flip rate: trained direction vs. the untested reverse &nbsp;↓</div>
     <div class="card-n">Rises for every model, but stays far below the 10.5–18.1% of the vulnerable Real + Mixed recipe.</div></div></div>
@@ -343,17 +260,12 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   </div>
   <details class="tbl"><summary>Does robustness cost ordinary accuracy? (no attack applied)</summary>
     <div class="tscroll"><div id="t-rq4"></div></div></details>
-  <div class="note good"><p><strong>Not a trade-off.</strong> Every model performs as well or better
-  under the style-robust recipe than under Real + Real on the untouched test set, so the robustness
-  gain is real rather than a model becoming uniformly more cautious.</p></div>
+  <div class="note good"><p><strong>No accuracy cost.</strong> Every model matches or beats Real + Real on the untouched test set.</p></div>
 </section>
 
 <!-- ============ FRAMEWORK ============ -->
 <section class="panel" id="fw" role="tabpanel">
   <h2>The cross-domain evaluation framework</h2>
-  <p class="lead">Every question above is answered by training on ISOT and testing on data no model saw
-  during training. That shared protocol — not a separate research question — is what binds RQ1 to RQ4
-  together. This tab covers how well it holds up.</p>
   <div class="card">
     <div class="card-h">
       <div><div class="card-t">Same models, two different unseen corpora</div>
@@ -368,52 +280,27 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <details class="tbl"><summary>All metrics on both corpora</summary>
     <div class="tscroll"><div id="t-fw"></div></div></details>
 
-  <div class="note crit"><p><strong>WELFake is not an independent corpus.</strong> Measured directly,
-  <span id="v-overlap"></span> of the WELFake fake articles used here are exact text matches for
-  articles that also appear in ISOT, the training corpus — against 0.0% for LIAR. WELFake is a merged
-  dataset that includes the same underlying collection ISOT derives from. Scores on WELFake are
-  therefore closer to an in-domain test than a cross-domain one, and the gap between the two corpora is
-  partly corpus overlap rather than genre.</p></div>
+  <div class="note crit"><p><strong>WELFake is not independent.</strong> <span id="v-overlap"></span> of its fake articles are exact text matches for articles in ISOT, the training corpus — against 0.0% for LIAR.</p></div>
 
   <h3>Is the LIAR gap really about document length?</h3>
-  <p>LIAR statements are far shorter than ISOT articles, so a natural explanation for weaker LIAR scores
-  is length rather than domain. That is testable: hold the domain fixed, shorten the WELFake test set,
-  and re-score the same models.</p>
   <div class="card">
     <div class="card-h"><div><div class="card-t">F1 as the test articles are progressively truncated</div>
     <div class="card-n">Domain held constant — only length changes. If short text were the problem, these lines would fall.</div></div></div>
     <div class="legend" id="l-len"></div>
     <div class="plot"><div id="c-len"></div></div>
   </div>
-  <div class="note good"><p><strong>Length does not explain the LIAR gap — it works the other way.</strong>
-  Shortening the test articles leaves performance flat or slightly <em>higher</em>. Truncating only the
-  fake class, which reproduces LIAR's long-real / short-fake structure, raises F1 further still, because
-  length itself becomes a usable clue. The LIAR gap is therefore a genuine domain effect, which makes
-  the generalization challenge more real than a format artifact would have been.</p></div>
+  <div class="note good"><p><strong>Length does not explain the LIAR gap.</strong> Shortening the test articles leaves F1 flat or higher; truncating only the fake class raises it further. The gap is a genuine domain effect.</p></div>
 
   <h3>Is the generated text any good?</h3>
-  <p>The only quality gate during generation was a length-ratio filter, which catches refusals and
-  truncations but supports no claim about whether the text reads plausibly or whether the intended fact
-  actually changed. Both were measured afterwards.</p>
   <div class="tiles" id="tiles-q"></div>
   <details class="tbl"><summary>Diversity — is the generator repeating itself?</summary>
     <div class="tscroll"><div id="t-div"></div></div></details>
-  <div class="note"><p><strong>Fact-change verification.</strong> <span id="v-fact"></span> Where the
-  full source article was saved the rate is <span id="v-factfull"></span>, against
-  <span id="v-facttrunc"></span> where only a 1,000-character preview was kept — so the shortfall is a
-  limit of the audit trail, not evidence that the edits failed.</p></div>
-  <div class="note warn"><p><strong>The plausibility rating carries a caveat.</strong> An LLM judge rates
-  the synthetic articles above real fake news for reading like professional news writing — expected,
-  since they are real articles with one fact altered while real fake news is stylistically distinctive
-  low-quality writing. But the judge is the same model family that generated the text, so
-  self-preference bias cannot be ruled out from this measurement alone.</p></div>
+  <div class="note"><p><strong>Fact edits verify where the evidence was saved.</strong> <span id="v-fact"></span> Where the full source was stored the rate is <span id="v-factfull"></span>, against <span id="v-facttrunc"></span> where only a 1,000-character preview was kept.</p></div>
+  <div class="note warn"><p><strong>Plausibility caveat.</strong> The judge is the same model family that generated the text, so self-preference bias cannot be ruled out.</p></div>
 
   <h3>Did any training text leak into the test sets?</h3>
   <div class="tiles" id="tiles-leak"></div>
-  <div class="note"><p>ISOT contains duplicate articles, and because the split is done on rows rather
-  than unique texts, a duplicated article can land on both sides. The resulting contamination is small
-  — well under the 2% threshold the pipeline now enforces via <code>evaluate.py leakage</code> — and the
-  main cross-domain test set is essentially unaffected.</p></div>
+  <div class="note"><p><strong>Overlap comes from ISOT's own duplicates.</strong> The split is on rows rather than unique texts, so a duplicated article can land on both sides. <code>evaluate.py leakage</code> fails above 2%.</p></div>
 </section>
 
 <footer>
