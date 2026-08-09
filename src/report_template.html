@@ -5,31 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Fake News Detection with LLM-Generated Synthetic Data — Results</title>
 <style>
+/* ---------------------------------------------------------------
+   Obsidian + neon. Dark is the DEFAULT and the design; light exists
+   because the thesis figures are screenshotted from this page and
+   neon-on-black pastes badly into a white document. The light branch
+   re-steps the same four hues for a light surface rather than reusing
+   the neon values, which would be unreadable on white.
+   --------------------------------------------------------------- */
 :root{
-  color-scheme: light;
-  --surface:#fcfcfb; --page:#f9f9f7;
-  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
-  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#4a3aa7;
-  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-ink:#006300;
-}
-@media (prefers-color-scheme: dark){
-  :root:where(:not([data-theme="light"])){
-    color-scheme: dark;
-    --surface:#1a1a19; --page:#0d0d0d;
-    --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
-    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
-    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#9085e9;
-    --good-ink:#0ca30c;
-  }
-}
-:root[data-theme="dark"]{
   color-scheme: dark;
-  --surface:#1a1a19; --page:#0d0d0d;
-  --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
-  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#9085e9;
-  --good-ink:#0ca30c;
+  --page:#08090d; --surface:#101218; --raised:#161922;
+  --ink:#f2f5fb; --ink-2:#9aa4bd; --muted:#5f6982;
+  --grid:rgba(255,255,255,.055); --axis:rgba(255,255,255,.14);
+  --border:rgba(255,255,255,.085);
+  --accent:#22d3ee; --accent-2:#818cf8;
+  --glow:rgba(34,211,238,.30); --glow-2:rgba(129,140,248,.26);
+  --s1:#22d3ee; --s2:#818cf8; --s3:#fbbf24; --s4:#fb7185; --s5:#c084fc; --s6:#34d399;
+  --good:#34d399; --warn:#fbbf24; --crit:#fb7185; --good-ink:#34d399;
+  --shadow:0 1px 2px rgba(0,0,0,.6);
+}
+:root[data-theme="light"]{
+  color-scheme: light;
+  --page:#f7f8fa; --surface:#ffffff; --raised:#ffffff;
+  --ink:#0d1117; --ink-2:#4a5265; --muted:#79839a;
+  --grid:rgba(13,17,23,.08); --axis:rgba(13,17,23,.20);
+  --border:rgba(13,17,23,.12);
+  --accent:#0e7490; --accent-2:#4f46e5;
+  --glow:rgba(14,116,144,.16); --glow-2:rgba(79,70,229,.14);
+  --s1:#0e7490; --s2:#4f46e5; --s3:#b45309; --s4:#be123c; --s5:#7e22ce; --s6:#047857;
+  --good:#047857; --warn:#b45309; --crit:#be123c; --good-ink:#047857;
+  --shadow:0 1px 2px rgba(13,17,23,.08);
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--page);color:var(--ink);
@@ -41,11 +46,18 @@ h1{font-size:30px;line-height:1.22;margin:0 0 8px;letter-spacing:-.02em}
 .tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin:26px 0 0}
 .tab{appearance:none;border:0;background:none;cursor:pointer;font:600 14px/1 system-ui,sans-serif;
   color:var(--ink-2);padding:12px 14px;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:6px 6px 0 0}
+.tab{transition:color .18s,background .18s,box-shadow .18s}
 .tab:hover{color:var(--ink);background:var(--surface)}
-.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--s1)}
-.tab:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);
+  box-shadow:0 6px 18px -12px var(--glow)}
+.tab[aria-selected="true"]::after{content:"";position:absolute}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .panel{display:none;padding-top:26px}
 .panel.active{display:block}
+@media (prefers-reduced-motion: no-preference){
+  .panel.active{animation:rise .32s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}
 h2{font-size:23px;line-height:1.3;margin:0 0 10px;letter-spacing:-.01em}
 h3{font-size:16px;margin:30px 0 8px}
 p{margin:0 0 14px;color:var(--ink-2);max-width:72ch}
@@ -61,14 +73,22 @@ p.lead{color:var(--ink)}
 .note p{margin:0;font-size:14px}
 .note strong{color:var(--ink)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}
-.tile{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 15px}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px;
+  transition:transform .2s,border-color .2s,box-shadow .2s}
+@media (prefers-reduced-motion: no-preference){
+  .tile:hover{transform:translateY(-2px);border-color:rgba(34,211,238,.25);
+    box-shadow:0 16px 34px -26px var(--glow)}
+}
 .tile .v{font-size:25px;font-weight:650;letter-spacing:-.02em;line-height:1.1}
 .tile .l{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
 /* Leakage figures are big percentages where SMALLER is better, so unstyled they
    read like achievements -- 63.8% looks like coverage rather than a problem. */
 .tile .v.good{color:var(--good-ink)}
 .tile .v.bad{color:var(--crit)}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 16px 10px;margin:16px 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:16px 16px 10px;margin:16px 0;box-shadow:var(--shadow);
+  transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:rgba(34,211,238,.22);box-shadow:0 0 0 1px rgba(34,211,238,.06),0 18px 40px -28px var(--glow)}
 .card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:4px}
 .card-t{font-size:14.5px;font-weight:640;color:var(--ink)}
 .card-n{font-size:12.5px;color:var(--muted);margin-top:3px;max-width:70ch}
@@ -89,7 +109,15 @@ text{fill:var(--muted);font:11px system-ui,sans-serif}
 text.val{fill:var(--ink-2);font-size:10px;text-anchor:middle;font-variant-numeric:tabular-nums}
 text.cat{fill:var(--ink-2);font-size:12.5px;text-anchor:middle}
 rect.bar{transition:opacity .12s}
-rect.bar:hover{opacity:.78}
+rect.bar:hover{opacity:.85;filter:drop-shadow(0 0 6px currentColor)}
+@media (prefers-reduced-motion: no-preference){
+  svg.chart rect.bar{transform-box:fill-box;transform-origin:bottom;
+    animation:grow .5s cubic-bezier(.2,.8,.3,1) both}
+  @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+  svg.chart polyline{stroke-dasharray:2000;stroke-dashoffset:2000;
+    animation:draw 1s ease-out forwards}
+  @keyframes draw{to{stroke-dashoffset:0}}
+}
 details.tbl{margin:12px 0;border:1px solid var(--border);border-radius:9px;background:var(--surface);overflow:hidden}
 details.tbl>summary{cursor:pointer;padding:12px 15px;font-weight:600;font-size:13.5px;list-style:none}
 details.tbl>summary::-webkit-details-marker{display:none}
@@ -116,8 +144,13 @@ td.wrap{white-space:normal;text-align:left;min-width:230px;max-width:340px;
    glance needed horizontal scrolling. Cards give each family its own column
    that wraps naturally at any width. */
 .fam{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin:18px 0}
-.fam-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
-  padding:15px 16px;display:flex;flex-direction:column}
+.fam-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:15px 16px;display:flex;flex-direction:column;box-shadow:var(--shadow);
+  transition:transform .2s,border-color .2s,box-shadow .2s}
+@media (prefers-reduced-motion: no-preference){
+  .fam-card:hover{transform:translateY(-3px);border-color:rgba(129,140,248,.3);
+    box-shadow:0 20px 44px -28px var(--glow-2)}
+}
 .fam-name{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
 .fam-models{font-size:17px;font-weight:650;letter-spacing:-.01em;margin:3px 0 12px}
 .fam-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
@@ -136,13 +169,62 @@ td.wrap{white-space:normal;text-align:left;min-width:230px;max-width:340px;
 footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px}
 code{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12.5px}
 @media (max-width:640px){h1{font-size:25px}.wrap{padding:22px 14px 60px}}
+
+/* ---------------- try-it detector ---------------- */
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.themebtn{appearance:none;cursor:pointer;background:var(--surface);color:var(--ink-2);
+  border:1px solid var(--border);border-radius:8px;padding:8px 12px;font:600 12px system-ui,sans-serif;
+  transition:color .2s,border-color .2s,box-shadow .2s}
+.themebtn:hover{color:var(--ink);border-color:rgba(34,211,238,.35);box-shadow:0 0 0 1px rgba(34,211,238,.08)}
+.det{background:linear-gradient(180deg,var(--raised),var(--surface));
+  border:1px solid var(--border);border-radius:14px;padding:18px;margin:18px 0;
+  box-shadow:0 0 0 1px rgba(34,211,238,.05),0 30px 60px -40px var(--glow)}
+.det textarea{width:100%;min-height:150px;resize:vertical;background:var(--page);color:var(--ink);
+  border:1px solid var(--border);border-radius:10px;padding:13px 14px;
+  font:14px/1.6 system-ui,sans-serif;transition:border-color .2s,box-shadow .2s}
+.det textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+.det-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:11px}
+.btn{appearance:none;cursor:pointer;border:0;border-radius:9px;padding:10px 16px;
+  font:650 13px system-ui,sans-serif;color:#04141a;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  transition:transform .15s,box-shadow .2s,filter .2s}
+.btn:hover{filter:brightness(1.08);box-shadow:0 10px 26px -14px var(--glow)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.5;cursor:default;filter:none;box-shadow:none}
+.btn.ghost{background:none;border:1px solid var(--border);color:var(--ink-2);font-weight:600}
+.btn.ghost:hover{color:var(--ink);border-color:rgba(34,211,238,.35)}
+.det-out{margin-top:16px;display:none}
+.det-out.on{display:block}
+@media (prefers-reduced-motion: no-preference){.det-out.on{animation:rise .3s ease-out both}}
+.gauge{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.gnum{font-size:40px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.gtrack{flex:1;min-width:190px;height:9px;border-radius:99px;background:var(--page);
+  border:1px solid var(--border);overflow:hidden}
+.gfill{height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--s4));
+  transition:width .7s cubic-bezier(.2,.8,.3,1)}
+.verdict{font-size:11px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;margin-bottom:5px}
+.terms{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.term{font-size:12px;padding:4px 9px;border-radius:99px;border:1px solid var(--border);
+  background:var(--page);font-variant-numeric:tabular-nums}
+.term.f{color:var(--crit);border-color:rgba(251,113,133,.32)}
+.term.r{color:var(--good);border-color:rgba(52,211,153,.32)}
+.spin{display:inline-block;width:13px;height:13px;border-radius:50%;
+  border:2px solid var(--border);border-top-color:var(--accent);vertical-align:-2px;margin-right:7px}
+@media (prefers-reduced-motion: no-preference){.spin{animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}}
+.limits{margin-top:16px;padding-top:14px;border-top:1px solid var(--border);
+  font-size:12.5px;color:var(--muted);line-height:1.65}
+.limits strong{color:var(--ink-2)}
 </style>
 </head>
 <body>
 <div class="wrap">
-<header>
+<header class="hdr">
+  <div>
   <h1>Can AI-generated fake news train a fake-news detector?</h1>
   <p class="meta">Training: ISOT · Testing: LIAR and WELFake (both unseen) · Synthetic text: GPT-4o-mini</p>
+  </div>
+  <button class="themebtn" id="themebtn" type="button">◐ Light</button>
 </header>
 
 <div class="tabs" role="tablist">
@@ -151,6 +233,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <button class="tab" role="tab" data-panel="rq3" aria-selected="false">RQ3 · Model families</button>
   <button class="tab" role="tab" data-panel="rq4" aria-selected="false">RQ4 · Style attacks</button>
   <button class="tab" role="tab" data-panel="fw" aria-selected="false">Evaluation framework</button>
+  <button class="tab" role="tab" data-panel="try" aria-selected="false">▸ Try it</button>
 </div>
 
 <!-- ============ RQ1 ============ -->
@@ -303,6 +386,22 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <div class="note"><p><strong>Overlap comes from ISOT's own duplicates.</strong> The split is on rows rather than unique texts, so a duplicated article can land on both sides. <code>evaluate.py leakage</code> fails above 2%.</p></div>
 </section>
 
+
+<!-- ============ TRY IT ============ -->
+<section class="panel" id="try" role="tabpanel">
+  <h2>Try the detector</h2>
+  <div class="det">
+    <textarea id="det-in" placeholder="Paste a news article here…" spellcheck="false"></textarea>
+    <div class="det-bar">
+      <button class="btn" id="det-go" type="button">Analyse</button>
+      <span id="det-ex"></span>
+      <button class="btn ghost" id="det-clear" type="button">Clear</button>
+    </div>
+    <div class="det-out" id="det-out"></div>
+    <div class="limits" id="det-limits"></div>
+  </div>
+</section>
+
 <footer>
   Generated from the project's results files by <code>src/build_report.py</code> — every figure is read
   from <code>results/</code> at build time rather than typed in, so this page cannot disagree with the
@@ -311,6 +410,9 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 </div>
 
 <script>
+/*__DETECTOR__*/
+</script>
+<script>
 const DATA = /*__DATA__*/null;
 (function(){
 "use strict";
@@ -318,6 +420,7 @@ const NS="http://www.w3.org/2000/svg";
 const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const SER=()=>[cv("--s1"),cv("--s2"),cv("--s3"),cv("--s4"),cv("--s5"),cv("--s6")];
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const REDRAW=[];
 const METRIC_LABEL={f1:"F1 score",auc_roc:"AUC-ROC",accuracy:"Accuracy",precision:"Precision",recall:"Recall"};
 const L=DATA.labels;
 
@@ -497,7 +600,9 @@ const metricSeg=(host,onPick,ms)=>seg(host,(ms||DATA.metrics).map(m=>({label:MET
 
 /* ================= RQ1 — models on x, recipes as series ================= */
 const RQ1C=DATA.rq1.comps;
+let RQ1_M="f1";
 function rq1(metric){
+  RQ1_M=metric;
   const cols=SER();
   bars(document.getElementById("c-rq1"),{
     categories:DATA.models,height:320,
@@ -508,7 +613,7 @@ function rq1(metric){
 }
 legend(document.getElementById("l-rq1"),RQ1C.map((c,i)=>({name:L[c],color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq1"]'),rq1);
-rq1("f1");
+rq1("f1"); REDRAW.push(()=>rq1(RQ1_M));
 table(document.getElementById("t-rq1"),
   ["Recipe","Model","Accuracy","Precision","Recall","F1","AUC-ROC"],
   RQ1C.flatMap(c=>DATA.models.map(m=>{const d=DATA.rq1.liar[c]&&DATA.rq1.liar[c][m];
@@ -530,11 +635,13 @@ function auth(){
 legend(document.getElementById("l-auth"),[{name:"Only the fake class is AI-written",color:SER()[0]},
   {name:"Both classes are AI-written",color:SER()[1]}]);
 seg(document.getElementById("seg-auth"),[{label:"Tested on LIAR",value:"liar"},
-  {label:"Tested on WELFake",value:"welfake"}],v=>{AUTH=v;auth();});
+  {label:"Tested on WELFake",value:"welfake"}],v=>{AUTH=v;auth(); REDRAW.push(auth);});
 auth();
 
 /* ================= RQ2 ================= */
+let RQ2_M="f1";
 function rq2(metric){
+  RQ2_M=metric;
   const cols=SER();
   lines(document.getElementById("c-rq2"),{categories:DATA.rq2.fractions,
     series:DATA.models.map((m,i)=>({name:m,color:cols[i],
@@ -543,7 +650,7 @@ function rq2(metric){
 }
 legend(document.getElementById("l-rq2"),DATA.models.map((m,i)=>({name:m,color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq2"]'),rq2,["f1","auc_roc","precision","recall"]);
-rq2("f1");
+rq2("f1"); REDRAW.push(()=>rq2(RQ2_M));
 table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","Recall","F1","AUC-ROC"],
   DATA.rq2.fractions.flatMap((f,fi)=>DATA.models.map(m=>{const s=DATA.rq2.series[m]||{};
     return [f,m,fmt(s.precision&&s.precision[fi]),fmt(s.recall&&s.recall[fi]),fmt(s.f1&&s.f1[fi]),
@@ -599,9 +706,13 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
   });
 
   legend(document.getElementById("l-fam"),[{name:"Mean F1 across the six recipes (line = worst to best recipe)",color:cols[0]}]);
+  REDRAW.push(()=>drawFam());
+  function drawFam(){
   barsRange(document.getElementById("c-fam"),{categories:DATA.models,height:290,
     series:[{name:"Across recipes",color:cols[0],
       values:DATA.models.map(m=>BM[m]?{mean:BM[m].mean,min:BM[m].min,max:BM[m].max}:null)}]});
+  }
+  drawFam();
 
   const S=DATA.rq3.seeds,names=Object.keys(S);
   // Nine conditions with full recipe names collide on a horizontal axis, so the
@@ -611,10 +722,14 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
     "Real + Synthetic (diverse-sourced)":"R+Syn div","Style-robust":"Style-rob",
     "swap_025":"25% syn","swap_075":"75% syn"};
   legend(document.getElementById("l-seed"),[{name:"CNN",color:cols[2]},{name:"BERT",color:cols[3]}]);
+  REDRAW.push(()=>drawSeed());
+  function drawSeed(){
   barsRange(document.getElementById("c-seed"),{categories:names.map(n=>SHORT[n]||n),
     width:Math.max(760,names.length*92),height:300,
     series:[{name:"CNN",color:cols[2],values:names.map(n=>S[n].CNN)},
             {name:"BERT",color:cols[3],values:names.map(n=>S[n].BERT)}]});
+  }
+  drawSeed();
   if(SS.BERT){document.getElementById("v-bertstd").textContent=SS.BERT.mean_std.toFixed(3);
     document.getElementById("v-bertmax").textContent=SS.BERT.max_std.toFixed(3);}
   if(SS.CNN)document.getElementById("v-cnnstd").textContent=SS.CNN.mean_std.toFixed(3);
@@ -649,7 +764,7 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
   legend(document.getElementById("l-match"),[{name:"Full text",color:cols[0]},
     {name:"All models capped at 300 words",color:cols[1]}]);
   seg(document.getElementById("seg-match"),names.map(n=>({label:n,value:n})),v=>{cur=v;draw();});
-  draw();
+  draw(); REDRAW.push(draw);
   table(document.getElementById("t-match"),["Recipe","Model","F1 full","F1 @300w","Δ F1","AUC full","AUC @300w"],
     names.flatMap(n=>DATA.models.map(m=>{const d=M[n][m];if(!d)return [n,m,"—","—","—","—","—"];
       const dl=d.f1_max300-d.f1_full;
@@ -661,6 +776,8 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
 /* ================= RQ4 ================= */
 (function(){
   const f=DATA.rq4.flips,recipes=Object.keys(f),cols=SER();
+  REDRAW.push(()=>drawRQ4());
+  function drawRQ4(){
   legend(document.getElementById("l-rq4"),recipes.map((r,i)=>({name:r,color:cols[i]})));
   bars(document.getElementById("c-rq4"),{categories:DATA.models,height:300,max:0.65,
     series:recipes.map((r,i)=>({name:r,color:cols[i],values:DATA.models.map(m=>f[r][m])}))});
@@ -669,6 +786,8 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
   bars(document.getElementById("c-rev"),{categories:DATA.models,height:250,max:0.08,
     series:[{name:"Trained direction",color:cols[0],values:DATA.models.map(m=>DATA.rq4.original[m])},
       {name:"Reverse direction",color:cols[1],values:DATA.models.map(m=>DATA.rq4.reverse[m])}]});
+  }
+  drawRQ4();
   const b=DATA.rq4.baseline,names=Object.keys(b);
   table(document.getElementById("t-rq4"),["Recipe","Model","Accuracy","Precision","Recall","F1","AUC-ROC"],
     names.flatMap(n=>DATA.models.map(m=>{const d=b[n][m];
@@ -692,7 +811,7 @@ metricSeg(document.querySelector('[data-metric-for="c-fw"]'),m=>{FW_M=m;fw();});
 seg(document.getElementById("seg-fw-recipe"),
   DATA.framework.comps.map(c=>({label:L[c].replace("Synthetic-real","S-real").replace(" (diverse-sourced)"," (div)"),value:c})),
   v=>{FW_C=v;fw();});
-fw();
+fw(); REDRAW.push(fw);
 table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Precision","Recall","F1","AUC-ROC"],
   DATA.framework.comps.flatMap(c=>DATA.models.flatMap(m=>
     [["LIAR",DATA.framework.liar],["WELFake",DATA.framework.welfake]].map(([nm,src])=>{
@@ -709,6 +828,7 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
   const series=keys.map((k,i)=>({name:k,color:cols[i%cols.length],values:Ld.both[k]}));
   legend(document.getElementById("l-len"),series.map(s=>({name:s.name,color:s.color})));
   lines(document.getElementById("c-len"),{categories:Ld.both_labels,series});
+  REDRAW.push(()=>lines(document.getElementById("c-len"),{categories:Ld.both_labels,series:Object.keys(Ld.both).sort().map((k,i)=>({name:k,color:SER()[i%6],values:Ld.both[k]}))}));
 })();
 (function(){
   const q=DATA.framework.quality;if(!q)return;
@@ -745,7 +865,121 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
   if(df)add(df.pct.toFixed(1)+"%","↓ of ISOT's fake articles are exact duplicates of another row — a property of the source dataset, and the cause of the small overlap above.");
 })();
 
+
+
+/* ================= try-it detector ================= */
+(function(){
+  const inp=document.getElementById("det-in"), go=document.getElementById("det-go"),
+        out=document.getElementById("det-out"), ex=document.getElementById("det-ex"),
+        clr=document.getElementById("det-clear"), lim=document.getElementById("det-limits");
+  if(!inp) return;
+
+  const M = window.DETECTOR_MODEL;
+  const meta = M && M.meta ? M.meta : null;
+
+  // The framing is part of the feature, not decoration. This project's own
+  // result is that these detectors lean on shortcuts and fall off outside
+  // their training domain, so the page has to say what the thing actually is.
+  lim.innerHTML = M
+    ? `<strong>What this is.</strong> The Logistic Regression model from the
+       <em>Real + Real</em> recipe — trained on genuine ISOT articles and genuine fake news,
+       running entirely in your browser. Measured performance on unseen LIAR data:
+       <strong>F1 ${meta.f1}</strong>, <strong>AUC-ROC ${meta.auc}</strong>.<br>
+       <strong>What it is not.</strong> ISOT is 2016–17 US political news, so anything else —
+       other topics, other years, other languages, social posts — is outside the data it
+       learned from and its answer there means little. It is a research demo for showing how
+       the model behaves, <strong>not a fact-checking tool</strong>, and this chapter's own
+       findings are largely about the ways detectors like it can be confidently wrong.`
+    : `<strong>Model not bundled.</strong> Run <code>python src/export_detector_model.py</code>
+       then <code>python src/build_report.py</code> to enable this tab.`;
+
+  if(!M){ go.disabled=true; return; }
+
+  (DATA.demo||[]).forEach(d=>{
+    const b=document.createElement("button");
+    b.className="btn ghost"; b.type="button"; b.textContent=d.label;
+    b.onclick=()=>{inp.value=d.text; out.classList.remove("on");};
+    ex.appendChild(b);
+  });
+  clr.onclick=()=>{inp.value="";out.classList.remove("on");};
+
+  function render(r){
+    const pct=r.prob_fake*100, fake=r.prob_fake>=0.5;
+    out.innerHTML=`
+      <div class="gauge">
+        <div>
+          <div class="verdict" style="color:${fake?"var(--crit)":"var(--good)"}">
+            ${fake?"Predicted FAKE":"Predicted REAL"}</div>
+          <div class="gnum" style="color:${fake?"var(--crit)":"var(--good)"}">
+            <span id="gv">0.0</span>%</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">
+            confidence this is fake</div>
+        </div>
+        <div class="gtrack"><div class="gfill" id="gf"></div></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:12px">
+        ${r.tokens.toLocaleString()} words after cleaning ·
+        ${r.matched.toLocaleString()} vocabulary features matched
+        <span style="opacity:.7">(single words and word pairs, so this can exceed the word count)</span></div>
+      <div style="font-size:12px;color:var(--ink-2);margin-top:14px">
+        Terms that moved the decision most:</div>
+      <div class="terms">${r.top.map(t=>
+        `<span class="term ${t.weight>0?"f":"r"}">${t.term} ${t.weight>0?"+":""}${t.weight.toFixed(3)}</span>`
+      ).join("")}</div>`;
+    out.classList.add("on");
+    requestAnimationFrame(()=>{ document.getElementById("gf").style.width=pct+"%"; });
+    // count-up on the headline number
+    const el=document.getElementById("gv"); const t0=performance.now(), D=700;
+    const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(reduce){ el.textContent=pct.toFixed(1); return; }
+    (function tick(now){
+      const k=Math.min(1,(now-t0)/D), e=1-Math.pow(1-k,3);
+      el.textContent=(pct*e).toFixed(1);
+      if(k<1) requestAnimationFrame(tick);
+    })(t0);
+  }
+
+  go.onclick=()=>{
+    const text=inp.value.trim();
+    if(!text){ out.innerHTML='<div class="note warn"><p>Paste some text first.</p></div>';
+      out.classList.add("on"); return; }
+    go.disabled=true; go.innerHTML='<span class="spin"></span>Analysing…';
+    setTimeout(()=>{
+      let r=null, err=null;
+      try{ r=window.Detector.score(text); }catch(e){ err=e; }
+      go.disabled=false; go.textContent="Analyse";
+      if(err){ out.innerHTML='<div class="note crit"><p>Scoring failed: '+err.message+'</p></div>';
+        out.classList.add("on"); return; }
+      if(!r||r.empty){
+        out.innerHTML='<div class="note warn"><p>No usable words after cleaning — the text is too '
+          +'short, or none of it is in the model\'s 50,000-term vocabulary.</p></div>';
+        out.classList.add("on"); return; }
+      render(r);
+    },30);
+  };
+})();
+
 const tabs=[...document.querySelectorAll(".tab")];
+window.__redraw=function(){ REDRAW.forEach(f=>{try{f();}catch(e){}}); };
+
+/* ================= theme toggle ================= */
+(function(){
+  const btn=document.getElementById("themebtn"), root=document.documentElement;
+  const KEY="fnd-theme";
+  function set(t){
+    if(t==="light") root.setAttribute("data-theme","light");
+    else root.removeAttribute("data-theme");
+    btn.textContent = t==="light" ? "◑ Dark" : "◐ Light";
+    try{localStorage.setItem(KEY,t);}catch(e){}
+    // Charts read their colours from CSS variables at draw time, so they have
+    // to be redrawn after a theme change or they keep the old palette.
+    if(window.__redraw) window.__redraw();
+  }
+  let cur="dark";
+  try{cur=localStorage.getItem(KEY)||"dark";}catch(e){}
+  set(cur);
+  btn.onclick=()=>set(root.getAttribute("data-theme")==="light"?"dark":"light");
+})();
 tabs.forEach(t=>t.onclick=()=>{
   tabs.forEach(x=>x.setAttribute("aria-selected","false"));
   t.setAttribute("aria-selected","true");

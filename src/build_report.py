@@ -332,6 +332,36 @@ def leakage_block():
     }
 
 
+def demo_examples():
+    """Two ready-made inputs for the try-it box, so it is usable without the
+    visitor having to find an article first.
+
+    Taken from the project's own data: a genuine held-out ISOT article and one
+    of the synthetic fakes, which makes the demo show the actual thing this
+    thesis is about rather than arbitrary text.
+    """
+    out = []
+    p = cfg.PROCESSED_DIR / "test_crossdomain.csv"
+    if p.exists():
+        df = pd.read_csv(p)
+        real = df[(df.label == 0) & (df.text.astype(str).str.len().between(900, 2200))]
+        if len(real):
+            out.append({"label": "Genuine article (held-out ISOT)",
+                        "kind": "real",
+                        "text": str(real.sample(1, random_state=cfg.SEED).iloc[0]["text"])})
+    p = cfg.SYNTHETIC_DIR / "synthetic_fake.csv"
+    if p.exists():
+        df = pd.read_csv(p)
+        fake = df[df.text.astype(str).str.len().between(900, 2200)]
+        if len(fake):
+            r = fake.sample(1, random_state=cfg.SEED).iloc[0]
+            out.append({"label": "AI-generated fake (one fact altered)",
+                        "kind": "fake",
+                        "text": str(r["text"]),
+                        "changed": str(r.get("modified_fact", ""))})
+    return out
+
+
 def collect():
     rq1_comps = ["real_real", "mixed", "real_syn",
                  "c2_synreal_realfake", "c3_synreal_synfake"]
@@ -352,6 +382,7 @@ def collect():
         "framework": {"comps": rq3_comps, "liar": liar_block(rq3_comps),
                       "welfake": welfake_block(rq3_comps), "length": length_block(),
                       "quality": quality_block(), "leakage": leakage_block()},
+        "demo": demo_examples(),
     }
 
 
@@ -359,10 +390,29 @@ def main():
     data = collect()
     tpl = (cfg.ROOT / "src" / "report_template.html").read_text(encoding="utf-8")
     html = tpl.replace("/*__DATA__*/null", json.dumps(data, indent=None))
+
+    # Inline the detector rather than linking it. The page has to work when
+    # opened straight off disk, where fetch() is blocked by CORS and an
+    # external <script src> is not reliably executed -- and the report's whole
+    # point is being one file you can send someone. Costs ~1.5 MB.
+    model = cfg.ROOT / "detector_model.js"
+    scorer = cfg.ROOT / "src" / "detector.js"
+    if model.exists() and scorer.exists():
+        blob = model.read_text(encoding="utf-8") + "\n" + scorer.read_text(encoding="utf-8")
+        html = html.replace("/*__DETECTOR__*/", blob)
+        det = f"inlined ({len(blob)/1024/1024:.2f} MB)"
+    else:
+        # Leave the placeholder empty; the tab detects the missing model and
+        # says so instead of throwing.
+        html = html.replace("/*__DETECTOR__*/", "")
+        det = "MISSING -- run src/export_detector_model.py first"
+
     out = cfg.ROOT / "results_report.html"
     out.write_text(html, encoding="utf-8")
     kb = len(html) / 1024
     print(f"Wrote {out} ({kb:.0f} KB)")
+    print(f"  detector       : {det}")
+    print(f"  demo examples  : {len(data.get('demo', []))}")
     print(f"  RQ1 recipes    : {len(data['rq1']['liar'])}")
     print(f"  RQ3 families   : {len(data['rq3']['families']['byModel'])}")
     print(f"  seed rows      : {len(data['rq3']['seeds'])}")

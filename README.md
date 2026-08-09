@@ -117,6 +117,11 @@ python src/generate_synthetic_fake_liar.py --n 200  # OpenAI: synthetic FAKE sou
 python src/build_multisource_dataset.py             # combines with ISOT-sourced synthetic -> train_real_syn_multisource
 python src/train.py --model all --dataset multisource      # trains all 4 models on it, evaluates on test_crossdomain
 
+# --- Build the report (run after ANY experiment that changes results/) ---
+python src/export_detector_model.py   # dump the real_real LR weights for the browser demo
+python src/build_report.py            # regenerate results_report.html from results/ + the template
+# results_report.html is GENERATED -- edit src/report_template.html, not the output.
+
 # --- View everything ---
 # open results_report.html in a browser -- static report, all numbers are baked in, no data files needed to view it
 ```
