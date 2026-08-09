@@ -346,15 +346,6 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 
   <div class="note crit"><p><strong>WELFake is not independent.</strong> <span id="v-overlap"></span> of its fake articles are exact text matches for articles in ISOT, the training corpus — against 0.0% for LIAR.</p></div>
 
-  <h3>Is the LIAR gap really about document length?</h3>
-  <div class="card">
-    <div class="card-h"><div><div class="card-t">F1 as the test articles are progressively truncated</div>
-    <div class="card-n">Domain held constant — only length changes. If short text were the problem, these lines would fall.</div></div></div>
-    <div class="legend" id="l-len"></div>
-    <div class="plot"><div id="c-len"></div></div>
-  </div>
-  <div class="note good"><p><strong>Length does not explain the LIAR gap.</strong> Shortening the test articles leaves F1 flat or higher; truncating only the fake class raises it further. The gap is a genuine domain effect.</p></div>
-
   <h3>Is the generated text any good?</h3>
   <div class="tiles" id="tiles-q"></div>
   <details class="tbl"><summary>Diversity — is the generator repeating itself?</summary>
@@ -362,9 +353,6 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <div class="note"><p><strong>Fact edits verify where the evidence was saved.</strong> <span id="v-fact"></span> Where the full source was stored the rate is <span id="v-factfull"></span>, against <span id="v-facttrunc"></span> where only a 1,000-character preview was kept.</p></div>
   <div class="note warn"><p><strong>Plausibility caveat.</strong> The judge is the same model family that generated the text, so self-preference bias cannot be ruled out.</p></div>
 
-  <h3>Did any training text leak into the test sets?</h3>
-  <div class="tiles" id="tiles-leak"></div>
-  <div class="note"><p><strong>Overlap comes from ISOT's own duplicates.</strong> The split is on rows rather than unique texts, so a duplicated article can land on both sides. <code>evaluate.py leakage</code> fails above 2%.</p></div>
 </section>
 
 
@@ -779,14 +767,6 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
   document.getElementById("v-overlap").textContent=w?w.pct.toFixed(1)+"%":"a large share";
 })();
 (function(){
-  const Ld=DATA.framework.length;if(!Ld||!Ld.both_labels)return;
-  const keys=Object.keys(Ld.both).sort(),cols=SER();
-  const series=keys.map((k,i)=>({name:k,color:cols[i%cols.length],values:Ld.both[k]}));
-  legend(document.getElementById("l-len"),series.map(s=>({name:s.name,color:s.color})));
-  lines(document.getElementById("c-len"),{categories:Ld.both_labels,series});
-  REDRAW.push(()=>lines(document.getElementById("c-len"),{categories:Ld.both_labels,series:Object.keys(Ld.both).sort().map((k,i)=>({name:k,color:SER()[i%6],values:Ld.both[k]}))}));
-})();
-(function(){
   const q=DATA.framework.quality;if(!q)return;
   const t=document.getElementById("tiles-q");t.innerHTML="";
   const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
@@ -805,20 +785,6 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
     `Across ${fc.n} ISOT-sourced articles, ${fc.verified}% of the recorded fact edits verify end to end.`;
   if(tr){document.getElementById("v-factfull").textContent=tr.full.toFixed(1)+"%";
     document.getElementById("v-facttrunc").textContent=tr.trunc.toFixed(1)+"%";}
-})();
-(function(){
-  const lk=DATA.framework.leakage;if(!lk)return;
-  const t=document.getElementById("tiles-leak");t.innerHTML="";
-  // Every figure here is one where lower is better, so each carries a tone.
-  const add=(v,l,tone)=>{const d=document.createElement("div");d.className="tile";
-    d.innerHTML=`<div class="v ${tone||""}">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
-  add(lk.worst_tt.toFixed(2)+"%","↓ Worst train/test text overlap across the reported recipes. Under the 2% threshold the pipeline enforces.",
-      lk.worst_tt<=2?"good":"bad");
-  const w=(lk.corpus||[]).find(x=>/welfake/i.test(x.name)),li=(lk.corpus||[]).find(x=>/liar/i.test(x.name));
-  if(w)add(w.pct.toFixed(1)+"%","↓ of the WELFake test articles also exist in ISOT — so it is NOT an independent corpus. This is the problem figure on this page.","bad");
-  if(li)add(li.pct.toFixed(1)+"%","↓ of the LIAR test articles exist in ISOT — genuinely unseen, exactly what a cross-domain test needs.","good");
-  const df=(lk.dups||[]).find(x=>/isot_fake/.test(x.name));
-  if(df)add(df.pct.toFixed(1)+"%","↓ of ISOT's fake articles are exact duplicates of another row — a property of the source dataset, and the cause of the small overlap above.");
 })();
 
 
