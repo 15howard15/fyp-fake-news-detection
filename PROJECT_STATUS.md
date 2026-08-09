@@ -12,7 +12,7 @@ changes. It is a snapshot, not documentation of the system itself (see
   just reported as a number), verified across at least 2 of {model
   architecture, dataset, random seed}, and checked for the most obvious
   alternative explanation before being written up as fact.
-- `src/` (26 files) is organized into 6 pipeline stages + a shared core, with
+- `src/` (32 Python files) is organized into 6 pipeline stages + a shared core, with
   no remaining duplicated logic — checked twice, most recently confirming
   the OpenAI-generation scripts' shared prompts/plumbing now live in
   `gen_common.py` rather than being copy-pasted six times.

@@ -6,7 +6,7 @@ generalization (train on ISOT, test on LIAR).
 
 ## Pipeline structure
 
-`src/` has 26 files, but they're grouped into 6 sequential stages plus a
+`src/` has 32 Python files, but they're grouped into 6 sequential stages plus a
 shared foundation, not scattered:
 
 ![Pipeline structure](results/pipeline_structure.svg)
@@ -15,7 +15,7 @@ Every filename is prefixed by its job (`build_*`, `generate_*`, `run_*`,
 `eval*`) so this grouping is visible directly in a file listing, without
 needing the diagram. Each file does exactly one thing — one dataset variant,
 one generation strategy, one experiment — which is why there are many of
-them rather than a few large multi-purpose scripts; see "26 files in `src/`
+them rather than a few large multi-purpose scripts; see "so many files in `src/`
 — why not fewer?" in `DEFENSE_PREP.md` for the full reasoning.
 
 ## Research question map

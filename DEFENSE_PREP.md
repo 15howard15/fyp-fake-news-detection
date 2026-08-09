@@ -141,7 +141,7 @@ face value.
 
 ## Anticipated questions and prepared answers
 
-**"26 files in `src/` — why not fewer?"**
+**"32 files in `src/` — why not fewer?"**
 File count went through two real passes, not zero: the genuinely duplicated
 code (model classes copy-pasted across 8 training scripts, and the OpenAI
 API-call/retry logic copy-pasted across 6 generation scripts) was

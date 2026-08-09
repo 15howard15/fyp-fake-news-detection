@@ -88,7 +88,7 @@ datasets no model ever sees during training.
 > data more than once — so I made that impossible rather than just being careful."
 
 **If asked about code quality**, this is the strongest thing you can say:
-26 files, organised into those six stages plus a shared core. One cleaning
+32 Python files, organised into those six stages plus a shared core. One cleaning
 function used by all four models, so preprocessing can't be the reason two
 models differ. One training entry point, one evaluation entry point.
 
