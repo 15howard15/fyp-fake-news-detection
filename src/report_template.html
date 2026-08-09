@@ -303,17 +303,6 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <div class="note warn"><p><strong>± is a spread, not a range.</strong> Reconstructing endpoints from three runs invents numbers never observed: it implies ≈0.06–0.83 for BERT under full replacement, where the runs were <span id="v-realsyn-runs"></span>. Quote the observed column.</p></div>
   <div class="note crit"><p><strong>BERT is the least reproducible model here.</strong> Mean seed SD <span id="v-bertstd"></span>, worst case <span id="v-bertmax"></span>, against <span id="v-cnnstd"></span> for CNN and exactly 0.000 for LR and SVM.</p></div>
 
-  <h3>Is the comparison even fair?</h3>
-  <div class="card">
-    <div class="card-h"><div><div class="card-t">F1 with full text vs. all models capped at 300 words</div>
-    <div class="card-n">Same recipes, same test set — the only change is that no model reads more of an article than another.</div></div>
-    <div class="seg" id="seg-match"></div></div>
-    <div class="legend" id="l-match"></div>
-    <div class="plot"><div id="c-match"></div></div>
-  </div>
-  <div class="note crit"><p><strong>LR's advantage is a length artifact.</strong> Given equal input it loses 0.218 F1 — the largest drop of any model in any condition — and falls from first to last. LR/SVM are deterministic here; the CNN/BERT half is single-seed.</p></div>
-  <details class="tbl"><summary>Full text vs. 300-word cap, all models</summary>
-    <div class="tscroll"><div id="t-match"></div></div></details>
 </section>
 
 <!-- ============ RQ4 ============ -->
@@ -738,26 +727,6 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
   const rs=R["Real + Synthetic"]&&R["Real + Synthetic"].BERT;
   if(rs)document.getElementById("v-realsyn-runs").textContent=
     rs.map(v=>v.toFixed(3)).join(", ");
-})();
-(function(){
-  const M=DATA.rq3.matched;if(!M)return;
-  const names=Object.keys(M);let cur=names[0];
-  const cols=SER();
-  function draw(){
-    bars(document.getElementById("c-match"),{categories:DATA.models,height:280,
-      series:[{name:"Full text",color:cols[0],values:DATA.models.map(m=>M[cur][m]?M[cur][m].f1_full:null)},
-        {name:"Capped at 300 words",color:cols[1],values:DATA.models.map(m=>M[cur][m]?M[cur][m].f1_max300:null)}]});
-  }
-  legend(document.getElementById("l-match"),[{name:"Full text",color:cols[0]},
-    {name:"All models capped at 300 words",color:cols[1]}]);
-  seg(document.getElementById("seg-match"),names.map(n=>({label:n,value:n})),v=>{cur=v;draw();});
-  draw(); REDRAW.push(draw);
-  table(document.getElementById("t-match"),["Recipe","Model","F1 full","F1 @300w","Δ F1","AUC full","AUC @300w"],
-    names.flatMap(n=>DATA.models.map(m=>{const d=M[n][m];if(!d)return [n,m,"—","—","—","—","—"];
-      const dl=d.f1_max300-d.f1_full;
-      return [n,m,fmt(d.f1_full),fmt(d.f1_max300),
-        {v:(dl>=0?"+":"")+dl.toFixed(3),cls:dl<-0.05?"bad":(dl>0.02?"good":"")},
-        fmt(d.auc_full),fmt(d.auc_max300)];})));
 })();
 
 /* ================= RQ4 ================= */

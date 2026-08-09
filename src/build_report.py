@@ -13,16 +13,15 @@ Run it after any experiment that changes results/:
 
     python src/build_report.py
 
-Layout: one tab per research question, plus a validity tab for the checks that
-cut across all four (seed stability, matched-length comparison, data quality,
-train/test leakage). Each RQ tab states the question, gives the short answer,
-then shows the evidence with a metric selector so accuracy / precision /
+Layout: one tab per research question, an evaluation-framework tab for the
+cross-domain protocol shared by all four, and a try-it tab running the LR model
+client-side. Each chart carries a metric selector so accuracy / precision /
 recall / F1 / AUC-ROC are all reachable rather than F1 alone.
 
-Colours are the dataviz reference palette used unmodified in slot order
-(blue / orange / aqua / yellow for the four models). Slots 3 and 4 sit below
-3:1 contrast on the light surface, so the relief rule applies: every bar
-carries a direct value label and every chart has a full data table beneath it.
+matched_block() is retained but no longer emitted -- the matched-length
+comparison was dropped from the report. The experiment itself still works
+(`train.py --max-words 300`) and its metrics_*_max300.json files remain, so
+re-adding the section is a one-line change to collect().
 """
 import json
 
@@ -377,7 +376,7 @@ def collect():
         # used to hold is the cross-domain protocol common to all four
         # questions, so it lives under "framework" instead of being one RQ.
         "rq3": {"families": families_block(rq3_comps), "seeds": seed_block(),
-                "seedRuns": seed_runs_block(), "matched": matched_block()},
+                "seedRuns": seed_runs_block()},
         "rq4": style_block(),
         "framework": {"comps": rq3_comps, "liar": liar_block(rq3_comps),
                       "welfake": welfake_block(rq3_comps), "length": length_block(),
