@@ -100,10 +100,34 @@ thead th{background:var(--page);font-size:11.5px;text-transform:uppercase;letter
 tbody tr:last-child td{border-bottom:0}
 td.bad{color:var(--crit);font-weight:600}
 td.good{color:var(--good-ink);font-weight:600}
-/* Prose cells must wrap. Left to nowrap, one sentence pushes the table wider
-   than its container and the summary you are meant to read at a glance turns
-   into a horizontal scroll. */
-td.wrap{white-space:normal;min-width:230px;max-width:340px;font-size:12.5px;color:var(--ink-2);line-height:1.45}
+/* Prose cells must wrap AND read left-to-right. Left to inherit, they take the
+   numeric columns' right-alignment and the table's nowrap, which clips the text
+   and reads badly. */
+td.wrap{white-space:normal;text-align:left;min-width:230px;max-width:340px;
+  font-size:12.5px;color:var(--ink-2);line-height:1.45}
+
+/* Family comparison cards. A table was tried first and was the wrong container:
+   one column is a sentence and the rest are single numbers, so rows grew tall,
+   the prose clipped at the right edge, and the summary meant to be read at a
+   glance needed horizontal scrolling. Cards give each family its own column
+   that wraps naturally at any width. */
+.fam{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin:18px 0}
+.fam-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:15px 16px;display:flex;flex-direction:column}
+.fam-name{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.fam-models{font-size:17px;font-weight:650;letter-spacing:-.01em;margin:3px 0 12px}
+.fam-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  padding:6px 0;border-top:1px solid var(--border);font-size:13px}
+.fam-row .k{color:var(--ink-2)}
+.fam-row .v{font-weight:650;font-variant-numeric:tabular-nums}
+.fam-row .v.best{color:var(--good-ink)}
+.fam-row .v.worst{color:var(--crit)}
+.fam-fail{margin-top:12px;padding-top:11px;border-top:1px solid var(--border)}
+.fam-fail .t{font-size:11px;letter-spacing:.06em;text-transform:uppercase;font-weight:650;margin-bottom:5px}
+.fam-fail .d{font-size:12.5px;line-height:1.5;color:var(--ink-2)}
+.fam-fail.loud .t{color:var(--crit)}
+.fam-fail.quiet .t{color:var(--warn)}
+.fam-fail.inter .t{color:var(--serious,#ec835a)}
 footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--border);color:var(--muted);font-size:12.5px}
 code{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12.5px}
 @media (max-width:640px){h1{font-size:25px}.wrap{padding:22px 14px 60px}}
@@ -215,16 +239,13 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
       Measured as the F1 spread across three random seeds. Smaller = more stable.</div></div>
   </div>
 
-  <h3>The answer in one table</h3>
-  <p>Grouped into the three families the research question names. No family wins every column —
-  that is the finding.</p>
-  <details class="tbl" open><summary>Model families scored on both axes</summary>
-    <div class="tscroll"><div id="t-fam"></div></div></details>
-  <div class="note warn"><p><strong>Each family fails in its own way.</strong> The traditional models
-  never disagree with themselves but SVM stops working entirely under full replacement; CNN degrades
-  gently but its confidence inverts while F1 still looks usable; BERT holds up best across recipes yet
-  one run in three collapsed outright. The rest of this section is the evidence for those three
-  columns.</p></div>
+  <h3>The answer at a glance</h3>
+  <p>Grouped into the three families the research question names. Green marks the best family on each
+  axis and red the worst — no family holds green on all three, and that is the finding.</p>
+  <div class="fam" id="fam-cards"></div>
+  <p>Each family also fails in a different <em>way</em>, which matters as much as how often: one
+  failure announces itself, one hides behind a healthy-looking F1, and one appears only on some runs.
+  The rest of this section is the evidence behind those three rows.</p>
 
   <h3>Evidence 1 — robustness across training recipes</h3>
   <div class="card">
@@ -617,24 +638,41 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
   // description, which is qualitative and names the specific behaviour each
   // family shows (documented in the RQ1 and RQ3 findings).
   const FAIL={
-    "Traditional ML":"SVM stops working entirely under full replacement — it predicts “real” for every article (F1 0.000). Loud and obvious.",
-    "Deep learning":"Degrades gently, but under full replacement its confidence inverts (AUC 0.054) while F1 still looks usable. Quiet and easy to miss.",
-    "Transformer":"Best across recipes, but one seed in three failed to train at all (F1 0.002 against 0.662 and 0.676)."
+    "Traditional ML":{cls:"loud",t:"Fails loudly",
+      d:"SVM stops working entirely under full replacement — it predicts “real” for every article, giving F1 of exactly 0.000. Impossible to miss."},
+    "Deep learning":{cls:"quiet",t:"Fails quietly",
+      d:"Degrades gently, but under full replacement its confidence inverts: AUC-ROC falls to 0.054 while F1 still reads a plausible 0.711. Easy to miss if only F1 is checked."},
+    "Transformer":{cls:"inter",t:"Fails intermittently",
+      d:"Holds up best across recipes, but one seed in three failed to train at all — 0.002 against 0.662 and 0.676 on identical data."}
   };
-  const rank=(v,all)=>{const s=[...all].sort((a,b)=>a-b);
-    return v===s[0]?"good":(v===s[s.length-1]?"bad":"");};
   const fams=F.byFamily||[];
-  const allRange=fams.map(f=>f.recipe_range_worst), allSeed=fams.map(f=>f.seed_std_worst);
-  table(document.getElementById("t-fam"),
-    ["Family","Models","Peak F1","Robustness (spread across recipes)","Stability (spread across seeds)","Characteristic failure"],
-    fams.map(f=>[
-      f.family, f.members.join(" · "), num(f.peak_f1),
-      {v:Object.entries(f.recipe_range).map(([m,v])=>`${m} ${v.toFixed(3)}`).join(" · "),
-       cls:rank(f.recipe_range_worst,allRange)},
-      {v:f.deterministic?"0.000 — deterministic":`up to ${f.seed_std_worst.toFixed(3)}`,
-       cls:f.deterministic?"good":rank(f.seed_std_worst,allSeed)},
-      {v:FAIL[f.family]||"",cls:"wrap"}
-    ]));
+  // Mark the best and worst family per axis so "no family wins every column"
+  // is visible without reading any number.
+  const mark=(v,all,lowerBetter)=>{
+    const s=[...all].sort((a,b)=>a-b), best=lowerBetter?s[0]:s[s.length-1],
+          worst=lowerBetter?s[s.length-1]:s[0];
+    return v===best?"best":(v===worst?"worst":"");
+  };
+  const peaks=fams.map(f=>f.peak_f1), rng=fams.map(f=>f.recipe_range_worst),
+        sd=fams.map(f=>f.seed_std_worst);
+  const host=document.getElementById("fam-cards"); host.innerHTML="";
+  fams.forEach(f=>{
+    const fail=FAIL[f.family]||{cls:"",t:"",d:""};
+    const rowsHtml=[
+      ["Peak F1", num(f.peak_f1), mark(f.peak_f1,peaks,false)],
+      ["Robustness", Object.entries(f.recipe_range).map(([m,v])=>`${m} ${v.toFixed(3)}`).join(" · "),
+        mark(f.recipe_range_worst,rng,true)],
+      ["Stability", f.deterministic?"0.000":`≤ ${f.seed_std_worst.toFixed(3)}`,
+        f.deterministic?"best":mark(f.seed_std_worst,sd,true)],
+    ].map(([k,v,cls])=>`<div class="fam-row"><span class="k">${k}</span><span class="v ${cls}">${v}</span></div>`).join("");
+    const d=document.createElement("div");
+    d.className="fam-card";
+    d.innerHTML=`<div class="fam-name">${f.family}</div>
+      <div class="fam-models">${f.members.join(" · ")}</div>
+      ${rowsHtml}
+      <div class="fam-fail ${fail.cls}"><div class="t">${fail.t}</div><div class="d">${fail.d}</div></div>`;
+    host.appendChild(d);
+  });
 
   legend(document.getElementById("l-fam"),[{name:"Mean F1 across the six recipes (line = worst to best recipe)",color:cols[0]}]);
   barsRange(document.getElementById("c-fam"),{categories:DATA.models,height:290,
