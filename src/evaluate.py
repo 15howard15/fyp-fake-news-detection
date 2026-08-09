@@ -1,28 +1,4 @@
-"""
-evaluate.py -- unified evaluation entry point.
 
-Merges 08_evaluate.py and 11_error_analysis.py (deleted after this file was
-verified to reproduce their output exactly) into one script with
-subcommands. Unlike train.py's merge, these two didn't share
-much actual CODE -- 08 just aggregates already-saved metrics_*.json files,
-while 11 runs its own fresh predictions to capture confusion matrices -- so
-this is a file-count consolidation, not a duplication removal.
-eval_style_robustness.py stays separate: it's a structurally different
-analysis (paired attack-vs-original evaluation of already-trained models),
-not metric aggregation, so folding it in here wouldn't actually simplify
-anything.
-
-Examples:
-    python evaluate.py master                     # aggregate metrics_*.json -> master_results.csv + f1_heatmap.png
-    python evaluate.py error-analysis              # LR+SVM confusion/prediction-distribution + vocab overlap (seconds)
-    python evaluate.py error-analysis --deep       # + CNN + BERT (needs GPU)
-    python evaluate.py error-analysis --deep --models cnn   # pick which deep models
-    python evaluate.py cross-target --dataset welfake      # evaluate real_real/mixed/real_syn on test_crossdomain2 (WELFake)
-    python evaluate.py cross-target --dataset welfake --comp c2_synreal_realfake c3_synreal_synfake
-    python evaluate.py seed-summary                # mean +/- std across seeds, from multiseed_results.csv
-    python evaluate.py case-studies                       # concrete style-attack flip examples, BERT, mixed vs style_robust
-    python evaluate.py case-studies --model lr --comp real_syn --n 5
-"""
 import argparse
 import json
 import sys

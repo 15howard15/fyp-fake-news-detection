@@ -1,11 +1,4 @@
 
-"""
-run_swap_sweep_experiment.py -- evaluate the balance-controlled synthetic-fraction
-sweep built by build_swap_sweep_datasets.py: 0%, 25%, 50%, 75%, 100% synthetic,
-total fake count fixed at 500 throughout (no imbalance confound). All 4
-models, both test_indomain and test_crossdomain, in ONE consistent run so
-CNN/BERT don't pick up cross-script variance across the 5 points.
-"""
 import argparse
 
 import numpy as np

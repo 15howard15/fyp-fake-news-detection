@@ -1,14 +1,4 @@
-"""
-verify_detector.py -- prove the browser scorer agrees with sklearn.
 
-detector.js reimplements clean_text -> TfidfVectorizer -> LogisticRegression by
-hand. A demo that quietly disagreed with the model it claims to be would be
-worse than having no demo, so this runs both implementations over real held-out
-articles and fails loudly if the predicted probabilities diverge.
-
-The JavaScript is executed with Node if available. Without Node the check
-cannot run, and it says so rather than passing silently.
-"""
 import json
 import shutil
 import subprocess

@@ -1,30 +1,4 @@
-"""
-train.py -- unified training entry point for LR/SVM, CNN, and BERT.
 
-Merges the old 05_train_traditional.py, 06_train_cnn.py, 07_train_bert.py,
-18_train_style_robust.py and 19_train_multisource.py (deleted after this
-file was verified to reproduce their output exactly) into one script
-controlled by --model / --dataset. Those five scripts were the same
-train-one-composition-and-evaluate-on-test_crossdomain loop, copy-pasted per
-(model, dataset) combination -- most visibly, 18 and 19 were identical
-except for one string constant. --model/--dataset picks the combination
-instead of picking a file.
-
-Examples:
-    python train.py --model all                          # LR/SVM/CNN/BERT x real_real/mixed/real_syn
-    python train.py --model bert                          # BERT only, x real_real/mixed/real_syn
-    python train.py --model bert --dataset multisource     # BERT on real_syn_multisource
-    python train.py --model cnn --dataset style_robust
-    python train.py --model lr_svm --dataset real_real mixed real_syn style_robust real_syn_multisource
-    python train.py --model bert --dataset real_real --seed 123 --grad_accum 2
-
-Every --dataset value is a composition name: data/processed/train_<name>.csv
-must already exist (build it with build_core_datasets.py / build_style_robust_
-dataset.py / build_multisource_dataset.py first). "multisource" is
-accepted as a short alias for real_syn_multisource. All datasets are always
-evaluated on test_crossdomain.csv, matching every one of the five merged
-scripts.
-"""
 import argparse
 from collections import Counter
 

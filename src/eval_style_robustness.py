@@ -1,18 +1,4 @@
 
-"""
-eval_style_robustness.py -- Objective 4 evaluation: for each already-
-trained model/composition, compare performance on the ORIGINAL held-out
-articles vs. the STYLE-ATTACKED versions of the SAME articles (see
-generate_style_attack.py). A robust model's accuracy should barely move;
-a model relying on tone/sentiment shortcuts will degrade sharply.
-
-Also reports FLIP RATE: of the articles the model got right originally,
-what fraction does it get WRONG after the style attack. This is a more
-direct robustness signal than aggregate F1, since it's paired per-article.
-
-No retraining -- reuses the already-saved LR/SVM/CNN/BERT checkpoints for
-real_real / mixed / real_syn, so this is cheap to run.
-"""
 import argparse
 
 import joblib

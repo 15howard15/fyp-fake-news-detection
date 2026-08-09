@@ -1,31 +1,4 @@
-"""
-generate_style_attack.py -- Objective 4: does the model rely on stylistic/
-sentiment cues rather than content when judging real vs. fake?
 
-This builds the missing experiment behind Research Objective 4 ("analyze
-whether style-diverse synthetic fake news enhances model resistance to
-stylistic manipulation and sentiment-based attacks") and the AdSent/
-Tahmasebi et al. (2026) framing in the literature review: many detectors
-implicitly associate NEUTRAL tone with real news and EMOTIONAL/sensational
-tone with fake news. If that's true, you can fool a detector by rewriting
-the STYLE of an article while leaving every fact and its true label
-unchanged:
-    - a REAL article rewritten with sensational/alarmist tone should still
-      be predicted real (if the model is robust) or may get misclassified
-      as fake (if it's using tone as a shortcut)
-    - a FAKE article rewritten with calm, neutral, factual-sounding tone
-      should still be predicted fake (if robust) or may get misclassified
-      as real (if using tone as a shortcut)
-
-Source articles are drawn from test_indomain.csv (held-out ISOT), so the
-attack is applied to data no model has trained on either way.
-
-Output: data/synthetic/style_attack.csv with columns
-    text, label, source_text, attack_type
-"index" is preserved via a paired "orig_id" so eval_style_robustness.py
-can match each attacked article back to its original for a before/after
-comparison.
-"""
 import argparse
 import os
 

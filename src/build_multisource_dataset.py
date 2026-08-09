@@ -1,17 +1,4 @@
 
-"""
-build_multisource_dataset.py -- Objective 1 fix: builds a
-"real_syn_multisource" composition where the synthetic fake class is drawn
-from TWO source datasets (ISOT via generate_synthetic_fake.py, LIAR via
-generate_synthetic_fake_liar.py) instead of one.
-
-Everything else -- the real class, and the TOTAL fake count -- is kept
-identical to the existing train_real_syn.csv, so this is a direct,
-single-variable ablation: same size, same real class, only the source mix
-of the synthetic fake class changes. Compare model performance on this
-composition against train_real_syn.csv to test whether "diverse sources"
-(Objective 1) actually changes detection performance.
-"""
 import pandas as pd
 
 import config as cfg

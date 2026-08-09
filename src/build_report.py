@@ -1,29 +1,4 @@
-"""
-build_report.py -- regenerate results_report.html from the results files.
 
-The report used to be hand-written HTML with every number typed into a
-JavaScript literal. That works until a number changes: the tables and the
-underlying results/*.json drift apart silently, and the only way to catch it
-is to re-check every figure by hand (which is how several mismatches were
-found). This script removes that failure mode -- every value in the report is
-read from results/ at build time, so the report cannot disagree with the data
-it claims to summarise.
-
-Run it after any experiment that changes results/:
-
-    python src/build_report.py
-
-Layout: one tab per research question, plus a validity tab for the checks that
-cut across all four (seed stability, matched-length comparison, data quality,
-train/test leakage). Each RQ tab states the question, gives the short answer,
-then shows the evidence with a metric selector so accuracy / precision /
-recall / F1 / AUC-ROC are all reachable rather than F1 alone.
-
-Colours are the dataviz reference palette used unmodified in slot order
-(blue / orange / aqua / yellow for the four models). Slots 3 and 4 sit below
-3:1 contrast on the light surface, so the relief rule applies: every bar
-carries a direct value label and every chart has a full data table beneath it.
-"""
 import json
 
 import pandas as pd

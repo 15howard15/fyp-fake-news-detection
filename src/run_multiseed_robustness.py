@@ -1,21 +1,4 @@
 
-"""
-run_multiseed_robustness.py -- CNN and BERT are each a SINGLE training run per
-composition elsewhere in this project (unlike LR/SVM, which are deterministic
-given fixed data). This script reruns the 7 compositions -- the 3 base
-replacement conditions (real_real, mixed, real_syn), the two additional
-synthetic-fraction sweep points (swap_025, swap_075), and the two Q3
-synthetic-real authorship-shortcut controls (c2_synreal_realfake,
-c3_synreal_synfake) -- at 2 extra seeds (1, 2), on top of the existing
-seed-42 result, so CNN/BERT can be reported as mean +/- std instead of a
-single point estimate. C2/C3 were added specifically because C3's near-zero
-AUC-ROC was flagged as "unexplained" -- a seed check rules out "one unlucky
-run" before looking for a content-level explanation.
-
-Kept as a standalone script (not folded into 06/07/10/12) so it can't
-accidentally overwrite the main pipeline's saved results -- everything here
-goes to its own file, results/extra/multiseed_results.csv.
-"""
 import argparse
 
 import numpy as np

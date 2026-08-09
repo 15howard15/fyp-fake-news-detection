@@ -1,16 +1,4 @@
-"""
-build_walkthrough.py -- generate pipeline_walkthrough.ipynb.
 
-The notebook is a READ-ONLY tour of the pipeline for a live demo: it loads the
-data, models and results that already exist and shows what each stage produced.
-It deliberately trains nothing and calls no API, so every cell runs in about a
-minute and can be executed in front of someone without risk.
-
-Generated rather than hand-written for the same reason results_report.html is:
-a notebook that duplicates src/ drifts out of date the moment a script changes,
-and stale cells in a live demo are worse than no notebook. Regenerate with
-`python src/build_walkthrough.py` whenever the pipeline changes.
-"""
 import json
 
 import config as cfg
@@ -55,14 +43,34 @@ CELLS = [
        "| 5. Evaluate | Score on unseen data | ✓ |",
        "| 6. Check | Leakage and data quality | ✓ |"),
 
-    code("import sys, json, warnings",
+    md("> **Before running:** the kernel must be the project's virtual environment,",
+       "> not your system Python. In VS Code, click the kernel name at the top right",
+       "> and choose **Python (fyp_fakenews venv)** — the system interpreter has none",
+       "> of the required packages installed. The next cell checks this for you."),
+
+    code("import sys, os, json, warnings",
          "warnings.filterwarnings('ignore')",
+         "",
+         "# Fail loudly and usefully if this is running on the wrong interpreter.",
+         "# VS Code often defaults to the system Python, which has none of the",
+         "# project's dependencies -- without this check the error surfaces several",
+         "# cells later as a confusing ImportError.",
+         "if 'venv' not in sys.executable.replace(os.sep, '/'):",
+         "    raise SystemExit(",
+         "        'Wrong Python interpreter:\\n  ' + sys.executable +",
+         "        '\\n\\nSwitch the kernel to \"Python (fyp_fakenews venv)\" '",
+         "        '(top-right in VS Code) and run again.')",
+         "",
+         "# Run from the project root regardless of where the notebook was opened.",
+         "if not os.path.isdir('src') and os.path.isdir('../src'):",
+         "    os.chdir('..')",
          "sys.path.insert(0, 'src')",
          "",
          "import pandas as pd, numpy as np, joblib",
          "import config as cfg",
          "",
          "pd.set_option('display.max_colwidth', 90)",
+         "print('Interpreter  :', sys.executable)",
          "print('Project root :', cfg.ROOT)",
          "print('Random seed  :', cfg.SEED)"),
 

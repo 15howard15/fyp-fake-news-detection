@@ -368,3 +368,11 @@ than adding a report section for it.
 # --- Optional: pipeline walkthrough notebook (read-only, no training) ---
 # Regenerate with: python src/build_walkthrough.py
 # Open pipeline_walkthrough.ipynb in VS Code or Jupyter -- runs in ~15s, retrains nothing.
+#
+# IMPORTANT: select the venv as the kernel, not the system Python. The system
+# interpreter has none of the dependencies, so VS Code's prompt to install
+# ipykernel there only moves the failure to the next cell. Register the venv
+# once with:
+#     venv\Scripts\python -m ipykernel install --user --name fyp-fakenews #         --display-name "Python (fyp_fakenews venv)"
+# then pick "Python (fyp_fakenews venv)" from the kernel picker. The notebook's
+# first cell checks this and stops with a clear message if it is wrong.

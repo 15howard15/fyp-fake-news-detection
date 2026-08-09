@@ -1,11 +1,4 @@
-/* detector.js -- reimplementation of the trained pipeline for the browser.
- *
- * Mirrors preprocessing.clean_text(aggressive=True) followed by sklearn's
- * TfidfVectorizer(ngram_range=(1,2), norm="l2", smooth_idf=True) and the
- * LogisticRegression decision function. Every step must match the Python
- * exactly or the page would report a different answer from the model the
- * thesis describes; src/verify_detector.py checks that on real articles.
- */
+
 (function (global) {
   "use strict";
 

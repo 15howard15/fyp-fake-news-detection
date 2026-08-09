@@ -1,34 +1,4 @@
-"""
-generate_style_attack_reverse.py -- Q4 follow-up: does the style_robust fix
-generalize to the OPPOSITE tone shift, or only the direction it was tested
-against?
 
-generate_style_attack.py only ever tested one direction per class:
-    - REAL article -> sensationalized (should still predict real)
-    - FAKE article -> neutralized (should still predict fake)
-That's the direction that matches the intuitive "fake news sounds dramatic"
-shortcut, so it's also the easiest direction to defend against by design.
-This script builds the REVERSE pairing to check the fix isn't narrower than
-it looks:
-    - REAL article -> neutralized (should still predict real -- real articles
-      are often already fairly neutral in tone, so this direction may move
-      the needle less; that's an informative result either way, not a failure
-      of the attack)
-    - FAKE article -> sensationalized (should still predict fake)
-
-Source articles are drawn from the SAME held-out pools as generate_style_attack.py (test_indomain,
-split by cfg.SEED into real_pool/fake_pool), but explicitly EXCLUDING every
-orig_id already used in style_attack_originals.csv, so the two attack sets
-never share an article -- verified via IDs read back from that file, not an
-assumed offset.
-
-Output: data/synthetic/style_attack_reverse.csv (columns match generate_
-style_attack.py's output: text, label, source_text, attack_type) and the
-matching style_attack_reverse_originals.csv, in the same orig_id/text/label/
-attack_type shape eval_style_robustness.py-style scripts expect, but attack_type here
-is "neutralize_real" / "sensationalize_fake" to keep the two attack sets
-unambiguous in any combined analysis.
-"""
 import argparse
 import os
 

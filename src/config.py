@@ -1,10 +1,4 @@
-"""
-config.py — single source of truth for paths and hyperparameters.
 
-Every other script imports from here. If you want to change a batch size,
-the train/test ratio, or a file path, change it ONCE here. The values below
-match Table 3.5.3.1 in your proposal.
-"""
 from pathlib import Path
 
 from dotenv import load_dotenv
