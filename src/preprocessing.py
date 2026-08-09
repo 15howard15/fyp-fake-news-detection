@@ -1,4 +1,14 @@
+"""
+preprocessing.py — ONE cleaning pipeline shared by all models (Section 3.2.3).
 
+Why one shared module? So that LR, SVM, CNN and BERT all see text cleaned the
+exact same way. Otherwise differences in results could come from preprocessing
+rather than the model — which would invalidate your comparison.
+
+Note: BERT prefers MINIMAL cleaning (its tokenizer handles casing/punctuation),
+so use clean_text(..., aggressive=False) for BERT and aggressive=True for
+TF-IDF / CNN. Both paths are provided.
+"""
 import re
 import html
 

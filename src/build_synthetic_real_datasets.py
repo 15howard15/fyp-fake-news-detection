@@ -1,4 +1,40 @@
 
+"""
+build_synthetic_real_datasets.py -- build the C2/C3/C6 control compositions
+using synthetic-REAL news (from generate_synthetic_real.py).
+
+Together with train_real_real (C0) and train_real_syn (C1, from build_core_
+datasets.py), this completes the 2x2 "replacement" matrix from your notes:
+
+              real-fake (RF)     synthetic-fake (SF)
+    real-real (RR)   C0              C1
+    synth-real (SR)  C2              C3
+
+C0 (train_real_real) and C1 (train_real_syn) already exist. This script adds:
+    C2 = synthetic_real + real_fake      -> train_c2_synreal_realfake.csv
+    C3 = synthetic_real + synthetic_fake -> train_c3_synreal_synfake.csv
+
+Reading C2 vs C0 isolates the effect of paraphrasing the REAL side only.
+Reading C3 vs C1 isolates the same thing when the fake side is ALSO synthetic.
+If C3's F1 collapses even though its fake-class content is exactly the same
+distortions as C1, but C2 (same real side as C3, real fake-class) does NOT
+collapse, that's evidence the model is reacting to something about having
+BOTH classes machine-authored (an authorship-detection shortcut) rather than
+genuine content-based fakeness detection.
+
+This script also adds C6, the "augment both sides" condition from your notes
+("real real + synthetic real + real fake + synthetic fake" -- resolved to
+include real-fake, since without it the fake class would be 100% synthetic,
+which isn't augmentation in the "add on top of a fixed baseline" sense):
+    C6 = (real_real + synthetic_real) + (real_fake + synthetic_fake)
+       -> train_c6_full_augmented.csv
+Built at the SAME 1,000/1,000 scale as train_lowres_real / train_lowres_aug,
+so the chain lowres_real -> lowres_aug -> C6 isolates one change at a time:
+first add synthetic fake news, then ALSO diversify the real side with
+synthetic-real.
+
+Run AFTER generate_synthetic_real.py has produced data/synthetic/synthetic_real.csv.
+"""
 import pandas as pd
 from sklearn.model_selection import train_test_split
 

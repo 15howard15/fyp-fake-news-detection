@@ -1,4 +1,34 @@
 
+"""
+build_swap_sweep_datasets.py -- balance-CONTROLLED synthetic-fraction sweep.
+
+The existing "augmentation" experiment (train_augmented / train_lowres_aug /
+train_c6, see build_augmented_datasets.py) ADDS synthetic fake on top of a fixed real-fake baseline,
+which grows the fake class without growing the real class -- e.g.
+train_augmented is 500 real vs 1,000 fake, a 1:2 imbalance. Confusion-matrix
+evidence (see evaluate.py error-analysis output from the last run) showed LR/SVM/
+BERT collapsing to ~100% recall / ~57% precision on train_augmented cross-
+domain -- almost exactly what a trivial "always predict fake" classifier
+would score, i.e. the SAME majority-class-collapse mechanism that was fixed
+on the replacement axis, just re-introduced here in the opposite direction.
+
+This script instead builds a sweep that keeps the TOTAL fake count fixed at
+500 (matching the 500 real news rows) and only varies what FRACTION of that
+500 is synthetic vs real-fake. That isolates "does synthetic content help"
+from "does adding synthetic unbalance the classes".
+
+    swap_000 (  0% synthetic) = train_real_real  (already built, build_core_datasets.py)
+    swap_025 ( 25% synthetic) = 375 real-fake + 125 synthetic-fake  [NEW]
+    swap_050 ( 50% synthetic) = train_mixed      (already built, build_core_datasets.py)
+    swap_075 ( 75% synthetic) = 125 real-fake + 375 synthetic-fake  [NEW]
+    swap_100 (100% synthetic) = train_real_syn   (already built, build_core_datasets.py)
+
+Only swap_025 and swap_075 need building here; the other three are re-used
+by name in run_swap_sweep_experiment.py. All five draw from the EXACT same real_part
+(same 500 rows, same seed) and the same isot_fake_pool / synthetic ordering
+as build_core_datasets.py, so they differ from each other by ONLY the
+real-fake/synthetic-fake split -- nothing else moves.
+"""
 import pandas as pd
 from sklearn.model_selection import train_test_split
 

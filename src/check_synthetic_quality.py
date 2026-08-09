@@ -1,4 +1,45 @@
+"""
+check_synthetic_quality.py -- evidence that the generated text is actually
+usable, not just the right length.
 
+Until now the only gate on generated text was gen_common.quality_ok(), a
+length-ratio filter that rejects refusals and truncations. That is enough to
+catch a broken API response, but it supports no claim about whether the
+synthetic fake news reads plausibly or whether the intended factual change
+actually happened. Every result in this project rests on that data being
+reasonable, so this script measures it directly.
+
+Three checks, in increasing cost:
+
+1. DIVERSITY (free) -- distinct-n and type-token ratio show whether the
+   generator produced 500 varied articles or 500 rewordings of the same few
+   templates. Mean pairwise TF-IDF cosine similarity is reported alongside as
+   a self-similarity proxy (cheaper than Self-BLEU, same purpose): a corpus
+   that is internally near-identical would score high here.
+
+2. FACT-CHANGE VERIFICATION (free) -- generate_synthetic_fake.py records a
+   `modified_fact` string of the form "original -> altered" for every article.
+   That makes the intended edit checkable after the fact: the original side
+   should appear in the source article, the altered side should appear in the
+   generated article, and the altered side should NOT already be in the
+   source. Anything failing those tests is an article whose "fake" label may
+   not correspond to a real factual change.
+
+3. LLM-AS-JUDGE (costs money, opt-in via --judge N) -- asks the model to rate
+   a random sample for plausibility as a news article. Off by default because
+   it spends OPENAI_API_KEY budget; everything above runs offline.
+
+   IMPORTANT CAVEAT: the judge is cfg.OPENAI_MODEL, the same model that
+   generated the text being rated. Models are known to favour their own
+   output, so a high score here is weaker evidence than the same score from
+   an independent judge or a human sample would be. The real ISOT fake news
+   is rated alongside as a reference point, which is what makes the
+   comparison interpretable at all -- but the absolute numbers should be
+   reported with the shared-model-family caveat attached, not as a neutral
+   quality measurement.
+
+Writes results/extra/synthetic_quality.csv.
+"""
 import argparse
 import random
 import re

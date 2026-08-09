@@ -1,4 +1,16 @@
+"""
+build_walkthrough.py -- generate pipeline_walkthrough.ipynb.
 
+The notebook is a READ-ONLY tour of the pipeline for a live demo: it loads the
+data, models and results that already exist and shows what each stage produced.
+It deliberately trains nothing and calls no API, so every cell runs in about a
+minute and can be executed in front of someone without risk.
+
+Generated rather than hand-written for the same reason results_report.html is:
+a notebook that duplicates src/ drifts out of date the moment a script changes,
+and stale cells in a live demo are worse than no notebook. Regenerate with
+`python src/build_walkthrough.py` whenever the pipeline changes.
+"""
 import json
 
 import config as cfg

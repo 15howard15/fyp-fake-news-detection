@@ -1,4 +1,23 @@
 
+"""
+generate_counter_style_training.py -- generates the TRAINING-side half of
+the Objective 4 fix: paired counter-style twins of articles ALREADY in
+train_real_real.csv, so the model sees the same content in both tones with
+the SAME true label. This is what generate_style_attack.py's attack set
+lacked as a training signal -- that script only ever produced held-out TEST
+examples. Mirrors the AdSent / sentiment-agnostic training idea described in
+the literature review: decorrelate tone from truth by putting both tones in
+BOTH classes during training.
+
+    - real articles (label=real) -> sensationalized twin, STILL label=real
+    - fake articles (label=fake) -> neutralized twin,     STILL label=fake
+
+Source articles are the first N rows of train_real_real.csv's real and fake
+classes (not the held-out test pool used for the attack set -- no overlap).
+
+Output: data/synthetic/counter_style_training.csv
+    columns: text, label, source, attack_type
+"""
 import argparse
 import os
 

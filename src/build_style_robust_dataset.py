@@ -1,4 +1,22 @@
 
+"""
+build_style_robust_dataset.py -- builds train_style_robust: the actual
+test of Objective 4's hypothesis, done properly. Unlike `mixed` (which adds
+generic synthetic fake news, not built for style-robustness), this adds
+PAIRED counter-style twins of articles already in train_real_real -- the
+same content in both tones, same true label -- so the model can no longer
+use tone as a shortcut between the classes.
+
+    train_style_robust = train_real_real (500 real / 500 fake)
+                        + counter_style_training.csv (100 sensationalized-real
+                          + 100 neutralized-fake, twins of articles already
+                          in train_real_real)
+                        = 600 real / 600 fake -- still balanced, so this
+                          isn't confounded by the imbalance issue found
+                          earlier in the project.
+
+Run AFTER generate_counter_style_training.py.
+"""
 import pandas as pd
 
 import config as cfg

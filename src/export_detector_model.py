@@ -1,4 +1,24 @@
+"""
+export_detector_model.py -- ship the Logistic Regression detector to the browser.
 
+The results page is a static file, so a "try it yourself" box has to run the
+model client-side. That is only honest if it runs the ACTUAL trained model
+rather than an approximation, which rules out pruning: the top 5,000 features
+by coefficient magnitude carry just 42% of the total weight, so a trimmed model
+would give different answers from the one the thesis reports.
+
+LR is chosen over CNN/BERT for three reasons: it is a linear model, so scoring
+is a dot product that reimplements exactly in JavaScript; it is deterministic,
+so the browser's answer is reproducible; and its full weights are 1.45 MB,
+which a page can load on demand. A transformer could not be shipped this way.
+
+Everything needed to reproduce sklearn's pipeline goes into the bundle -- the
+vocabulary, the IDF vector, the coefficients, the intercept, and the NLTK
+stopword list -- because preprocessing.clean_text() strips stopwords before
+vectorising and the browser must do the same or the features won't line up.
+
+Writes detector_model.js next to results_report.html.
+"""
 import json
 
 import joblib
