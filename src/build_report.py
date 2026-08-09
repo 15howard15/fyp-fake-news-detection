@@ -144,19 +144,28 @@ def length_block():
             "fake_labels": fake, "fake": series(fake)}
 
 
-def matched_block():
-    p = EXTRA / "matched_length_results.csv"
-    if not p.exists():
-        return {}
-    df = pd.read_csv(p)
+def matched_block(cap=300):
+    """Full-text vs. matched-length results, read straight from the per-run
+    metrics files.
+
+    This deliberately does NOT read an intermediate CSV. The experiment is
+    produced by `train.py --dataset <comps> --max-words 300`, which writes
+    metrics_<MODEL>_<comp>_max<N>.json exactly like any other run, and those
+    files are committed. Pairing them here means the whole chain -- command,
+    per-run outputs, report -- is in the repository, with no hand-assembled
+    file in between that nobody can regenerate.
+    """
     out = {}
-    for comp, g in df.groupby("comp"):
-        out[RECIPE_LABEL.get(comp, comp)] = {
-            r["model"]: {"f1_full": round(float(r["f1_full"]), 4),
-                         "f1_max300": round(float(r["f1_max300"]), 4),
-                         "auc_full": round(float(r["auc_full"]), 4),
-                         "auc_max300": round(float(r["auc_max300"]), 4)}
-            for _, r in g.iterrows()}
+    for comp in ("real_real", "mixed", "real_syn"):
+        row = {}
+        for m in MODELS:
+            full = _metrics_json(m, comp)
+            cut = _metrics_json(m, f"{comp}_max{cap}")
+            if full and cut:
+                row[m] = {"f1_full": full["f1"], "f1_max300": cut["f1"],
+                          "auc_full": full["auc_roc"], "auc_max300": cut["auc_roc"]}
+        if row:
+            out[RECIPE_LABEL.get(comp, comp)] = row
     return out
 
 

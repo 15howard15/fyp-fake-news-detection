@@ -90,6 +90,16 @@ python src/run_deep_extra_experiments.py --models cnn bert  # CNN/BERT on augmen
 python src/build_swap_sweep_datasets.py   # 0/25/50/75/100% synthetic, fake count fixed at 500
 python src/run_swap_sweep_experiment.py   # trains + evaluates all 4 models at each fraction
 
+# --- RQ3 fairness control: do the four models read the same amount of text? ---
+# TF-IDF has no length limit (LR/SVM read the whole article) while BERT stops at
+# 512 tokens and CNN at 300, and 64.5% of training articles exceed 300 words.
+# --max-words caps every train AND test document identically, writing results
+# under a separate '<comp>_max<N>' label so the full-text runs are untouched.
+python src/train.py --model lr_svm --dataset real_real mixed real_syn --max-words 300
+python src/train.py --model cnn bert --dataset real_real mixed real_syn --max-words 300
+# build_report.py pairs metrics_<MODEL>_<comp>.json with the _max300 counterpart
+# directly -- there is no intermediate file to regenerate.
+
 # --- Reliability check: is a single CNN/BERT run trustworthy? ---
 python src/run_multiseed_robustness.py    # 3 seeds x 5 compositions, CNN + BERT only
                                           # (LR/SVM are deterministic given fixed data)
