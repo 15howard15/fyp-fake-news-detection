@@ -119,6 +119,7 @@ td.wrap{white-space:normal;text-align:left;min-width:230px;max-width:340px;
 .fam-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
   padding:6px 0;border-top:1px solid var(--border);font-size:13px}
 .fam-row .k{color:var(--ink-2)}
+.fam-row .dir{color:var(--muted);font-size:11px}
 .fam-row .v{font-weight:650;font-variant-numeric:tabular-nums}
 .fam-row .v.best{color:var(--good-ink)}
 .fam-row .v.worst{color:var(--crit)}
@@ -231,17 +232,24 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <p class="lead">"Consistent" is doing two jobs in that question, so this section separates them into
   two measurable axes and scores every family on both.</p>
   <div class="tiles">
-    <div class="tile"><div class="v" style="font-size:17px">Robustness</div>
+    <div class="tile"><div class="v" style="font-size:17px">Robustness&nbsp;↓</div>
       <div class="l">Does performance hold when the <strong>training data changes</strong>?<br>
-      Measured as the F1 spread across the six training recipes. Smaller = more robust.</div></div>
-    <div class="tile"><div class="v" style="font-size:17px">Stability</div>
+      Measured as how far F1 <em>moves</em> across the six training recipes — so this is a spread, not
+      a score: <strong>a smaller number is better</strong>. A model spanning 0.55–0.99 (spread 0.44)
+      is more dependable than one spanning 0.00–0.91 (spread 0.91), because you can predict what you
+      will get.</div></div>
+    <div class="tile"><div class="v" style="font-size:17px">Stability&nbsp;↓</div>
       <div class="l">Does the <strong>same setup reproduce</strong> when it is run again?<br>
-      Measured as the F1 spread across three random seeds. Smaller = more stable.</div></div>
+      Measured as how far F1 moves across three random seeds with nothing else changed — again a
+      spread, so <strong>smaller is better</strong>, and 0.000 means the model gives an identical
+      answer every time.</div></div>
   </div>
 
   <h3>The answer at a glance</h3>
-  <p>Grouped into the three families the research question names. Green marks the best family on each
-  axis and red the worst — no family holds green on all three, and that is the finding.</p>
+  <p>Grouped into the three families the research question names. <strong>↑ means higher is better;
+  ↓ means lower is better</strong>, because the last two rows are spreads rather than scores. Green
+  marks the best family on each row and red the worst — no family holds green on all three, and that
+  is the finding.</p>
   <div class="fam" id="fam-cards"></div>
   <p>Each family also fails in a different <em>way</em>, which matters as much as how often: one
   failure announces itself, one hides behind a healthy-looking F1, and one appears only on some runs.
@@ -658,13 +666,17 @@ table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","R
   const host=document.getElementById("fam-cards"); host.innerHTML="";
   fams.forEach(f=>{
     const fail=FAIL[f.family]||{cls:"",t:"",d:""};
+    // Peak is a score (higher wins); the other two are SPREADS, where a small
+    // number means the result barely moves and is therefore the good outcome.
+    // Without the arrows the rows read as three scores pointing the same way,
+    // and "Robustness 0.443" looks worse than "Robustness 0.908".
     const rowsHtml=[
-      ["Peak F1", num(f.peak_f1), mark(f.peak_f1,peaks,false)],
-      ["Robustness", Object.entries(f.recipe_range).map(([m,v])=>`${m} ${v.toFixed(3)}`).join(" · "),
+      ["Peak F1", "↑", num(f.peak_f1), mark(f.peak_f1,peaks,false)],
+      ["Robustness", "↓", Object.entries(f.recipe_range).map(([m,v])=>`${m} ${v.toFixed(3)}`).join(" · "),
         mark(f.recipe_range_worst,rng,true)],
-      ["Stability", f.deterministic?"0.000":`≤ ${f.seed_std_worst.toFixed(3)}`,
+      ["Stability", "↓", f.deterministic?"0.000":`≤ ${f.seed_std_worst.toFixed(3)}`,
         f.deterministic?"best":mark(f.seed_std_worst,sd,true)],
-    ].map(([k,v,cls])=>`<div class="fam-row"><span class="k">${k}</span><span class="v ${cls}">${v}</span></div>`).join("");
+    ].map(([k,dir,v,cls])=>`<div class="fam-row"><span class="k">${k} <span class="dir">${dir}</span></span><span class="v ${cls}">${v}</span></div>`).join("");
     const d=document.createElement("div");
     d.className="fam-card";
     d.innerHTML=`<div class="fam-name">${f.family}</div>
