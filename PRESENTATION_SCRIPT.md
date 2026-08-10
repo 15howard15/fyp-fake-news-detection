@@ -1,122 +1,197 @@
 # Presentation script — walking through `results_report.html`
 
-Open the report full-screen and present from it. This document follows it
-**tab by tab, in order**. For every screen it tells you what to click, what the
-audience sees, what to say, and — most importantly — **what the result
-indicates**, because that is the part a supervisor is actually listening for.
+Open the report full-screen and present from it. This follows it **tab by tab**,
+and within each chart **left to right, top to bottom**, with numbered stops ①②③
+so you always know where to point next.
 
-Nothing here needs memorising. Read Part 0 tonight; the rest you can hold and
-glance at.
+For every number it says **whether it is good or bad**, because "0.79" means
+nothing on its own — the judgement is the content.
+
+Read Parts 0 and 0b tonight. The rest you hold and glance at.
 
 ---
 
 ## Part 0 — Six terms you must own
 
-If any of these are shaky the rest won't land, because your best finding depends
-on the difference between two of them.
+**TF-IDF** — turning an article into numbers. Count each word, then reduce the
+weight of words appearing in *everything* (like "said") because they distinguish
+nothing.
 
-**TF-IDF** — turning an article into numbers. Count how often each word appears,
-then reduce the weight of words that appear in *everything* (like "said"),
-because they don't distinguish anything. The article becomes a long list of
-numbers.
-
-**The four models** — same job, four ways of doing it:
+**The four models:**
 
 | Model | How it decides |
 |---|---|
-| **Logistic Regression (LR)** | A weight per word. Positive pushes "fake", negative pushes "real". Add them up. |
-| **SVM** | Draws one dividing line between the two classes. **If the classes look alike there is no line to draw** — remember this, it explains your most dramatic number. |
-| **CNN** | A small neural network spotting short phrase patterns, 3–5 words at a time. |
-| **BERT** | A large pre-trained language model that already knows English; you fine-tune it. Most powerful, least predictable. |
+| **LR** | A weight per word. Positive → "fake", negative → "real". Add them up. |
+| **SVM** | Draws one dividing line between the classes. **If the classes look alike there's no line to draw** — this explains your most dramatic number. |
+| **CNN** | Small neural network spotting phrase patterns, 3–5 words at a time. |
+| **BERT** | Large pre-trained language model, fine-tuned on your task. Most powerful, least predictable. |
 
-**F1 score** — overall accuracy at catching fake news. 0 to 1, higher is better.
+**F1** — overall accuracy at catching fake news. Higher is better.
 
-**AUC-ROC** — a *different* question: does the model rank fake above real?
-1.0 = perfect · 0.5 = coin flip · **below 0.5 = systematically backwards.**
+**AUC-ROC** — a *different* question: does it rank fake above real?
+**1.0 perfect · 0.5 coin flip · below 0.5 = systematically backwards.**
 
-> **This distinction carries your whole project.** F1 asks "how often right?"
-> AUC-ROC asks "which direction is it pointing?" A model can look mediocre on
-> F1 and be catastrophically, confidently wrong on AUC-ROC. That is exactly what
-> you found.
+> **This distinction carries your project.** F1 asks "how often right?" AUC-ROC
+> asks "which direction is it pointing?" A model can look mediocre on F1 and be
+> catastrophically wrong on AUC-ROC. That is exactly what you found.
 
-**Cross-domain** — train on one dataset, test on a *different* one. Harder and
-more honest than testing on held-out data from the same source.
+**Cross-domain** — train on one dataset, test on a different one.
 
 **Random seed** — neural networks start from random numbers; the seed fixes
-which ones. Same data, same settings, different seed → possibly a different
-result.
+which. Same data, different seed → possibly a different result.
 
 ---
 
-## Opening (before you click anything) — 45 seconds
+## Part 0b — What counts as "good" *(memorise this table)*
+
+Every judgement in this script comes from here. If asked "is that good?", this
+is your answer.
+
+### F1 score
+
+| Range | Verdict | Say |
+|---|---|---|
+| 0.95 – 1.00 | Excellent | "near-ceiling" |
+| 0.85 – 0.95 | Good | "solid, deployable" |
+| 0.70 – 0.85 | Usable but degraded | "it works, but it's lost something" |
+| 0.50 – 0.70 | Weak | "barely better than guessing" |
+| below 0.50 | Broken | "not functioning as a detector" |
+| exactly 0.00 | **Catastrophic** | "it never catches a single fake" |
+
+### AUC-ROC — *the important one*
+
+| Range | Verdict | Say |
+|---|---|---|
+| 0.95 – 1.00 | Excellent ranking | "it separates the classes cleanly" |
+| 0.85 – 0.95 | Good | |
+| 0.70 – 0.85 | Fair | |
+| ≈ 0.50 | **No signal** | "the same as flipping a coin" |
+| **below 0.50** | **Backwards** | **"worse than random — it learned a confident rule pointing the wrong way"** |
+
+> Below 0.5 is not "worse". It is *inverted*. If you flipped its every answer,
+> it would be a good detector. That is a much stranger and more interesting
+> failure than being merely inaccurate.
+
+### Flip rate (RQ4) — **lower is better**
+
+| Range | Verdict |
+|---|---|
+| 0 – 3% | Robust |
+| 3 – 10% | Some vulnerability |
+| **10%+** | **Clearly fooled by tone alone** |
+
+### Seed spread — standard deviation, **lower is better**
+
+| Range | Verdict |
+|---|---|
+| 0.000 | Deterministic — identical every run |
+| below 0.05 | Stable — one run is trustworthy |
+| 0.05 – 0.15 | Noticeable wobble |
+| **above 0.15** | **Unreliable — a single number means little** |
+
+---
+
+## Opening — 45 seconds, before clicking
 
 > "Real fake news is slow and expensive to collect, which limits how well
 > detectors can be trained. If a language model could just *write* fake news, we
-> would have unlimited training data. My project tests whether that actually
-> works.
+> would have unlimited training data. My project tests whether that works.
 >
-> Everything is trained on ISOT — real news articles and real fake news — and
-> tested on LIAR and WELFake, which no model ever sees during training. Four
-> models, four research questions."
-
-Then open the report.
+> Everything trains on ISOT — real news and real fake news — and tests on LIAR
+> and WELFake, which no model ever sees during training. Four models, four
+> research questions."
 
 ---
 
-## TAB 1 — RQ1 · Replacement
+# TAB 1 — RQ1 · Replacement
 
-### Screen 1: the main chart
+## Chart 1: "Detection performance by method and training recipe"
 
-**Click:** RQ1 tab. The chart is already on **F1 score**.
+Four groups on the x-axis: **LR, SVM, CNN, BERT**. Five coloured bars in each.
+Walk it group by group.
 
-**What they see:** four groups (LR, SVM, CNN, BERT), five coloured bars each.
+**Set up first:**
 
-**Say:**
+> "Five training recipes. The only thing changing is where the fake examples come
+> from. The first bar in each group is the baseline — real news and real fake
+> news."
 
-> "Five training recipes. The only thing changing is where the fake examples
-> come from. Blue is the baseline — real news and real fake news."
+### ① LR group (leftmost) — 0.857 · 0.937 · 0.885 · 0.793 · 0.498
 
-**Point at SVM's third bar (0.00).**
+> "LR baseline is 0.857 — solid. Add synthetic on top and it *improves* to 0.937.
+> Replace real fake news entirely and it's 0.885, still above baseline."
 
-> "Every recipe degrades a little when I swap in AI-written fake news — except
-> SVM, which doesn't degrade at all. It goes to zero."
+**Is that good?**
 
-**What it indicates — say this:**
+> "Yes, genuinely good. LR barely notices the swap. If this were the only model I
+> tested I'd conclude synthetic data works fine."
 
-> "Zero F1 means it never catches a single fake article. It predicts 'real' for
-> everything. And that tells us something specific about my synthetic data: I
-> make fake news by taking a real article and changing one fact, keeping the
-> wording. So the fake examples look almost identical to the real ones. SVM
-> works by drawing a dividing line between two classes — when the classes look
-> the same, there's no line to draw."
+### ② SVM group — 0.908 · 0.803 · **0.000** · 0.790 · 0.607
 
-**The RQ1 answer:**
+**Point at the missing third bar.**
 
-> "So the answer is: partly. LR, CNN and BERT stay usable. SVM breaks. And it
-> only works at all if the real-news side stays genuine — which is what I
-> checked next."
+> "SVM baseline is 0.908, the best of the two traditional models. Then under full
+> replacement — nothing. Zero."
 
-### Screen 2: switch the metric
+**Is that good? — the key interpretation:**
 
-**Click:** the **AUC-ROC** button above the chart.
+> "Zero F1 doesn't mean 'poor'. It means it never catches a single fake article.
+> It predicts 'real' for all of them. This is total failure, not degradation.
+>
+> And it tells us something specific about my data. I make fake news by taking a
+> real article and changing one fact, keeping the wording. So the two classes
+> look almost identical. SVM works by drawing a dividing line — when the classes
+> look the same, there is no line to draw."
 
-> "Same data, different question. A dashed line appears at 0.50 — that's random
-> guessing. Notice CNN under full replacement drops to 0.05, far *below* the
-> line."
+### ③ CNN group — 0.957 · 0.875 · 0.711 · 0.733 · **0.137**
 
-**What it indicates:**
+> "CNN baseline is 0.957, near-ceiling. Full replacement drops it to 0.711 —
+> still usable but clearly degraded. Then the last bar, 0.137."
 
-> "Below 0.5 isn't 'bad'. It's backwards. The model is confidently ranking fake
-> above real in the wrong direction. F1 hid that — it looked like 0.71, which
-> reads as merely mediocre."
+**Is that good?**
 
-*(Click back to **F1 score** before moving on.)*
+> "0.711 is a real cost but survivable. 0.137 is broken — that's the recipe where
+> both classes are AI-written, which is the next chart."
 
-### Screen 3: the validity check — **your strongest material**
+### ④ BERT group — 0.964 · **0.998** · 0.673 · 0.640 · 0.557
 
-**Scroll to:** "Validity check: detecting fake news, or detecting AI writing?"
+> "BERT's baseline is 0.964, and with a moderate synthetic blend it reaches
+> 0.998 — the highest number on the chart. But full replacement takes it to
+> 0.673."
 
-**Say — slowly, this is the centrepiece:**
+**Is that good?**
+
+> "0.998 is excellent, but I'd add a caveat I'll come back to in RQ3 — that
+> number is one run, and BERT is unstable. The honest reading is that it's the
+> top of a range, not a dependable outcome."
+
+### ⑤ Switch the metric — click **AUC-ROC**
+
+> "Same data, different question. A dashed line appears at 0.50 — random
+> guessing. Look at CNN under full replacement: 0.054."
+
+**Is that good?**
+
+> "It's below the line, which is the important part. Not 'bad' — *backwards*. F1
+> showed 0.711 for that same cell, which reads as merely mediocre. AUC-ROC
+> reveals the model is confidently ranking in the wrong direction. This is why I
+> report both."
+
+*(Click back to **F1 score**.)*
+
+### RQ1 answer
+
+> "So: partly. LR, CNN and BERT stay usable under replacement; SVM breaks
+> entirely. And it only holds if the real-news side stays genuine — which is what
+> I checked next."
+
+---
+
+## Chart 2: the validity check — **your strongest material**
+
+**Scroll to "Validity check: detecting fake news, or detecting AI writing?"**
+
+**Set up — say this slowly:**
 
 > "Partway through I got suspicious. If a model scores well on AI-written fake
 > news, is it detecting *falsehood*, or just detecting *AI writing*? Those are
@@ -124,170 +199,270 @@ Then open the report.
 >
 > So I built a control. I made the **real** side AI-written too — paraphrased
 > real articles, every fact kept true. Now both classes are machine-written. If
-> the model was learning about truth, this shouldn't matter much."
+> the model were learning about truth, this shouldn't matter much."
 
-**Point at the orange bars: 0.06, 0.10, 0.03, 0.02.**
+Two bars per model. **Blue = only the fake class is AI-written. Orange = both.**
 
-> "All four models, both test corpora, AUC-ROC between 0.02 and 0.10. Far below
-> the 0.50 line."
+### ① LR — blue 0.797, orange **0.064**
 
-**What it indicates — the key sentence of your whole presentation:**
+> "Blue 0.797 — fair. Orange 0.064."
 
-> "If the model were confused, it would sit *at* 0.5. It's at 0.02. That means
-> it learned a clear, confident rule — and the rule points the wrong way."
+### ② SVM — blue 0.809, orange **0.101**
 
-**Then explain the cause (this is what shows you understand your own system):**
+### ③ CNN — blue 0.958, orange **0.027**
+
+> "This one is the sharpest. Blue 0.958 is excellent ranking. Orange 0.027."
+
+### ④ BERT — blue 0.772, orange **0.021**
+
+**Now deliver the interpretation — the key sentence of the whole presentation:**
+
+> "Every orange bar sits between 0.02 and 0.10. The random-guessing line is 0.50.
+>
+> If the model were *confused*, it would sit **at** 0.5. It's at 0.02. That means
+> it learned a clear, confident rule — and the rule points the wrong way. If you
+> flipped every one of its answers, you'd have a good detector."
+
+**Then the cause — this shows you understand your own system:**
 
 > "The cause was in how I built the data. Every 'real' example had been
 > AI-paraphrased, so its sentence structure changed completely. Every 'fake'
 > example kept its original wording, because only one fact changed. So the model
 > learned: *reworded text means real, original-sounding text means fake.* At test
-> time, genuine articles are never reworded — so they looked fake to it."
+> time genuine articles are never reworded — so they looked fake to it."
 
-**Click the "Tested on WELFake" button.**
+**Click "Tested on WELFake".**
 
-> "Same pattern on the second corpus, so it isn't one dataset's quirk."
+> "Same pattern on the second corpus. Not one dataset's quirk."
 
 **Close with the general lesson:**
 
-> "The takeaway goes beyond my project: a good score on AI-generated fake news
-> does not prove you have built a fake-news detector. You have to check."
+> "This goes beyond my project: a good score on AI-generated fake news does not
+> prove you've built a fake-news detector. You have to check."
 
 ---
 
-## TAB 2 — RQ2 · Augmentation
+# TAB 2 — RQ2 · Augmentation
 
-**Click:** RQ2 tab.
+## The line chart — read it left to right
 
-**Say:**
+X-axis: **0% → 25% → 50% → 75% → 100%** synthetic.
 
-> "RQ1 asked about *replacing* real fake news. RQ2 asks the more practical
-> question — does *adding* synthetic data on top help?
->
-> I fixed the fake class at exactly 500 examples and changed only what fraction
-> is synthetic. Same size every time, so any difference is about the data's
-> composition, not about having more of it."
+**Set up:**
 
-**Trace the lines with your finger, left to right:**
+> "RQ1 asked about *replacing*. RQ2 asks the practical question — does *adding*
+> synthetic data on top help? I fixed the fake class at exactly 500 examples and
+> changed only what fraction is synthetic. Same size every time, so any
+> difference is about composition, not quantity."
 
-> "Most lines rise at 25%, then fall. LR peaks at 50%. BERT peaks at 25% and
-> stays high until it collapses at 100%. SVM falls off a cliff after 50%."
+### ① Left edge, 0% — everyone starts high
 
-**What it indicates:**
+> "LR 0.857, SVM 0.908, CNN 0.953, BERT 0.950. That's the all-real baseline."
 
-> "There's a sweet spot, roughly 25 to 50% synthetic. Below it you're leaving
-> value on the table; above it you're diluting the real signal. And 'more
-> synthetic data' is definitely not 'better'."
+### ② 25% — most lines rise
 
-**Point at the green CNN line — it only ever goes down.**
+> "LR 0.857 → 0.925. BERT 0.950 → 0.998, its best result anywhere. SVM edges up
+> to 0.915."
 
-> "CNN is the exception. It never benefits at any level."
+**Is that good?**
 
-**Then the explanation (the note is on screen):**
+> "Yes — and this is the useful finding. A quarter synthetic *improves* three of
+> four models. Synthetic data is adding something real fake news alone didn't
+> provide."
+
+### ③ 50% — the peak, then divergence
+
+> "LR peaks here at 0.937. BERT holds at 0.989. But SVM has already fallen to
+> 0.803 — below its own baseline."
+
+**Is that good?**
+
+> "Mixed. The sweet spot is roughly 25 to 50%. Past halfway SVM is already losing
+> ground."
+
+### ④ 75% — SVM falls off a cliff
+
+> "SVM drops to 0.007. Effectively zero."
+
+**Is that good?**
+
+> "That's collapse, not decline. Same mechanism as RQ1 — once synthetic fakes
+> dominate, the two classes look alike and SVM has no boundary to draw."
+
+### ⑤ 100% — the right edge
+
+> "LR 0.885, still above baseline. BERT falls to 0.669. CNN 0.719. SVM zero."
+
+**Is that good?**
+
+> "This is the replacement case from RQ1, and it confirms it: more synthetic data
+> is definitely not better."
+
+### ⑥ The green CNN line — trace it with your finger, it only goes down
+
+> "CNN is the exception. 0.953 → 0.947 → 0.880 → 0.774 → 0.719. It never benefits
+> at any level."
+
+**The explanation (the note is on screen):**
 
 > "I read what CNN actually got wrong at each level. Always the same direction —
 > real articles called fake, never the reverse — and the same kind of article:
 > opinion-led writing rather than plain wire reporting. Its confidence on those
-> mistakes fell from 96% to 63% as synthetic data increased."
+> mistakes fell from 96% to 63%."
 
-**What that indicates:**
+**Is that good or bad?**
 
-> "It's not learning a wrong rule like SVM did. It's gradually losing its grip
-> on a category it already found hard. Different failure, different cause."
+> "It's a different failure from SVM's, and that distinction matters. SVM learned
+> a wrong rule. CNN is gradually losing its grip on a category it already found
+> hard. Same downward line, completely different cause."
 
-**The RQ2 answer:**
+### RQ2 answer
 
 > "Yes — augmentation genuinely helps, unlike replacement. But only in
 > moderation, and not for every architecture."
 
 ---
 
-## TAB 3 — RQ3 · Model families
+# TAB 3 — RQ3 · Model families
 
-**Click:** RQ3 tab. This is the most conceptual tab — slow down.
+The most conceptual tab. Slow down.
 
-### Set up the two axes first
+## Set up the two axes — point at the grey box
 
-**Point at the grey box at the top.**
-
-> "This question asks whether transformers are more *consistently robust*. The
-> problem is that 'consistent' means two different things, and the models rank
-> in opposite orders on them. So I measured both.
+> "This asks whether transformers are more *consistently robust*. The problem is
+> that 'consistent' means two different things, and the models rank in opposite
+> orders on them. So I measured both.
 >
 > **Robustness** — does performance hold when the *training data* changes?
 > **Stability** — does the *same setup* reproduce when you run it again?
 >
-> Both are measured as a spread, so on both of them a **smaller number is
-> better** — that's what the down arrows mean."
+> Both are spreads, so on both **a smaller number is better**. That's what the
+> down arrows mean."
 
-### The three cards
+## The three cards — left to right
 
-> "Three families, three columns each. Green is best on that row, red is worst."
+### ① Traditional ML (LR · SVM)
 
-**Walk them across:**
+> "Peak 0.977. Robustness: LR 0.478, SVM 0.908 — red, the worst on the chart.
+> Stability: 0.000, green."
 
-> "BERT has the highest peak, 0.9998. BERT is also *best* on robustness — 0.443,
-> the narrowest spread across recipes. But look at stability: 0.385, the worst of
-> the three. The traditional models are the mirror image — exactly zero seed
-> spread, because they're deterministic, but the widest swing across recipes."
+**What that means:**
 
-**What it indicates:**
+> "Perfectly reproducible — run them a hundred times, identical output. But the
+> most sensitive to what you train them on. SVM swings from 0.00 to 0.91 purely
+> depending on the recipe."
 
-> "No family holds green on all three. That's the finding."
+### ② Deep learning (CNN)
 
-**Then the failure modes, which matter as much:**
+> "Peak 0.957 — red, the lowest ceiling. Robustness 0.819, middling. Stability
+> 0.095."
 
-> "Each also fails in a different *way*. SVM fails loudly — F1 exactly zero, you
-> cannot miss it. CNN fails quietly — its AUC inverts to 0.054 while F1 still
-> reads a plausible 0.711, so if you only check F1 you'd never notice. BERT fails
-> intermittently — one run in three."
+**What that means:**
 
-### Evidence 1
+> "CNN never wins anything, but it never badly loses either. If you want
+> predictable behaviour, it's the safest of the neural models."
 
-> "This backs the robustness column. The bar is each model's mean across six
-> recipes; the line spans its worst to its best. SVM's line is enormous — it
-> ranges from 0.00 to 0.91 depending purely on what it was trained on. BERT's is
-> the shortest."
+### ③ Transformer (BERT)
 
-### Evidence 2 — **explain this carefully**
+> "Peak 0.9998 — green, the highest. Robustness 0.443 — green, the *best*.
+> Stability 0.385 — red, the worst."
 
-> "This backs the stability column, and it's the one people find surprising.
+**The key line:**
+
+> "BERT is the most robust to changing the data, *and* the least reproducible
+> when re-run. No family holds green on all three. That's the finding."
+
+### ④ The failure modes — as important as the numbers
+
+> "Each fails differently, and how it fails matters as much as how often.
+>
+> SVM **fails loudly** — F1 exactly zero, impossible to miss.
+> CNN **fails quietly** — AUC inverts to 0.054 while F1 still reads a plausible
+> 0.711. If you only checked F1 you'd never notice.
+> BERT **fails intermittently** — one run in three."
+
+---
+
+## Evidence 1 — spread across training recipes
+
+Bar = mean across six recipes. Line = worst recipe to best.
+
+### ① LR — mean 0.825, line 0.498 → 0.977
+### ② SVM — mean 0.570, line **0.000 → 0.908** *(the longest line)*
+
+> "SVM's line spans the whole chart. Its result depends almost entirely on what
+> you trained it on."
+
+### ③ CNN — mean 0.718, line 0.137 → 0.957
+### ④ BERT — mean 0.805, line **0.557 → 1.000** *(the shortest)*
+
+**Is that good?**
+
+> "BERT's spread is 0.443, the narrowest. It's never terrible and never far from
+> its best. That's a genuine strength, and it's the half of the answer people
+> expect."
+
+---
+
+## Evidence 2 — spread across random seeds
+
+**Set up carefully:**
+
+> "This is the other half, and it's the one people find surprising.
 >
 > CNN and BERT start from random numbers. The seed fixes which ones. So I
 > retrained every condition three times, at seeds 42, 1 and 2. LR and SVM aren't
-> here because they're deterministic — their spread is exactly zero by
+> on this chart because they're deterministic — their spread is exactly zero by
 > construction, and a bar with no line would be meaningless.
 >
-> The bar is the mean of three runs. The vertical line goes from the lowest run
-> to the highest. **Short line means you can trust one run. Long line means you
-> can't.**"
+> Bar = mean of three runs. Line = lowest run to highest. **Short line, trust one
+> run. Long line, don't.**"
 
-**Point at R+Syn, the pink bar with the enormous line.**
+Nine conditions, yellow = CNN, pink = BERT.
 
-> "Under full replacement, BERT's three runs were 0.002, 0.662 and 0.676. Same
-> data, same settings — one run simply failed to learn the task at all."
+### ① Scan the yellow bars first — all short lines
 
-**What it indicates:**
+> "CNN's lines are short everywhere. R+R is 0.966 with a range of 0.949 to
+> 0.975 — that's a spread of 0.026. Run it again, you get roughly the same
+> answer."
 
-> "It means any single BERT number in my study is one draw from a wide
-> distribution, not a dependable outcome. Several of my strongest BERT results
-> sit near the top of their range."
+**Is that good?** → "Yes. That's what reproducible looks like."
 
-**Then the important qualifier — volunteer it:**
+### ② Now the pink bars — several very long lines
 
-> "But notice the short lines on 'R+Syn div' and 'Style-rob'. BERT isn't
-> unstable everywhere. The instability is concentrated in the core replacement
-> recipes, which means my RQ4 and diverse-sourcing conclusions don't inherit
-> this problem."
+> "R+Mix: mean 0.857, but the runs were 0.580, 0.991 and 0.999.
+> R+R: mean 0.826, runs 0.598, 0.929, 0.950."
 
-**Open the table underneath.**
+### ③ **R+Syn — the one to stop on**
+
+> "Mean 0.447, and the line stretches almost the full height. The three runs were
+> **0.002, 0.662 and 0.676**. Same data, same settings — one run simply failed to
+> learn the task at all."
+
+**Is that good or bad?**
+
+> "It's the worst number in my study, and it's not about accuracy — it's about
+> trust. It means any single BERT figure I report is one draw from a wide
+> distribution. Several of my strongest BERT results sit near the top of their
+> range rather than in the middle."
+
+### ④ Then the short pink bars — volunteer this
+
+> "But look at R+Syn div and Style-rob. BERT there is 1.000 with a range of
+> 0.999–1.000, and 0.958 with 0.906–0.989. Tight.
+>
+> So BERT isn't unstable everywhere. The instability is concentrated in the core
+> replacement recipes — which means my RQ4 and diverse-sourcing conclusions don't
+> inherit this problem."
+
+### ⑤ Open the table underneath
 
 > "This is why the table shows the observed range next to the ± figure. With
-> three runs, mean ± standard deviation is a summary, not an interval —
-> arithmetic on it would suggest a range of 0.06 to 0.83 for that condition,
-> and neither endpoint ever happened."
+> three runs, mean ± standard deviation is a summary, not an interval — doing
+> arithmetic on it would imply a range of 0.06 to 0.83 for that condition, and
+> neither endpoint ever happened."
 
-**The RQ3 answer:**
+### RQ3 answer
 
 > "So: no. Transformers are not uniformly more consistent. BERT is the most
 > robust to changing the data and the least reproducible when re-run. No family
@@ -295,91 +470,129 @@ Then open the report.
 
 ---
 
-## TAB 4 — RQ4 · Style attacks
+# TAB 4 — RQ4 · Style attacks
 
-**Click:** RQ4 tab.
+**Set up:**
 
-**Say:**
-
-> "The last question is a different kind of vulnerability: can a detector be
-> fooled just by changing an article's *tone*, without touching a single fact?
+> "The last question is a different vulnerability: can a detector be fooled just
+> by changing an article's *tone*, without touching a single fact?
 >
 > I took 200 held-out articles and rewrote them — real articles made sensational,
-> fake ones made calm and neutral. Facts and labels unchanged. The flip rate is
-> how often a model that was originally *right* changes its answer. The down
-> arrow means lower is better."
+> fake ones made calm. Facts and labels unchanged. The flip rate is how often a
+> model that was originally *right* changes its answer. Down arrow: lower is
+> better."
 
-**Point at the tall bars for Real + Mixed.**
+## Chart 1 — four bars per model, left to right
 
-> "Here's the counterintuitive part. Just adding generic synthetic data made
-> models *more* vulnerable — 10 to 18% of correct answers flip. That's worse than
-> the plain baseline."
+### ① Real + Real, the baseline
 
-**Then the last group, Style-robust.**
+> "LR 11.5%, SVM 9.3%, CNN 1.0%, BERT 2.0%."
 
-> "The fix was to pair every article with a tone-shifted twin under the *same*
-> label. So a dramatic version and a calm version both appear labelled 'real',
-> and both appear labelled 'fake'. Tone stops predicting the answer."
+**Is that good?**
 
-**What it indicates:**
+> "Mixed. CNN and BERT are genuinely robust at 1–2%. But LR at 11.5% means more
+> than one in ten of its correct answers flips on tone alone. The baseline
+> detector *is* fooled by tone."
 
-> "Flip rates drop to near zero — BERT to exactly 0%. And critically, it costs
-> nothing: the table shows accuracy on normal, unattacked data stays the same or
-> improves. It's not a trade-off."
+### ② Real + Mixed — the tall bars, the surprising one
 
-**Volunteer the caveat before anyone asks — point at the two 0.0% cells under Real + Synthetic:**
+> "LR 17.9%, SVM 15.5%, CNN 18.1%, BERT 10.5%."
 
-> "Those two zeros aren't robustness. Under that recipe SVM and CNN already
-> predict one class for almost everything, so there's almost nothing correct
-> left to flip. A low flip rate only means something next to a working F1."
+**Is that good?**
 
-**Second chart:**
+> "No — and this is the counterintuitive result. Adding generic synthetic data
+> made every model *more* vulnerable, not less. All four are now above 10%, which
+> is clearly fooled. Worse than using no synthetic data at all."
 
-> "I also tested the *opposite* attack direction, which the models were never
-> trained against. Flip rates rise a little — BERT from 0 to 1.5% — but stay far
-> below the 10–18% baseline. So the fix generalises, just not perfectly."
+### ③ Real + Synthetic — get ahead of the two zeros
 
-**The RQ4 answer:**
+> "Ignore SVM and CNN's 0.0% here. Those models already predict one class for
+> almost everything under this recipe, so there's almost nothing correct left to
+> flip. A low flip rate only means something next to a working F1.
+>
+> LR's 59.1% is real though — that's the worst vulnerability anywhere in the
+> study."
 
-> "Yes. And the benefit comes specifically from pairing both tones with both
-> labels — not from synthetic data in general, which made things worse."
+### ④ Style-robust — short bars, the point of the slide
+
+> "LR 3.1%, SVM 2.6%, CNN 0.5%, BERT 0.0%."
+
+**Say what was done:**
+
+> "Here I paired every article with a tone-shifted twin under the *same* label.
+> A dramatic version and a calm version both appear labelled 'real', and both
+> appear labelled 'fake'. Tone stops predicting the answer."
+
+**Is that good?**
+
+> "Every model is now in the robust band, under 3%. BERT is at exactly zero —
+> the tone rewrite fooled it on nothing it previously got right. That's a drop
+> from 10–18% down to 0–3%."
+
+## The two closing lines that make it defensible
+
+> "It costs nothing: the table shows accuracy on ordinary, unattacked data stays
+> the same or improves. It's not a trade-off.
+>
+> And on the second chart I tested the *opposite* attack direction, which the
+> models were never trained against — real made calm, fake made dramatic. Flip
+> rates rise a little: BERT 0 to 1.5%, CNN 0.5 to 2.0%, SVM 2.6 to 4.1%, LR 3.1
+> to 4.6%. But all stay far below the 10–18% baseline. So the fix generalises,
+> just not perfectly."
+
+## If he cuts you off — the one-sentence answer
+
+> "Yes, style-diverse training resists tone attacks — but the benefit comes from
+> pairing both tones with both labels, not from synthetic data in general, which
+> made things worse."
 
 ---
 
-## TAB 5 — Evaluation framework
+# TAB 5 — Evaluation framework
 
-**Click:** Evaluation framework.
-
-**Say:**
+**Set up:**
 
 > "Every question so far was answered by training on ISOT and testing on data no
-> model had seen. That shared protocol — not a separate research question — is
-> what binds all four together. This tab is about how well it holds up."
+> model had seen. That shared protocol — not a separate research question — binds
+> all four together. This tab is how well it holds up."
 
-**Use the recipe buttons to flick between two recipes.**
+### ① The chart — use the recipe buttons
 
 > "Each model's score on LIAR beside its score on WELFake, for any recipe."
 
-**Then the red note — this is your second-strongest moment:**
+**Flick to Real + Real:**
 
-> "And here's something I found by checking my own assumption. I had been
+> "WELFake scores higher than LIAR across the board. You'd read that as 'the
+> models generalise better to WELFake'."
+
+### ② The red note — your second-strongest moment
+
+> "And here's something I found by checking my own assumption. I'd been
 > describing WELFake as an independent second dataset. I measured it: **63.8% of
 > its fake articles are exact text matches for articles that also appear in
-> ISOT** — my training corpus. LIAR is 0%."
+> ISOT** — my training corpus. LIAR is 0.0%."
 
-**What it indicates:**
+**Is that good or bad?**
 
-> "WELFake is a merged dataset that happens to include the same source ISOT comes
-> from. So my WELFake scores are closer to an in-domain test than a cross-domain
-> one, and I say so rather than letting the number stand unqualified."
+> "Bad, and I say so rather than letting the number stand. WELFake is a merged
+> dataset that happens to include the same source ISOT comes from. So my WELFake
+> scores are closer to an in-domain test than a cross-domain one. That's why they
+> look better — not because the models generalise well."
 
-**Scroll to "Is the generated text any good?"**
+### ③ "Is the generated text any good?"
 
 > "The only quality gate during generation was a length filter, which catches
-> refusals but says nothing about whether the text is any good. So I measured it
-> afterwards. Diversity — my synthetic text is as varied as real fake news on
-> every measure. Fact verification — the generator recorded what it changed, and
-> about 98% of those edits verify where the full source was saved."
+> refusals but says nothing about whether the text is good. So I measured it
+> afterwards."
+
+**Point at the tiles:**
+
+> "Diversity — my synthetic text scores 0.888 on distinct-3 against 0.871 for
+> real fake news. Essentially identical, so the generator isn't producing
+> hundreds of near-copies.
+>
+> Fact verification — about 98% of the recorded edits verify where the full
+> source article was saved."
 
 **Volunteer the caveat:**
 
@@ -389,34 +602,33 @@ Then open the report.
 
 ---
 
-## TAB 6 — Try it *(the closer)*
+# TAB 6 — Try it *(the closer)*
 
-**Click:** ▸ Try it.
+**Click ▸ Try it.**
 
 > "This runs the actual Logistic Regression model in your browser — the real
 > trained weights, not a simulation."
 
-**Click the "AI-generated fake" example button, then Analyse.**
-
-**Wait for the number. It says REAL, around 22%.**
+**Click "AI-generated fake", then Analyse. It says REAL, ~22%.**
 
 > "It says real. That's not a bug — that's my thesis in one click."
 
-**What it indicates:**
+**Is that good or bad?**
 
-> "This synthetic fake is a genuine news article with one fact altered. Every
-> stylistic signal still says legitimate reporting — same source, same register,
-> same structure. A model that learned style has nothing left to catch it with."
+> "It's a failure, and it's the expected one. This synthetic fake is a genuine
+> news article with one fact altered. Every stylistic signal still says
+> legitimate reporting — same source, same register, same structure. A model that
+> learned style has nothing left to catch it with."
 
-**Point at the term list underneath.**
+**Point at the term list.**
 
-> "And it shows which terms moved the decision. Notice they're words like
-> 'reuters' and 'said' — publication markers, not indicators of truth. The
-> synthetic fake keeps all of them, because it *is* a Reuters article."
+> "And it shows which terms moved the decision — words like 'reuters' and 'said'.
+> Publication markers, not indicators of truth. The synthetic fake keeps all of
+> them, because it *is* a Reuters article."
 
 ---
 
-## Closing — 60 seconds
+# Closing — 60 seconds
 
 > "Four conclusions.
 >
@@ -426,35 +638,35 @@ Then open the report.
 > Two — a high score doesn't prove the model learned the right thing. Mine
 > learned to detect AI writing and looked fine on F1.
 >
-> Three — a more powerful model isn't automatically a more dependable one. BERT
-> has the highest ceiling and the least reliable floor.
+> Three — a more powerful model isn't automatically more dependable. BERT has the
+> highest ceiling and the least reliable floor.
 >
 > Four — robustness to manipulation has to be designed in deliberately. More data
 > alone made it worse."
 
-**Then the limitations, unprompted:**
+**Then limitations, unprompted:**
 
 > "Four honest limits. All synthetic text came from one language model, so I
-> can't claim these findings generalise to others. Sample sizes are 500 to 1,000
-> per class, bounded by API cost. The results I'm reporting predate a
-> reproducibility fix I've since added, so they're reproducible going forward but
-> not retroactively. And the quality check used an LLM judge that shares a model
-> family with the generator."
+> can't claim these generalise to others. Sample sizes are 500 to 1,000 per
+> class, bounded by API cost. The results I'm reporting predate a reproducibility
+> fix I've since added, so they're reproducible going forward but not
+> retroactively. And the quality check used an LLM judge sharing a model family
+> with the generator."
 
 ---
 
-## Questions, with answers
+# Questions, with answers
 
 **"Why Logistic Regression? It's ancient."**
 > "It's a control. If a simple word-counting model matches a transformer, the
 > task is being solved by surface features rather than understanding — which is
-> what I found in places. It's also the only model whose numbers I can guarantee
-> reproduce exactly."
+> what I found in places. It's also the only model whose numbers reproduce
+> exactly."
 
 **"Why only 500 examples?"**
-> "Cost — every synthetic article is a paid API call. I chose to spend the budget
-> on more *conditions* rather than more rows. Six recipes across four models
-> tested on two corpora is more informative than one recipe at scale."
+> "Cost — every synthetic article is a paid API call. I spent the budget on more
+> *conditions* rather than more rows. Six recipes across four models on two
+> corpora is more informative than one recipe at scale."
 
 **"Isn't 0.00 F1 just a bug?"**
 > "I checked. SVM predicts 'real' for every article, so it never gets a fake
@@ -467,9 +679,14 @@ Then open the report.
 > saved. And an LLM plausibility rating, with the self-preference caveat stated."
 
 **"Why is BERT so unstable?"**
-> "Fine-tuning a large pre-trained model on a small dataset — 1,000 examples — is
-> known to be sensitive to initialisation. One of my three seeds failed to
-> converge at all. It's why I report ranges rather than single numbers."
+> "Fine-tuning a large pre-trained model on 1,000 examples is known to be
+> sensitive to initialisation. One of my three seeds failed to converge at all.
+> It's why I report ranges rather than single numbers."
+
+**"Is 0.9998 real, or overfitting?"**
+> "It's on a test set the model never saw, so it isn't overfitting in the usual
+> sense. But it's one run, and that condition has a wide seed range — so I'd
+> describe it as the top of a range rather than a dependable result."
 
 **"Could you have used a newer model?"**
 > "The question wasn't which model is best — it was whether synthetic data can
@@ -482,17 +699,17 @@ Then open the report.
 
 ---
 
-## Delivery notes
+# Delivery notes
 
-**If you only get ten minutes:** RQ1's validity check, then RQ3's Evidence 2,
-then the Try-it demo. Those three carry the project.
+**If you only get ten minutes:** RQ1's validity check → RQ3's Evidence 2 → the
+Try-it demo. Those three carry the project.
 
-**Always say what a number means.** Not "AUC was 0.027" but "AUC was 0.027 —
-below 0.5, so the model was confidently backwards."
+**Always pair a number with its meaning.** Not "AUC was 0.027" but "AUC was
+0.027 — below 0.5, so the model was confidently backwards."
 
 **Slow down on the two places you proved yourself wrong** — the AI-writing
 shortcut, and WELFake not being independent. Supervisors are looking for whether
 you can find fault in your own work.
 
-**Volunteer every limitation.** Each one sounds like rigour when you raise it and
+**Volunteer every limitation.** Each sounds like rigour when you raise it and
 like a gap when someone else does.

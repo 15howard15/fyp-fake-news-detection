@@ -367,6 +367,7 @@ than adding a report section for it.
 
 # --- Optional: pipeline walkthrough notebook (read-only, no training) ---
 # Regenerate with: python src/build_walkthrough.py
+# Refresh CODE_WALKTHROUGH.md's line numbers: python src/build_code_map.py
 # Open pipeline_walkthrough.ipynb in VS Code or Jupyter -- runs in ~15s, retrains nothing.
 #
 # IMPORTANT: select the venv as the kernel, not the system Python. The system

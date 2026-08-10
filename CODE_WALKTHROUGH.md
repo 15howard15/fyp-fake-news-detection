@@ -35,6 +35,12 @@ jump table below — don't scroll hunting for it.
 *(In VS Code, `code -g file:line` jumps straight to that line. Or **Ctrl+P**,
 type the filename, then **Ctrl+G** and the number.)*
 
+> **Before presenting, run `python src/build_code_map.py`.** It re-reads `src/`
+> and corrects every line number in this table. They shift whenever a file
+> changes — a formatter stripping comments once moved every function in
+> `train.py` by about 26 lines — and a wrong number during a live question is
+> worse than no table.
+
 ---
 
 ## The one-paragraph opener
