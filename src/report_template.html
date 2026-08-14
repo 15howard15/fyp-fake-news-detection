@@ -275,6 +275,19 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="plot"><div id="c-auth"></div></div>
   </div>
   <div class="note crit"><p><strong>Confidently backwards, not uncertain.</strong> AUC-ROC falls below 0.50 for all four models on both corpora. The models learned that AI-paraphrased text means “real”, so genuine unedited articles look fake to them.</p></div>
+
+  <h4>What was the shortcut worth? Rebuilding the controls with the edit depth matched</h4>
+  <div class="card" id="card-editsym">
+    <div class="card-h"><div><div class="card-t">The same controls, with both classes rewritten to the same depth</div>
+    <div class="card-n">The real class was rewritten throughout while the fake class kept most of the source wording, so “close to the source” predicted “fake” with no reference to any fact. These rebuild the fake class at the real class's rewrite depth and change nothing else — same real rows, same manipulation strategies, same counts.</div></div>
+    <div class="seg" id="seg-editsym-test"></div></div>
+    <div class="legend" id="l-editsym"></div>
+    <div class="plot"><div id="c-editsym"></div></div>
+  </div>
+  <div class="tiles" id="tiles-editsym"></div>
+  <details class="tbl"><summary>Before and after, every model</summary>
+    <div class="tscroll"><div id="t-editsym"></div></div></details>
+  <div class="note" id="note-editsym"><p></p></div>
 </section>
 
 <!-- ============ RQ2 ============ -->
@@ -783,6 +796,83 @@ legend(document.getElementById("l-auth"),[{name:"Only the fake class is AI-writt
 seg(document.getElementById("seg-auth"),[{label:"Tested on LIAR",value:"liar"},
   {label:"Tested on WELFake",value:"welfake"}],v=>{AUTH=v;auth(); REDRAW.push(auth);});
 auth();
+
+/* --------- authorship shortcut: before vs after matching the edit depth --------- */
+(function(){
+  const E=DATA.rq1.editsym;
+  if(!E||!E.pairs||!E.pairs.length){
+    ["card-editsym","tiles-editsym","note-editsym"].forEach(id=>{
+      const e=document.getElementById(id); if(e) e.style.display="none";});
+    const d=document.getElementById("t-editsym");
+    if(d&&d.closest("details")) d.closest("details").style.display="none";
+    return;
+  }
+  const TN=Object.keys(E.tests);
+  let T=TN.find(t=>/removed/.test(t))||TN[0];
+  /* Only the C3 pair is charted -- C2 was never the broken one, and four series
+     across four models is unreadable. C2 stays in the table below. */
+  function drawC3(){
+    const cols=SER(),src=E.tests[T]||{};
+    const p=E.pairs.find(x=>/c3/.test(x.after))||E.pairs[0];
+    bars(document.getElementById("c-editsym"),{
+      categories:DATA.models,height:300,ref:0.5,refLabel:"random guessing",
+      series:[
+        {name:"as built (edit gap "+(E.edit?E.edit.gap_before:"—")+"pp)",color:cols[3],
+         values:DATA.models.map(m=>{const d=src[p.before]&&src[p.before][m];return d?d.auc_roc:null;})},
+        {name:"edit-matched (gap "+(E.edit?E.edit.gap_after:"—")+"pp)",color:cols[0],
+         values:DATA.models.map(m=>{const d=src[p.after]&&src[p.after][m];return d?d.auc_roc:null;})},
+      ]});
+  }
+  legend(document.getElementById("l-editsym"),[
+    {name:"Synthetic-real + Synthetic-fake, as built",color:SER()[3]},
+    {name:"Same, with both classes edited to equal depth",color:SER()[0]}]);
+  if(TN.length>1)
+    seg(document.getElementById("seg-editsym-test"),
+        TN.map(t=>({label:"Tested on "+t,value:t})),v=>{T=v;drawC3();},TN.indexOf(T));
+  drawC3(); REDRAW.push(drawC3);
+
+  const t=document.getElementById("tiles-editsym");t.innerHTML="";
+  const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
+    d.innerHTML=`<div class="v">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
+  if(E.edit){
+    add(E.edit.gap_before+"pp","edit-depth gap between the classes, as built");
+    add(E.edit.gap_after+"pp","after rebuilding the fake class");
+    add(num(E.edit.real),"of the source retained — synthetic-real");
+    add(num(E.edit.fake_after),"of the source retained — synthetic-fake, rebuilt");
+  }
+
+  table(document.getElementById("t-editsym"),
+    ["Test set","Control","Model","F1","AUC-ROC","Precision","Recall"],
+    TN.flatMap(tn=>E.pairs.flatMap(p=>[p.before,p.after].flatMap(c=>
+      DATA.models.map(m=>{
+        const d=E.tests[tn][c]&&E.tests[tn][c][m];
+        return [tn,L[c],m,fmt(d&&d.f1),
+          {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""},
+          fmt(d&&d.precision),fmt(d&&d.recall)];})))));
+
+  /* The verdict sentence is derived from the measured AUCs rather than written
+     in, so it cannot end up describing a result the numbers don't show. */
+  (function(){
+    const p=E.pairs.find(x=>/c3/.test(x.after))||E.pairs[0];
+    const src=E.tests[T]||E.tests[TN[0]];
+    const before=DATA.models.map(m=>src[p.before]&&src[p.before][m]&&src[p.before][m].auc_roc).filter(v=>v!=null);
+    const after=DATA.models.map(m=>src[p.after]&&src[p.after][m]&&src[p.after][m].auc_roc).filter(v=>v!=null);
+    if(!before.length||!after.length) return;
+    const nb=before.filter(v=>v<0.5).length, na=after.filter(v=>v<0.5).length;
+    const mb=before.reduce((a,b)=>a+b,0)/before.length, ma=after.reduce((a,b)=>a+b,0)/after.length;
+    const el=document.getElementById("note-editsym");
+    el.className = "note " + (na<nb ? "good" : na>nb ? "crit" : "warn");
+    el.innerHTML = "<p><strong>"+
+      (na<nb ? "Matching the edit depth removes most of the inversion."
+             : na>nb ? "Matching the edit depth did not remove the inversion."
+                     : "Matching the edit depth left the inversion in place.")+
+      "</strong> Below-chance AUC scores go from <strong>"+nb+" of "+before.length+
+      "</strong> to <strong>"+na+" of "+after.length+"</strong>, and mean AUC moves from "+
+      num(mb)+" to "+num(ma)+". The edit-depth gap between the two classes was closed from "+
+      (E.edit?E.edit.gap_before:"—")+"pp to "+(E.edit?E.edit.gap_after:"—")+
+      "pp, and nothing else about the recipe changed.</p>";
+  })();
+})();
 
 /* ================= RQ2 ================= */
 const RQ2T=(DATA.rq2.tests&&Object.keys(DATA.rq2.tests).length)

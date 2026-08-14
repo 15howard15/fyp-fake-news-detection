@@ -35,6 +35,9 @@ synthetic-real.
 
 Run AFTER generate_synthetic_real.py has produced data/synthetic/synthetic_real.csv.
 """
+import argparse
+import difflib
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -43,6 +46,55 @@ import config as cfg
 
 def load(name):
     return pd.read_csv(cfg.PROCESSED_DIR / f"{name}.csv")
+
+
+def mean_similarity(df, window=4000):
+    """Mean difflib similarity between each row and its source article.
+
+    Compared against the first `window` characters only, because that is all the
+    generator's prompt ever saw (gen_common.truncate_article). Scoring against
+    the full stored source would count text the model was never shown as though
+    it had deleted it. autojunk is off: on article-length strings difflib's
+    heuristic treats spaces and common letters as junk and shifts the ratio.
+    """
+    sims = [difflib.SequenceMatcher(None, str(s)[:window], str(t),
+                                    autojunk=False).ratio()
+            for s, t in zip(df["source_text"], df["text"])]
+    return sum(sims) / max(len(sims), 1)
+
+
+def check_symmetry(real_df, fake_df, tolerance_pp, fail):
+    """Gate the SYMMETRIC pair on the two classes having been edited equally.
+
+    This lives here, not in build_core_datasets.py, for two reasons. That script
+    builds real_real/mixed/real_syn and never touches synthetic-real at all, so
+    the check would have nothing to compare; and it is the script everyone runs
+    to rebuild the core RQ1 datasets, so a hard assert there would stop RQ1 and
+    RQ2 being rebuildable at all -- the ORIGINAL corpora fail this check by
+    21.8 points by construction, which is the very thing the symmetric pair
+    exists to fix.
+
+    Scoped to the *_sym corpora, and --strict decides whether a breach stops the
+    build or is reported and carried on with.
+    """
+    r, f = mean_similarity(real_df), mean_similarity(fake_df)
+    gap = abs(r - f) * 100
+    print(f"\n--- edit-distance symmetry check ---")
+    print(f"  synthetic-real similarity to source: {r:.4f}")
+    print(f"  synthetic-fake similarity to source: {f:.4f}")
+    print(f"  gap: {gap:.1f} percentage points (tolerance {tolerance_pp})")
+    if gap > tolerance_pp:
+        msg = (f"Edit-distance asymmetry is {gap:.1f}pp, above the {tolerance_pp}pp "
+               f"tolerance. The two classes were rewritten by different amounts, so "
+               f"a model can use rewrite depth as a proxy for the label -- which is "
+               f"the authorship shortcut these compositions exist to remove. "
+               f"Regenerate with generate_synthetic_fake.py --symmetric.")
+        if fail:
+            raise SystemExit(f"\nFAIL: {msg}")
+        print(f"  WARNING: {msg}")
+    else:
+        print(f"  OK -- within tolerance.")
+    return {"real": r, "fake": f, "gap_pp": gap}
 
 
 def save(df, name):
@@ -55,6 +107,16 @@ def save(df, name):
 
 
 def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--tolerance", type=float, default=5.0,
+                     help="percentage points of mean source-similarity the two "
+                          "classes of the SYMMETRIC pair may differ by (default 5)")
+    ap.add_argument("--strict", action="store_true",
+                     help="stop the build if the symmetry check breaches the "
+                          "tolerance, instead of warning and continuing")
+    args = ap.parse_args()
+
     syn_real_path = cfg.SYNTHETIC_DIR / "synthetic_real.csv"
     if not syn_real_path.exists():
         raise FileNotFoundError(
@@ -111,6 +173,44 @@ def main():
           f"fake class = {len(fake_part_1000):,} real-fake + {len(syn_fake):,} synthetic-fake. "
           "Compare vs train_lowres_aug (same RR/RF/SF, no SR) to isolate the added "
           "synthetic-real effect specifically.)")
+
+    # ---- C2'/C3': the same controls with the edit-distance asymmetry removed ----
+    #
+    # ADDITIONAL compositions, never replacements. C2/C3 above are two of RQ1's
+    # six recipe series, they are the whole of RQ1's authorship validity chart,
+    # and C3 sets the lower bound of CNN's RQ3 robustness spread. Overwriting
+    # them would not update those results, it would delete them -- and the
+    # before/after pair is the finding, exactly as with contaminated vs cleaned
+    # WELFake.
+    #
+    # Only the FAKE side is regenerated. The pilot found that the existing
+    # synthetic_real.csv already sits on the 0.444 target, so it is reused
+    # as-is; regenerating it would have cost another 1,000 API calls to land in
+    # the same place.
+    sym_fake_path = cfg.SYNTHETIC_DIR / "synthetic_fake_sym.csv"
+    if not sym_fake_path.exists():
+        print(f"\n(skipping C2'/C3' -- {sym_fake_path.name} not found; run "
+              f"generate_synthetic_fake.py --symmetric first)")
+    else:
+        sym_fake_full = pd.read_csv(sym_fake_path)
+        syn_real_full = pd.read_csv(syn_real_path)
+        check_symmetry(syn_real_full, sym_fake_full, args.tolerance, args.strict)
+
+        sym_fake = sym_fake_full[["text", "label", "source"]]
+        print("\n--- C2': synthetic-real + real-fake (symmetric-edit control) ---")
+        n = min(len(syn_real), len(isot_fake_pool), len(sym_fake))
+        c2s = pd.concat([syn_real.head(n),
+                         isot_fake_pool.head(n)[["text", "label", "source"]]],
+                        ignore_index=True)
+        save(c2s, "train_c2_sym")
+
+        print("\n--- C3': synthetic-real + symmetric synthetic-fake ---")
+        n3 = min(len(syn_real), len(sym_fake))
+        c3s = pd.concat([syn_real.head(n3), sym_fake.head(n3)], ignore_index=True)
+        save(c3s, "train_c3_sym")
+        print(f"  (compare against train_c3_synreal_synfake at matched scale "
+              f"n={n3:,} -- same real class, same manipulation strategies, "
+              f"differing only in how heavily the fake class was rewritten)")
 
     print("\nDone.")
     print("For a fair C0-vs-C2 and C1-vs-C3 read, evaluate all four "

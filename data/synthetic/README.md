@@ -14,6 +14,7 @@ All of it was produced with **GPT-4o-mini** (`config.OPENAI_MODEL`).
 |---|---|---|---|
 | `synthetic_fake.csv` | 500 | ISOT real articles with a single fact altered — the fake class for the replacement and augmentation recipes | `generate_synthetic_fake.py` |
 | `synthetic_fake_mixedlen.csv` | 500 | The same single-fact manipulations written at three very different lengths (~25 / ~100 / ~400 words) over **disjoint** source articles, so the corpus holds no near-duplicate retellings of one story. Backs the length-controlled recipe; `synthetic_fake.csv` is untouched | `generate_synthetic_fake.py --lengths short medium long` |
+| `synthetic_fake_sym.csv` | 500 | The same single-fact manipulations, but rewritten to the **same depth** as `synthetic_real.csv` so the two classes can't be told apart by how heavily they were edited. Backs the C2′/C3′ authorship controls; `synthetic_fake.csv` is untouched | `generate_synthetic_fake.py --symmetric` |
 | `synthetic_fake_liar.csv` | 200 | The same idea sourced from LIAR statements instead of ISOT, for the diverse-sourcing recipe | `generate_synthetic_fake_liar.py` |
 | `synthetic_real.csv` | 1000 | ISOT real articles paraphrased with every fact preserved — the "synthetic real" control behind the authorship-shortcut check | `generate_synthetic_real.py` |
 | `style_attack.csv` | 200 | Tone-only rewrites of 200 held-out articles: real made sensational, fake made neutral. Labels unchanged | `generate_style_attack.py` |
@@ -35,6 +36,13 @@ Beyond that:
   time. This is what makes the fact changes auditable after the fact.
 - `transformation` — which manipulation was applied (`fact_manipulation`,
   `context_distortion`, `selective_omission`, `tone_adjustment`).
+- `modified_fact_as_written` — `synthetic_fake_sym.csv` only: the altered fact
+  restated in the rewritten article's own wording. **Not** a verbatim pointer
+  into the text — the model was asked to quote the sentence word for word and
+  does so only 10% of the time. It exists because heavy paraphrase rewords the
+  altered fact itself, so matching `modified_fact` against the article alone
+  gets less reliable; having a second phrasing raises edit verification from
+  about 73% to 87%.
 - `length` — `synthetic_fake_mixedlen.csv` only: which length bucket the row was
   generated for (`short` ≈ 25 words, `medium` ≈ 100, `long` ≈ 400). Absent from
   every other file, whose rows follow their source article's length.

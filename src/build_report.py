@@ -42,6 +42,8 @@ RECIPE_LABEL = {
     "c3_synreal_synfake": "Synthetic-real + Synthetic-fake",
     "real_syn_multisource": "Real + Synthetic (diverse-sourced)",
     "real_syn_mixedlen": "Real + Synthetic (length-controlled)",
+    "c2_sym": "Synthetic-real + Real-fake (edit-matched)",
+    "c3_sym": "Synthetic-real + Synthetic-fake (edit-matched)",
     "style_robust": "Style-robust",
 }
 METRICS = ["f1", "auc_roc", "accuracy", "precision", "recall"]
@@ -497,6 +499,60 @@ def quality_block():
     return out
 
 
+def editsym_block():
+    """The authorship-shortcut controls before and after the edit asymmetry was
+    removed.
+
+    C2/C3 pair synthetic-real against real-fake and synthetic-fake. Their fake
+    class was edited far more lightly than their real class -- measured at 65.9%
+    of the source retained against 44.0% -- so "close to the source wording"
+    predicted "fake" without reference to any fact. C2'/C3' are the same
+    controls built from a fake class rewritten to the same depth as the real
+    class, and nothing else changed: same real rows, same manipulation
+    strategies, same counts.
+
+    Reported as a pair rather than a replacement. C3's below-chance AUC is a
+    finding in its own right; what makes it interpretable is what happens to it
+    when the asymmetry is removed.
+    """
+    pairs = [("c2_synreal_realfake", "c2_sym"), ("c3_synreal_synfake", "c3_sym")]
+    if not _metrics_json("LR", "c3_sym"):
+        return {}
+    out = {"models": MODELS, "pairs": [], "tests": {}}
+    for before, after in pairs:
+        if _metrics_json("LR", after):
+            out["pairs"].append({"before": before, "after": after})
+    if not out["pairs"]:
+        return {}
+
+    comps = [c for p in out["pairs"] for c in (p["before"], p["after"])]
+    out["tests"]["LIAR"] = liar_block(comps)
+    clean = crosstarget_block(comps, "crosstarget_welfake_clean_results.csv")
+    if len(clean) == len(comps):
+        out["tests"]["WELFake (ISOT removed)"] = clean
+
+    # The measured edit gap each side of the fix, recomputed here so the number
+    # in the prose cannot drift from the corpora it describes.
+    import difflib
+    def sim(stem):
+        p = cfg.SYNTHETIC_DIR / f"{stem}.csv"
+        if not p.exists():
+            return None
+        df = pd.read_csv(p)
+        if not {"text", "source_text"} <= set(df.columns):
+            return None
+        vals = [difflib.SequenceMatcher(None, str(s)[:4000], str(t),
+                                        autojunk=False).ratio()
+                for s, t in zip(df["source_text"], df["text"])]
+        return round(sum(vals) / len(vals), 4)
+    r, f_old, f_new = sim("synthetic_real"), sim("synthetic_fake"), sim("synthetic_fake_sym")
+    if None not in (r, f_old, f_new):
+        out["edit"] = {"real": r, "fake_before": f_old, "fake_after": f_new,
+                       "gap_before": round(abs(r - f_old) * 100, 1),
+                       "gap_after": round(abs(r - f_new) * 100, 1)}
+    return out
+
+
 def cv_block(comps):
     """5-fold CV for LR/SVM, under both an ordinary and a pair-aware split.
 
@@ -701,7 +757,8 @@ def collect():
                 "tests": {"LIAR": liar_block(rq1_comps),
                           "WELFake (ISOT removed)": welfake_clean_block(rq1_comps)},
                 "cv": cv_block(rq1_comps + ["style_robust"]),
-                "significance": significance_block()},
+                "significance": significance_block(),
+                "editsym": editsym_block()},
         "rq2": sweep_block(),
         # RQ3 is the model-family comparison; the LIAR-vs-WELFake material it
         # used to hold is the cross-domain protocol common to all four

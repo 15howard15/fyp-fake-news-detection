@@ -107,6 +107,7 @@ Return JSON with exactly these keys:
 {{
   "fact_table": [list of extracted facts as strings],
   "modified_fact": "the single fact you changed, before -> after",
+  "modified_fact_as_written": "copy the ONE sentence from your rewritten article that carries the altered fact, word for word",
   "synthetic_article": "the full rewritten article text"
 }}"""
 
@@ -322,6 +323,27 @@ def main():
         # existing schema and nothing downstream has to learn a new column.
         if bucket:
             row["length"] = bucket
+        if args.symmetric:
+            # The altered fact restated in the rewritten article's own wording.
+            #
+            # WHAT THIS IS NOT: a verbatim pointer into the article. The prompt
+            # asks for the sentence word for word, and the model does not comply
+            # -- measured on a 30-article pilot, the returned string is an exact
+            # substring of the article 10% of the time, 17% after normalising
+            # punctuation, and matches some sentence at 80% token overlap only
+            # 33% of the time. It writes a plausible restatement instead of
+            # copying. Do not use it to locate the edit in the text.
+            #
+            # WHAT IT IS FOR: a second, differently-worded record of the change,
+            # which makes the audit less dependent on lexical luck. Verifying an
+            # edit by matching modified_fact against this field succeeds 86.7%
+            # of the time against 73.3% matching it against the whole article.
+            # That is a real improvement but not a fix -- heavy paraphrase
+            # rewords the altered fact itself, so some loss of traceability is
+            # the price of removing the edit-distance asymmetry, and the honest
+            # figure to quote is the ~99.5% of the lightly-edited corpus falling
+            # to roughly 87% here.
+            row["modified_fact_as_written"] = data.get("modified_fact_as_written", "")
         results.append(row)
         pbar.update(1)
 

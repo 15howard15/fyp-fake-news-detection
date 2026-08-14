@@ -119,6 +119,30 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp real_syn real
 # (LIAR) is separable at AUC 0.9999 by document length ALONE, so a score there
 # is not by itself evidence a model learned anything about truth.
 
+# --- Authorship shortcut: match the edit depth of the two classes ---
+# C2/C3 pair synthetic-real against real-fake and synthetic-fake. Their fake
+# class kept far more of the source wording than their real class -- measured at
+# 65.9% retained vs 44.0%, a 21.8-point gap -- so "close to the source wording"
+# predicted "fake" without reference to any fact. That is the C3 authorship
+# shortcut.
+python src/evaluate.py edit-distance          # measure the gap before changing anything
+python src/generate_synthetic_fake.py --n 500 --symmetric
+python src/build_synthetic_real_datasets.py   # adds train_c2_sym / train_c3_sym
+python src/train.py --model all --dataset c2_sym c3_sym
+python src/evaluate.py cross-target --dataset welfake_clean --comp c3_synreal_synfake c3_sym
+# Only the FAKE side is regenerated: a 30-article pilot found synthetic_real.csv
+# already sits on the 0.444 target, so regenerating it would have cost ~1,000
+# API calls to land in the same place. Prompt symmetry alone does NOT give
+# outcome symmetry -- handing both generators the identical paraphrase
+# instruction leaves a gap that WIDENS as the instruction gets stronger (6.0 ->
+# 8.0 -> 14.8pp across three pilot rounds), because planting a fact already
+# makes the model rewrite harder. Symmetry is enforced by measuring, not by
+# sharing prompt text; build_synthetic_real_datasets.py --strict gates on it.
+# c2_sym/c3_sym are ADDITIONS. C2/C3 are two of RQ1's six recipe series, they
+# are the whole of RQ1's authorship validity chart, and C3 sets the lower bound
+# of CNN's RQ3 robustness spread -- overwriting them would delete those results
+# rather than update them. The before/after pair is the finding.
+
 # --- Statistical validation (no retraining, no GPU) ---
 # McNemar's test on paired predictions: is a score gap bigger than chance? Loads
 # saved checkpoints and runs inference only, caching each (model, composition)
