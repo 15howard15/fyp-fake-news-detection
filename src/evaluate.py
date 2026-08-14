@@ -557,6 +557,94 @@ def predict_labels(comp, model, test):
     raise ValueError(f"unknown model {model!r}")
 
 
+def cmd_edit_distance(args):
+    """How heavily was each synthetic corpus rewritten from its source?
+
+    The C3 authorship shortcut comes from the two classes being edited by
+    different amounts. If synthetic FAKE keeps most of the source wording while
+    synthetic REAL is rewritten throughout, then "close to the source wording"
+    predicts "fake" without any reference to the facts, and a model will use it.
+    Measuring the asymmetry is what turns that from a suspicion into a number.
+
+    Two details that change the answer:
+
+    - Compared against the first --window characters of the source, not the whole
+      stored source. gen_common.truncate_article caps the PROMPT at 4,000
+      characters, so the generator never saw the rest; scoring against the full
+      article would count text the model was never given as though it had
+      deleted it.
+    - difflib.SequenceMatcher with autojunk disabled. Its heuristic treats
+      characters appearing in more than 1% of a long string as junk, which for
+      article-length text means spaces and common letters, and that silently
+      shifts the ratio.
+
+    The reported number is SIMILARITY (1.0 = identical to source, 0.0 = shares
+    nothing). Edit distance is 1 - similarity; both are printed so neither has
+    to be inferred.
+    """
+    import difflib
+
+    rows = []
+    for name in args.files:
+        p = cfg.SYNTHETIC_DIR / (name if name.endswith(".csv") else f"{name}.csv")
+        if not p.exists():
+            print(f"  (skip {p.name} -- not found)")
+            continue
+        df = pd.read_csv(p)
+        if not {"text", "source_text"} <= set(df.columns):
+            print(f"  (skip {p.name} -- needs both text and source_text)")
+            continue
+        if args.n:
+            df = df.head(args.n)
+        sims = []
+        for src, gen in zip(df["source_text"], df["text"]):
+            a = str(src)[:args.window]
+            sims.append(difflib.SequenceMatcher(None, a, str(gen),
+                                                autojunk=False).ratio())
+        s = np.array(sims)
+        rows.append({"file": p.stem, "n": len(s),
+                     "similarity_mean": round(float(s.mean()), 4),
+                     "similarity_sd": round(float(s.std(ddof=1)), 4),
+                     "similarity_median": round(float(np.median(s)), 4),
+                     "similarity_p25": round(float(np.percentile(s, 25)), 4),
+                     "similarity_p75": round(float(np.percentile(s, 75)), 4),
+                     "edit_distance_mean": round(float(1 - s.mean()), 4)})
+
+    if not rows:
+        print("No corpora measured.")
+        return
+
+    df = pd.DataFrame(rows)
+    print("\n=== EDIT DISTANCE FROM SOURCE "
+          f"(first {args.window:,} chars, the window the prompt saw) ===")
+    print(df.to_string(index=False))
+
+    # Pairwise gaps. The mean is what the tolerance is checked against, but the
+    # quartiles are printed too: two corpora can share a mean and still be
+    # trivially separable if one is much more spread out than the other.
+    print("\n=== PAIRWISE ASYMMETRY (percentage points of similarity) ===")
+    pair_rows = []
+    for i in range(len(df)):
+        for j in range(i + 1, len(df)):
+            a, b = df.iloc[i], df.iloc[j]
+            gap = abs(a.similarity_mean - b.similarity_mean) * 100
+            verdict = "OK" if gap <= args.tolerance else "ASYMMETRIC"
+            print(f"  {a.file:28s} vs {b.file:28s} "
+                  f"{a.similarity_mean:.3f} vs {b.similarity_mean:.3f}  "
+                  f"gap={gap:5.1f}pp  [{verdict}]")
+            pair_rows.append({"file": f"{a.file} vs {b.file}", "n": "",
+                              "similarity_mean": "", "similarity_sd": "",
+                              "similarity_median": "", "similarity_p25": "",
+                              "similarity_p75": "",
+                              "edit_distance_mean": "",
+                              "gap_pp": round(gap, 2),
+                              "within_tolerance": bool(gap <= args.tolerance)})
+
+    out = EXTRA_DIR / "edit_distance.csv"
+    pd.concat([df, pd.DataFrame(pair_rows)], ignore_index=True).to_csv(out, index=False)
+    print(f"\nTolerance: {args.tolerance} percentage points. Saved to {out}")
+
+
 def cmd_significance(args):
     """McNemar's test on pairs of already-trained models. No retraining.
 
@@ -1222,6 +1310,24 @@ def main():
     ct.add_argument("--comp", nargs="+", default=list(cfg.COMPOSITIONS),
                      help="composition name(s) to evaluate (checkpoints must exist under models/)")
 
+    ed = sub.add_parser(
+        "edit-distance",
+        help="how heavily each synthetic corpus was rewritten from its source, "
+             "and whether the two classes match (see function docstring)",
+    )
+    ed.add_argument("--files", nargs="+",
+                     default=["synthetic_real", "synthetic_fake"],
+                     help="corpus stems under data/synthetic/ (need text + source_text)")
+    ed.add_argument("--n", type=int, default=None,
+                     help="measure only the first N rows of each (default: all)")
+    ed.add_argument("--window", type=int, default=4000,
+                     help="compare against the first N characters of the source -- "
+                          "must match gen_common.truncate_article's cap (4000), "
+                          "which is all the prompt ever saw")
+    ed.add_argument("--tolerance", type=float, default=5.0,
+                     help="how many percentage points of mean similarity two "
+                          "corpora may differ by and still count as symmetric")
+
     sg = sub.add_parser(
         "significance",
         help="McNemar's test between already-trained checkpoints -- is a score "
@@ -1307,6 +1413,8 @@ def main():
         cmd_length_sweep(args)
     elif args.command == "significance":
         cmd_significance(args)
+    elif args.command == "edit-distance":
+        cmd_edit_distance(args)
 
 
 if __name__ == "__main__":

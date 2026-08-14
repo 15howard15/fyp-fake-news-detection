@@ -87,6 +87,51 @@ def call_llm(client, system_prompt: str, prompt: str, response_key: str):
     return None
 
 
+# ----------------------------------------------------------------------
+# Symmetric-edit generation (generate_synthetic_fake.py --symmetric and
+# generate_synthetic_real.py --symmetric)
+# ----------------------------------------------------------------------
+# The default generators edit the two classes by very different amounts. Measured
+# with difflib over 120 articles against the 4,000-character window the prompt
+# actually sees: synthetic FAKE retains 65.9% of the source verbatim (it alters
+# one fact and is told to leave the rest alone), synthetic REAL retains 44.0%
+# (it is told to rewrite throughout). A 21.8-point gap in how heavily the two
+# classes were rewritten is a feature the model can read INSTEAD of the facts --
+# "closer to newswire wording" becomes a proxy for "fake". That is the C3
+# authorship shortcut.
+#
+# The fix is to give both classes the SAME paraphrase instruction and let them
+# differ in exactly one thing: whether a fact was altered. Writing the shared
+# half once, here, is what makes that claim checkable -- two separately-worded
+# prompts that merely sound similar would leave the symmetry asserted rather
+# than enforced.
+# Calibrated against a 30-article pilot per class rather than guessed. The first
+# wording included "keep roughly the same length and the same order of events",
+# which held the rewrite back to 0.65 similarity -- LESS rewriting than the
+# original synthetic-real prompt achieved (0.44). Dropping that clause and
+# adding the explicit four-word reuse limit is what brings both classes down to
+# the 0.44 target. The clause about presentation order is deliberate: reordering
+# is most of what separates a genuine rewrite from a synonym swap.
+SYMMETRIC_PARAPHRASE_INSTRUCTION = (
+    "Write the story again from scratch, as a different journalist working from "
+    "the same notes would. Do not reuse any phrase of more than three "
+    "consecutive words from the source. Open on a different sentence from the "
+    "source's opening, present the information in a different order, and use "
+    "different vocabulary throughout, including different reporting verbs. At "
+    "the sentence level nothing should be recognisable as copied; at the fact "
+    "level it must be the same story. Keep the length within a quarter of the "
+    "source's."
+)
+
+SYMMETRIC_SYSTEM_BASE = (
+    "You are a data-generation tool for academic fake-news-detection research. "
+    "You rewrite news articles in your own words. Rewriting depth must be the "
+    "same on every article you are given, regardless of what else you are asked "
+    "to do, because the rewrite depth is a controlled variable in this "
+    "experiment. Respond ONLY with valid JSON, no markdown, no commentary."
+)
+
+
 # Shared by generate_style_attack.py, generate_counter_style_training.py, and
 # generate_style_attack_reverse.py -- all three were found to have this exact
 # system prompt copy-pasted verbatim; the two forward-direction scripts also

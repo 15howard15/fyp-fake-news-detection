@@ -38,7 +38,33 @@ from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 
 import config as cfg
-from gen_common import truncate_article, quality_ok, call_llm
+from gen_common import (truncate_article, quality_ok, call_llm,
+                        SYMMETRIC_PARAPHRASE_INSTRUCTION, SYMMETRIC_SYSTEM_BASE)
+
+# --symmetric: the fact-preserving half of the matched pair. Identical system
+# base and identical paraphrase instruction to generate_synthetic_fake.py
+# --symmetric; the ONLY difference is that no fact is altered. Sharing the
+# wording rather than writing two prompts that merely sound alike is what makes
+# "the classes differ in one thing" a property of the code instead of a claim.
+SYMMETRIC_SYSTEM_PROMPT = (
+    SYMMETRIC_SYSTEM_BASE +
+    " You change no facts at all: every name, date, number, location, quote and "
+    "claim must survive exactly as given."
+)
+
+SYMMETRIC_TEMPLATE = """Source article:
+\"\"\"{article}\"\"\"
+
+{paraphrase}
+
+Every fact, name, date, number, quote and claim must remain exactly as stated in
+the source. Do not add, remove, exaggerate or soften anything -- this is a pure
+wording rewrite, and the result must stay 100% factually equivalent.
+
+Return JSON with exactly this key:
+{{
+  "paraphrased_article": "the full rewritten article text"
+}}"""
 
 SYSTEM_PROMPT = (
     "You are a data-generation tool for academic fake-news-detection research. "
@@ -63,7 +89,14 @@ Return JSON with exactly this key:
 }}"""
 
 
-def generate_one(client, article: str):
+def generate_one(client, article: str, symmetric: bool = False):
+    """symmetric=False reproduces the existing synthetic_real.csv prompts byte
+    for byte, so that corpus stays regenerable from this file."""
+    if symmetric:
+        prompt = SYMMETRIC_TEMPLATE.format(
+            article=truncate_article(article),
+            paraphrase=SYMMETRIC_PARAPHRASE_INSTRUCTION)
+        return call_llm(client, SYMMETRIC_SYSTEM_PROMPT, prompt, "paraphrased_article")
     prompt = USER_TEMPLATE.format(article=truncate_article(article))
     return call_llm(client, SYSTEM_PROMPT, prompt, "paraphrased_article")
 
@@ -73,6 +106,15 @@ def main():
     ap.add_argument("--n", type=int, default=1000,
                      help="number of synthetic-real articles to generate")
     ap.add_argument("--max_retries", type=int, default=2)
+    ap.add_argument("--symmetric", action="store_true",
+                     help="use the shared paraphrase instruction from gen_common, "
+                          "matching generate_synthetic_fake.py --symmetric exactly "
+                          "except that no fact is altered. Writes to a separate "
+                          "file; synthetic_real.csv is never overwritten.")
+    ap.add_argument("--out", default=None,
+                     help="output filename under data/synthetic/ (default: "
+                          "synthetic_real.csv, or synthetic_real_sym.csv with "
+                          "--symmetric)")
     args = ap.parse_args()
 
     if not os.getenv("OPENAI_API_KEY"):
@@ -95,7 +137,8 @@ def main():
     )
     real_train = real_train.reset_index(drop=True)
 
-    out_path = cfg.SYNTHETIC_DIR / "synthetic_real.csv"
+    default_name = "synthetic_real_sym.csv" if args.symmetric else "synthetic_real.csv"
+    out_path = cfg.SYNTHETIC_DIR / (args.out or default_name)
     done = 0
     existing = []
     if out_path.exists():
@@ -115,7 +158,7 @@ def main():
 
         data = None
         for _ in range(args.max_retries):
-            data = generate_one(client, article)
+            data = generate_one(client, article, symmetric=args.symmetric)
             if data and quality_ok(article, data["paraphrased_article"]):
                 break
             data = None

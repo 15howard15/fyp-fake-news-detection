@@ -1,0 +1,4 @@
+file,n,similarity_mean,similarity_sd,similarity_median,similarity_p25,similarity_p75,edit_distance_mean,gap_pp,within_tolerance
+synthetic_real,1000,0.444,0.1523,0.4088,0.3101,0.5761,0.556,,
+pilot_fake_sym3,30,0.4428,0.0754,0.4522,0.3806,0.5077,0.5572,,
+synthetic_real vs pilot_fake_sym3,,,,,,,,0.12,True

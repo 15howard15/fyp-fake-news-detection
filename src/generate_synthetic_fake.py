@@ -6,7 +6,8 @@ import pandas as pd
 from tqdm import tqdm
 
 import config as cfg
-from gen_common import truncate_article, quality_ok, call_llm
+from gen_common import (truncate_article, quality_ok, call_llm,
+                        SYMMETRIC_PARAPHRASE_INSTRUCTION, SYMMETRIC_SYSTEM_BASE)
 
 random.seed(cfg.SEED)
 
@@ -82,6 +83,34 @@ SYSTEM_PROMPT = (
     "Respond ONLY with valid JSON, no markdown, no commentary."
 )
 
+# --symmetric: same paraphrase depth as generate_synthetic_real.py, so the two
+# classes differ only in whether a fact was altered. See the note in
+# gen_common.py for the measured asymmetry this exists to remove.
+SYMMETRIC_SYSTEM_PROMPT = (
+    SYMMETRIC_SYSTEM_BASE +
+    " In addition to rewriting, you introduce exactly ONE targeted factual "
+    "change. Every other detail must stay faithful to the source."
+)
+
+SYMMETRIC_TEMPLATE = """Source article:
+\"\"\"{article}\"\"\"
+
+Step 1 - Extract 3-6 key facts (entities, numbers, dates, claims) as a list.
+Step 2 - Choose ONE fact and apply this transformation: {strategy_desc}
+Step 3 - {paraphrase}
+
+Apply the change from Step 2 as you rewrite. Every fact you did NOT choose must
+survive the rewrite unchanged in meaning. The altered fact MUST appear in what
+you write.
+
+Return JSON with exactly these keys:
+{{
+  "fact_table": [list of extracted facts as strings],
+  "modified_fact": "the single fact you changed, before -> after",
+  "synthetic_article": "the full rewritten article text"
+}}"""
+
+
 # The default system prompt demands the rest of the wording stay near-identical
 # to the source, which is unsatisfiable when the target is 25 words from a
 # 400-word article. Length mode keeps the part that matters -- exactly one
@@ -111,13 +140,23 @@ Return JSON with exactly these keys:
 }}"""
 
 
-def generate_one(client, article: str, strategy: str, length: str = None):
+def generate_one(client, article: str, strategy: str, length: str = None,
+                 symmetric: bool = False):
     """Call the API once. Returns dict or None on failure.
 
-    length=None keeps the original behaviour exactly (same prompt, same system
-    message), so existing synthetic_fake.csv rows stay reproducible from this
-    file. A length key switches to the length-controlled template.
+    length=None and symmetric=False keep the original behaviour exactly (same
+    prompt, same system message), so existing synthetic_fake.csv rows stay
+    reproducible from this file. The two modes are mutually exclusive and the
+    CLI rejects the combination rather than silently picking one.
     """
+    if symmetric:
+        prompt = SYMMETRIC_TEMPLATE.format(
+            article=truncate_article(article),
+            strategy_desc=STRATEGY_INSTRUCTIONS[strategy],
+            paraphrase=SYMMETRIC_PARAPHRASE_INSTRUCTION,
+        )
+        return call_llm(client, SYMMETRIC_SYSTEM_PROMPT, prompt, "synthetic_article")
+
     if length is None:
         prompt = USER_TEMPLATE.format(
             article=truncate_article(article),
@@ -144,11 +183,24 @@ def main():
                          "ones, splitting --n evenly across the named buckets "
                          "(e.g. --lengths short medium long). Writes to a separate "
                          "file so synthetic_fake.csv is never overwritten.")
+    ap.add_argument("--symmetric", action="store_true",
+                    help="rewrite the whole article to the SAME depth as "
+                         "generate_synthetic_real.py --symmetric while altering one "
+                         "fact, so the two classes differ only in whether a fact "
+                         "changed. Removes the authorship shortcut where the fake "
+                         "class sits closer to the source wording (measured: 65.9%% "
+                         "retained vs 44.0%% for synthetic-real). Writes to a "
+                         "separate file; synthetic_fake.csv is never overwritten.")
     ap.add_argument("--out", default=None,
                     help="output filename under data/synthetic/ (default: "
                          "synthetic_fake.csv, or synthetic_fake_mixedlen.csv "
-                         "when --lengths is used)")
+                         "when --lengths is used, or synthetic_fake_sym.csv "
+                         "when --symmetric is used)")
     args = ap.parse_args()
+
+    if args.symmetric and args.lengths:
+        ap.error("--symmetric and --lengths change the same prompt in different "
+                 "directions; run them separately into separate files.")
 
     if not os.getenv("OPENAI_API_KEY"):
         raise EnvironmentError("Set OPENAI_API_KEY first (see README).")
@@ -196,7 +248,9 @@ def main():
         plan = [None] * args.n
 
     # Resume support: don't regenerate what we already have.
-    default_name = "synthetic_fake_mixedlen.csv" if args.lengths else "synthetic_fake.csv"
+    default_name = ("synthetic_fake_mixedlen.csv" if args.lengths
+                    else "synthetic_fake_sym.csv" if args.symmetric
+                    else "synthetic_fake.csv")
     out_path = cfg.SYNTHETIC_DIR / (args.out or default_name)
     done = 0
     existing = []
@@ -247,7 +301,8 @@ def main():
         strategy = random.choice(cfg.TRANSFORMATIONS)
         data = None
         for _ in range(args.max_retries):
-            data = generate_one(client, article, strategy, bucket)
+            data = generate_one(client, article, strategy, bucket,
+                                symmetric=args.symmetric)
             if data and quality_ok(article, data["synthetic_article"],
                                    target_words=target):
                 break
