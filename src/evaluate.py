@@ -374,7 +374,11 @@ def cmd_error_analysis(args):
     print(f"Saved to {out_b}")
 
 
-CROSS_TARGET_ALIASES = {"welfake": "test_crossdomain2", "liar": "test_crossdomain"}
+CROSS_TARGET_ALIASES = {
+    "welfake": "test_crossdomain2",
+    "welfake_clean": "test_crossdomain2_clean",
+    "liar": "test_crossdomain",
+}
 
 
 def cmd_cross_target(args):
@@ -470,7 +474,13 @@ def cmd_cross_target(args):
             print(f"  (skip BERT for {comp} -- {e})")
 
     df = pd.DataFrame(rows)
-    out = EXTRA_DIR / "crossdomain2_results.csv"
+    # One file per target. This used to be a single hard-coded
+    # crossdomain2_results.csv for every --dataset, so a run against LIAR
+    # silently overwrote the WELFake numbers the report reads. The default
+    # target keeps its historical filename so build_report.py and the thesis
+    # tables still resolve.
+    out = EXTRA_DIR / ("crossdomain2_results.csv" if args.dataset == "welfake"
+                       else f"crosstarget_{args.dataset}_results.csv")
     df.to_csv(out, index=False)
     print(f"\n=== CROSS-TARGET RESULTS ({args.dataset}) ===")
     print(df.to_string(index=False))
@@ -683,7 +693,8 @@ def cmd_leakage(args):
        depends on this figure, so it is measured rather than assumed.
     """
     tests = {}
-    for stem in ("test_indomain", "test_crossdomain", "test_crossdomain2"):
+    for stem in ("test_indomain", "test_crossdomain", "test_crossdomain2",
+                 "test_crossdomain2_clean"):
         p = cfg.PROCESSED_DIR / f"{stem}.csv"
         if p.exists():
             tests[stem] = pd.read_csv(p)
@@ -963,7 +974,8 @@ def main():
         help="evaluate already-trained compositions on a different cross-domain test set (see module docstring)",
     )
     ct.add_argument("--dataset", default="welfake",
-                     help="'welfake' (-> test_crossdomain2.csv) or a raw composition/test-set stem")
+                     help="'welfake' (-> test_crossdomain2.csv), 'welfake_clean' "
+                          "(ISOT-overlapping articles removed), 'liar', or a raw test-set stem")
     ct.add_argument("--comp", nargs="+", default=list(cfg.COMPOSITIONS),
                      help="composition name(s) to evaluate (checkpoints must exist under models/)")
 

@@ -579,7 +579,58 @@ Nine conditions, yellow = CNN, pink = BERT.
 > scores are closer to an in-domain test than a cross-domain one. That's why they
 > look better — not because the models generalise well."
 
-### ③ "Is the generated text any good?"
+### ③ Contamination control — the recovery, and your single best moment
+
+This is the part that separates "I found a problem" from "I handled a problem."
+Do not skip it, and do not rush ② to get here — ② is the setup.
+
+> "Finding the contamination isn't enough on its own, so I removed it and
+> re-scored everything."
+
+**Point at the four tiles, left to right:**
+
+> "63.3% of WELFake's whole fake pool is verbatim ISOT text. Filtering that out —
+> plus WELFake's own internal duplicates — leaves 10,978 unique articles out of
+> 37,106. I sampled from those to build a second test set, same size, same real
+> articles, only the fake pool differs. Re-measured overlap: **0.0%**. Now it is
+> genuinely independent."
+
+**Point at the chart — the pink bars are contaminated, the cyan bars are clean:**
+
+> "Same trained models, no retraining — a model's weights don't depend on which
+> test set you score it on afterwards. So every difference you see is caused by
+> the filtering and nothing else."
+
+**Is that good or bad? — the answer to rehearse:**
+
+> "Good, in three ways.
+>
+> One: nothing moves much. The largest single change across 40 scores is 0.130.
+> My conclusions weren't propped up by the shared articles.
+>
+> Two: 36 of the 40 scores move **down**. So the contaminated set was flattering
+> every model equally — inflating the numbers, not scrambling the ranking. That
+> is the harmless kind of contamination, and I can now show it rather than hope
+> it.
+>
+> Three, and this is the one I'd point at: **all five of the below-chance AUC
+> scores get further below chance once the shared articles are gone.** Cleaning
+> the data made my worst result worse."
+
+**Why that third point matters — say it explicitly:**
+
+> "The obvious objection to my headline finding — that some models rank fake
+> news *backwards* — is 'that's probably just leakage.' If leakage caused it,
+> removing the leaked articles would push those scores back up toward 0.5.
+> They went the other way. So it isn't an artifact; it's real."
+
+**If he asks why you kept the contaminated set at all:**
+
+> "Because the difference between the two is the measurement. If I'd quietly
+> swapped in the clean set, you'd have to take my word that the contamination
+> didn't matter. This way you can check."
+
+### ④ "Is the generated text any good?"
 
 > "The only quality gate during generation was a length filter, which catches
 > refusals but says nothing about whether the text is good. So I measured it

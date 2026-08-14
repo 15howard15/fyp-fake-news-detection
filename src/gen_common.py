@@ -23,12 +23,37 @@ def truncate_article(text: str, max_chars: int = 4000) -> str:
 
 
 def quality_ok(source: str, generated: str, min_words: int = 20,
-               ratio_range: tuple = (0.4, 2.0)) -> bool:
-    """Length-ratio sanity filter: reject if the rewrite is wildly shorter or
-    longer than the source, which usually means the model hallucinated,
-    refused, or truncated."""
+               ratio_range: tuple = (0.4, 2.0),
+               target_words: int = None, target_tol: float = 0.6) -> bool:
+    """Length sanity filter: reject rewrites whose length says the model
+    hallucinated, refused, or truncated.
+
+    Two modes, because the two generation designs mean different things by
+    "wrong length":
+
+    - Default (target_words=None): judge the rewrite RELATIVE TO ITS SOURCE.
+      The single-edit design keeps the rest of the wording near-identical, so a
+      rewrite far from the source length is a failed generation.
+
+    - Length-controlled (target_words set): judge against the length we ASKED
+      for. Condensing a 400-word article into a 20-word snippet is a ratio of
+      0.05 and the default band would reject every one of them -- the filter
+      would silently throw away exactly the short data the experiment exists to
+      produce. Here the source ratio carries no information, so it is not used.
+      target_tol is the fractional band either side of the target (0.6 = accept
+      40%-160% of the requested length), wide enough that the LLM's habitual
+      imprecision about word counts doesn't cost most of the batch.
+    """
     s_words = len(source.split())
     g_words = len(generated.split())
+
+    if target_words is not None:
+        # min_words would reject every valid ~20-word snippet, so the target
+        # band replaces it rather than being applied on top.
+        lo = max(1, int(target_words * (1 - target_tol)))
+        hi = int(target_words * (1 + target_tol))
+        return lo <= g_words <= hi
+
     if g_words < min_words:
         return False
     ratio = g_words / max(s_words, 1)

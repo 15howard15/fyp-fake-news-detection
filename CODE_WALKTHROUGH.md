@@ -19,18 +19,18 @@ jump table below — don't scroll hunting for it.
 | …train the CNN | `train.py` **L201** `train_cnn` | `code -g src/train.py:201` |
 | …train BERT | `train.py` **L269** `train_bert` | `code -g src/train.py:269` |
 | …set the random seed | `repro.py` **L8** `set_determinism` | `code -g src/repro.py:8` |
-| …split train from test | `build_test_sets.py` **L12** `main` | `code -g src/build_test_sets.py:12` |
+| …split train from test | `build_test_sets.py` **L22** `main` | `code -g src/build_test_sets.py:12` |
 | …build the training recipes | `build_core_datasets.py` **L12** `main` | `code -g src/build_core_datasets.py:12` |
-| …call the OpenAI API | `gen_common.py` **L38** `call_llm` | `code -g src/gen_common.py:38` |
+| …call the OpenAI API | `gen_common.py` **L63** `call_llm` | `code -g src/gen_common.py:38` |
 | …filter bad generations | `gen_common.py` **L25** `quality_ok` | `code -g src/gen_common.py:25` |
-| …check for data leakage | `evaluate.py` **L661** `cmd_leakage` | `code -g src/evaluate.py:661` |
-| …find the misclassified articles | `evaluate.py` **L480** `cmd_hard_examples` | `code -g src/evaluate.py:480` |
-| …test on WELFake | `evaluate.py` **L380** `cmd_cross_target` | `code -g src/evaluate.py:380` |
+| …check for data leakage | `evaluate.py` **L671** `cmd_leakage` | `code -g src/evaluate.py:661` |
+| …find the misclassified articles | `evaluate.py` **L490** `cmd_hard_examples` | `code -g src/evaluate.py:480` |
+| …test on WELFake | `evaluate.py` **L384** `cmd_cross_target` | `code -g src/evaluate.py:380` |
 | …run the seed experiment | `run_multiseed_robustness.py` **L60** `run_cnn`, **L104** `run_bert` | `code -g src/run_multiseed_robustness.py:60` |
 | …evaluate the style attack | `eval_style_robustness.py` **L185** `main` | `code -g src/eval_style_robustness.py:185` |
 | …verify the synthetic data quality | `check_synthetic_quality.py` **L153** `check_fact_changes` | `code -g src/check_synthetic_quality.py:153` |
 | …set a hyperparameter | `config.py` (whole file, 110 lines) | `code -g src/config.py:1` |
-| …build the report | `build_report.py` **L364** `collect`, **L388** `main` | `code -g src/build_report.py:364` |
+| …build the report | `build_report.py` **L440** `collect`, **L388** `main` | `code -g src/build_report.py:364` |
 
 *(In VS Code, `code -g file:line` jumps straight to that line. Or **Ctrl+P**,
 type the filename, then **Ctrl+G** and the number.)*

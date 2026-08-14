@@ -86,6 +86,28 @@ python src/evaluate.py master     # gather train.py's metrics into master_result
 python src/run_train_extra_experiments.py   # LR/SVM on augmented/lowres, test_indomain + test_crossdomain
 python src/run_deep_extra_experiments.py --models cnn bert  # CNN/BERT on augmented/lowres, both test sets
 
+# --- Contamination control: WELFake is not the independent corpus it looks like ---
+# 63.3% of WELFake's fake class is verbatim ISOT text, because WELFake is a merged
+# corpus that absorbed the same Kaggle data ISOT derives from. build_test_sets.py
+# therefore also writes test_crossdomain2_clean.csv, which drops every ISOT article
+# (and WELFake's own internal duplicates) before sampling -- verified 0.0% overlap.
+# Both sets are kept and scored: the gap between them measures what the
+# contamination was actually worth, instead of asserting that it didn't matter.
+python src/evaluate.py cross-target --dataset welfake --comp real_real mixed real_syn c2_synreal_realfake c3_synreal_synfake
+python src/evaluate.py cross-target --dataset welfake_clean --comp real_real mixed real_syn c2_synreal_realfake c3_synreal_synfake
+# Inference only -- no retraining, since a model's weights don't depend on which
+# test set you later score it against.
+
+# --- Length-confound control: mixed-length synthetic fakes (needs OpenAI credit) ---
+# The default generator applies one edit and leaves the rest of the wording alone,
+# so synthetic fakes inherit the source's length (median 376 words vs 369 for ISOT
+# real). That lets a classifier separate the training classes on length-correlated
+# cues. --lengths regenerates the same fact-manipulations at ~25 / ~100 / ~400 words
+# over DISJOINT source articles, breaking the length-label correlation without
+# changing what makes the text false. Writes a separate file; synthetic_fake.csv
+# and every result derived from it are left untouched.
+python src/generate_synthetic_fake.py --n 500 --lengths short medium long
+
 # --- Objective 1 follow-up: balance-controlled synthetic-fraction sweep (recommended read for the augmentation angle) ---
 python src/build_swap_sweep_datasets.py   # 0/25/50/75/100% synthetic, fake count fixed at 500
 python src/run_swap_sweep_experiment.py   # trains + evaluates all 4 models at each fraction

@@ -84,6 +84,82 @@ def welfake_block(comps):
     return out
 
 
+def contamination_block(comps):
+    """WELFake scored twice: as shipped, and with every ISOT article removed.
+
+    63.8% of the fake class in test_crossdomain2 is verbatim ISOT text, because
+    WELFake is a merged corpus that absorbed the same Kaggle data ISOT derives
+    from. That makes every "generalises to an independent long-form corpus"
+    number on that set partly a re-test on training material. Rather than drop
+    the contaminated set and quietly restate the numbers, both are reported:
+    the gap between them is the measurement of how much the contamination was
+    actually worth, and it is the only way a reader can check that the
+    conclusions were not artifacts of it.
+
+    Same checkpoints, same real class, same sample size -- only the fake-class
+    pool differs, so the delta is attributable to the filtering and nothing
+    else.
+    """
+    p = EXTRA / "crosstarget_welfake_clean_results.csv"
+    q = EXTRA / "crossdomain2_results.csv"
+    if not (p.exists() and q.exists()):
+        return {}
+    clean, dirty = pd.read_csv(p), pd.read_csv(q)
+    out = {"comps": [], "rows": {}}
+    for comp in comps:
+        gc, gd = clean[clean.comp == comp], dirty[dirty.comp == comp]
+        if gc.empty or gd.empty:
+            continue
+        row = {}
+        for m in MODELS:
+            rc, rd = gc[gc.model == m], gd[gd.model == m]
+            if rc.empty or rd.empty:
+                continue
+            row[m] = {
+                "f1_dirty": round(float(rd.iloc[0]["f1"]), 4),
+                "f1_clean": round(float(rc.iloc[0]["f1"]), 4),
+                "auc_dirty": round(float(rd.iloc[0]["auc_roc"]), 4),
+                "auc_clean": round(float(rc.iloc[0]["auc_roc"]), 4),
+            }
+        if row:
+            out["comps"].append(comp)
+            out["rows"][comp] = row
+    # Largest single move in either metric -- the headline "conclusions survive"
+    # figure, computed rather than eyeballed so it cannot drift from the data.
+    pairs = [(v[a], v[b])
+             for r in out["rows"].values() for v in r.values()
+             for a, b in (("f1_clean", "f1_dirty"), ("auc_clean", "auc_dirty"))]
+    out["max_shift"] = round(max(abs(c - d) for c, d in pairs), 4) if pairs else None
+    out["n_scores"] = len(pairs)
+    out["n_down"] = sum(1 for c, d in pairs if c < d)
+    out["n_up"] = sum(1 for c, d in pairs if c > d)
+    # Does removing the shared articles rescue the below-chance AUCs, or make
+    # them worse? If cleaning made them worse, the backwards-ranking result
+    # cannot have been an artifact of ISOT text leaking into the test set --
+    # which is the single most likely objection to that finding.
+    bc = [(v["auc_clean"], v["auc_dirty"])
+          for r in out["rows"].values() for v in r.values() if v["auc_dirty"] < 0.5]
+    out["below_chance_total"] = len(bc)
+    out["below_chance_worse"] = sum(1 for c, d in bc if c < d)
+    # Recomputed from the corpora rather than copied from the build log, so the
+    # figure in the report can never drift from the filter that produced the
+    # test set. Same normalisation as build_test_sets.py.
+    wf = cfg.PROCESSED_DIR / "welfake_fake.csv"
+    if wf.exists():
+        import re
+        norm = lambda s: re.sub(r"\s+", " ", str(s)).strip().lower()
+        isot = set()
+        for stem in ("isot_real", "isot_fake"):
+            isot |= set(pd.read_csv(cfg.PROCESSED_DIR / f"{stem}.csv")["text"].map(norm))
+        keys = pd.read_csv(wf)["text"].map(norm)
+        kept = keys[~keys.isin(isot)].nunique()
+        out["pool_total"] = int(len(keys))
+        out["pool_clean"] = int(kept)
+        out["removed_pct"] = round(100.0 * (len(keys) - kept) / len(keys), 1)
+        out["overlap_pct"] = round(100.0 * keys.isin(isot).mean(), 1)
+    return out
+
+
 def sweep_block():
     """RQ2 synthetic-fraction sweep, cross-domain only."""
     df = pd.read_csv(EXTRA / "swap_sweep_results.csv")
@@ -380,7 +456,8 @@ def collect():
         "rq4": style_block(),
         "framework": {"comps": rq3_comps, "liar": liar_block(rq3_comps),
                       "welfake": welfake_block(rq3_comps), "length": length_block(),
-                      "quality": quality_block(), "leakage": leakage_block()},
+                      "quality": quality_block(), "leakage": leakage_block(),
+                      "contamination": contamination_block(rq1_comps)},
         "demo": demo_examples(),
     }
 

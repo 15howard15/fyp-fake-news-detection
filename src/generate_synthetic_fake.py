@@ -31,11 +31,67 @@ STRATEGY_INSTRUCTIONS = {
     ),
 }
 
+# ----------------------------------------------------------------------
+# Length control (--lengths)
+# ----------------------------------------------------------------------
+# The default generator preserves the source article's length, because it
+# applies one edit and leaves the rest of the wording alone. That is the right
+# design for "is this fact false?", but it hands the classifier a shortcut:
+# synthetic fakes have a median of 376 words against 369 for ISOT real, while
+# LIAR statements have a median of 16. A detector can therefore separate the
+# training classes on length-correlated cues and still look like it learned
+# something about truth -- and the RQ3 length sweep already showed this project
+# is exposed to exactly that confound.
+#
+# Generating the same fact-manipulation at three very different lengths breaks
+# the correlation between length and label without changing what makes the text
+# false, so a model trained on the mixed-length corpus cannot use length as a
+# proxy for the label.
+LENGTH_SPECS = {
+    "short":  (25,  "a single short social-media-style snippet of about 25 words -- "
+                    "one or two sentences, no headline, no byline"),
+    "medium": (100, "a condensed news summary of about 100 words -- roughly one "
+                    "short paragraph, as a news aggregator would show it"),
+    "long":   (400, "a full-length news article of about 400 words, written in "
+                    "normal newswire style"),
+}
+
+LENGTH_TEMPLATE = """Source article:
+\"\"\"{article}\"\"\"
+
+Step 1 - Extract 3-6 key facts (entities, numbers, dates, claims) as a list.
+Step 2 - Choose ONE fact and apply this transformation: {strategy_desc}
+Step 3 - Write {length_desc}, reporting this story WITH that single altered
+         fact in it. Aim for roughly {target} words. Every other fact you
+         include must stay exactly as it is in the source -- change one thing
+         and one thing only. The altered fact MUST appear in what you write.
+
+Return JSON with exactly these keys:
+{{
+  "fact_table": [list of extracted facts as strings],
+  "modified_fact": "the single fact you changed, before -> after",
+  "synthetic_article": "the text you wrote"
+}}"""
+
+
 SYSTEM_PROMPT = (
     "You are a data-generation tool for academic fake-news-detection research. "
     "You transform a real news article into a synthetic fake variant by applying "
     "exactly ONE targeted change. You MUST keep the rest of the wording almost "
     "identical to the source so the change is subtle and traceable. "
+    "Respond ONLY with valid JSON, no markdown, no commentary."
+)
+
+# The default system prompt demands the rest of the wording stay near-identical
+# to the source, which is unsatisfiable when the target is 25 words from a
+# 400-word article. Length mode keeps the part that matters -- exactly one
+# altered fact, everything else faithful -- and drops the verbatim-wording
+# requirement, which is a means to that end rather than the end itself.
+LENGTH_SYSTEM_PROMPT = (
+    "You are a data-generation tool for academic fake-news-detection research. "
+    "You retell a real news article at a requested length, introducing exactly "
+    "ONE targeted factual change. Every other detail you include must remain "
+    "faithful to the source. Hit the requested length as closely as you can. "
     "Respond ONLY with valid JSON, no markdown, no commentary."
 )
 
@@ -55,13 +111,27 @@ Return JSON with exactly these keys:
 }}"""
 
 
-def generate_one(client, article: str, strategy: str):
-    """Call the API once. Returns dict or None on failure."""
-    prompt = USER_TEMPLATE.format(
-        article=truncate_article(article),
-        strategy_desc=STRATEGY_INSTRUCTIONS[strategy],
-    )
-    return call_llm(client, SYSTEM_PROMPT, prompt, "synthetic_article")
+def generate_one(client, article: str, strategy: str, length: str = None):
+    """Call the API once. Returns dict or None on failure.
+
+    length=None keeps the original behaviour exactly (same prompt, same system
+    message), so existing synthetic_fake.csv rows stay reproducible from this
+    file. A length key switches to the length-controlled template.
+    """
+    if length is None:
+        prompt = USER_TEMPLATE.format(
+            article=truncate_article(article),
+            strategy_desc=STRATEGY_INSTRUCTIONS[strategy],
+        )
+    else:
+        target, desc = LENGTH_SPECS[length]
+        prompt = LENGTH_TEMPLATE.format(
+            article=truncate_article(article),
+            strategy_desc=STRATEGY_INSTRUCTIONS[strategy],
+            length_desc=desc, target=target,
+        )
+    system = SYSTEM_PROMPT if length is None else LENGTH_SYSTEM_PROMPT
+    return call_llm(client, system, prompt, "synthetic_article")
 
 
 def main():
@@ -69,6 +139,15 @@ def main():
     ap.add_argument("--n", type=int, default=500,
                     help="number of synthetic articles to generate")
     ap.add_argument("--max_retries", type=int, default=2)
+    ap.add_argument("--lengths", nargs="+", choices=list(LENGTH_SPECS), default=None,
+                    help="generate length-controlled fakes instead of source-length "
+                         "ones, splitting --n evenly across the named buckets "
+                         "(e.g. --lengths short medium long). Writes to a separate "
+                         "file so synthetic_fake.csv is never overwritten.")
+    ap.add_argument("--out", default=None,
+                    help="output filename under data/synthetic/ (default: "
+                         "synthetic_fake.csv, or synthetic_fake_mixedlen.csv "
+                         "when --lengths is used)")
     args = ap.parse_args()
 
     if not os.getenv("OPENAI_API_KEY"):
@@ -95,8 +174,30 @@ def main():
     )
     real = real_train.reset_index(drop=True)
 
+    # Which length bucket each generated row is asked for. In default mode the
+    # whole run is one unlabelled bucket, which keeps the loop below identical
+    # for both modes.
+    #
+    # Buckets get DISJOINT slices of the source pool rather than all three
+    # lengths of the same article. Three retellings of one story share their
+    # names, numbers and phrasing, so putting them in one corpus would seed it
+    # with near-duplicates -- and if a train/test split later separated them,
+    # the test set would contain paraphrases of training rows. Disjoint thirds
+    # cost nothing here (there are far more source articles than we need) and
+    # keep the corpus safe to split.
+    if args.lengths:
+        buckets = list(args.lengths)
+        per = args.n // len(buckets)
+        plan = []
+        for i, b in enumerate(buckets):
+            k = per + (args.n - per * len(buckets) if i == len(buckets) - 1 else 0)
+            plan += [b] * k
+    else:
+        plan = [None] * args.n
+
     # Resume support: don't regenerate what we already have.
-    out_path = cfg.SYNTHETIC_DIR / "synthetic_fake.csv"
+    default_name = "synthetic_fake_mixedlen.csv" if args.lengths else "synthetic_fake.csv"
+    out_path = cfg.SYNTHETIC_DIR / (args.out or default_name)
     done = 0
     existing = []
     if out_path.exists():
@@ -105,33 +206,68 @@ def main():
         done = len(existing_df)
         print(f"Resuming: {done} already generated.")
 
+    # Cursor into the source pool, per bucket. Default mode has one cursor over
+    # the whole pool starting at `done`, which is exactly what this loop did
+    # before length mode existed. Length mode gives each bucket a contiguous,
+    # non-overlapping region so no source article is retold at two lengths.
+    if args.lengths:
+        region = len(real) // len(buckets)
+        cursors = {b: i * region for i, b in enumerate(buckets)}
+        limits = {b: (i + 1) * region if i < len(buckets) - 1 else len(real)
+                  for i, b in enumerate(buckets)}
+        for row in existing:                     # resume where each bucket stopped
+            b = row.get("length")
+            if b in cursors:
+                cursors[b] += 1
+    else:
+        cursors, limits = {None: done}, {None: len(real)}
+
     results = list(existing)
     pbar = tqdm(total=args.n, initial=done, desc="Generating")
-    idx = done
-    while len(results) < args.n and idx < len(real):
-        article = str(real.iloc[idx]["text"])
-        idx += 1
+    # Indexed by how many rows we HAVE, not by how many attempts we've made, so
+    # a rejected generation retries that bucket against the next source article
+    # instead of costing the corpus a row -- the same "keep going until we have
+    # n" behaviour the single-length version had.
+    while len(results) < len(plan):
+        bucket = plan[len(results)]
+        if cursors[bucket] >= limits[bucket]:
+            # No source articles left for this bucket. Drop its unfilled slots
+            # and carry on with the others rather than spinning forever; the
+            # run ends short of --n, which the final count makes visible.
+            print(f"\n(source pool exhausted for bucket {bucket!r} -- "
+                  f"dropping its remaining slots)")
+            plan = plan[:len(results)] + [p for p in plan[len(results):] if p != bucket]
+            continue
+        article = str(real.iloc[cursors[bucket]]["text"])
+        cursors[bucket] += 1
         if len(article.split()) < 30:   # too short to manipulate meaningfully
             continue
 
+        target = LENGTH_SPECS[bucket][0] if bucket else None
         strategy = random.choice(cfg.TRANSFORMATIONS)
         data = None
         for _ in range(args.max_retries):
-            data = generate_one(client, article, strategy)
-            if data and quality_ok(article, data["synthetic_article"]):
+            data = generate_one(client, article, strategy, bucket)
+            if data and quality_ok(article, data["synthetic_article"],
+                                   target_words=target):
                 break
             data = None
         if data is None:
             continue
 
-        results.append({
+        row = {
             "text": data["synthetic_article"],
             "label": cfg.LABEL_FAKE,
             "source": "synthetic",
             "transformation": strategy,
             "modified_fact": data.get("modified_fact", ""),
             "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP),
-        })
+        }
+        # Only present in length mode, so the default file keeps its exact
+        # existing schema and nothing downstream has to learn a new column.
+        if bucket:
+            row["length"] = bucket
+        results.append(row)
         pbar.update(1)
 
         # checkpoint every 25 so a crash doesn't lose everything
@@ -146,6 +282,14 @@ def main():
     df = pd.DataFrame(results)
     print("\nTransformation distribution:")
     print(df["transformation"].value_counts().to_string())
+    if "length" in df.columns:
+        # The point of the run is the length distribution, so report whether it
+        # actually landed where it was aimed rather than assuming the LLM obeyed.
+        w = df["text"].astype(str).str.split().str.len()
+        print("\nLength bucket   n   target   median words")
+        for b in df["length"].dropna().unique():
+            sel = w[df["length"] == b]
+            print(f"  {b:10s} {len(sel):4d}   {LENGTH_SPECS[b][0]:5d}   {int(sel.median()):6d}")
 
 
 if __name__ == "__main__":

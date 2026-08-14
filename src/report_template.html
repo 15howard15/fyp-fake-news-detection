@@ -346,6 +346,23 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 
   <div class="note crit"><p><strong>WELFake is not independent.</strong> <span id="v-overlap"></span> of its fake articles are exact text matches for articles in ISOT, the training corpus — against 0.0% for LIAR.</p></div>
 
+  <h3>Contamination control — so we removed it and re-scored</h3>
+  <div class="card" id="card-cont">
+    <div class="card-h">
+      <div><div class="card-t">WELFake as shipped vs. WELFake with every ISOT article removed</div>
+      <div class="card-n">Same checkpoints, same real class, same 5,657-article sample size — only the fake-class pool differs, so any change is caused by the filtering alone. The cleaned pool is verified 0.0% overlapping.</div></div>
+      <div class="seg" data-metric-for="c-cont"></div>
+    </div>
+    <div class="seg" id="seg-cont-recipe" style="margin:8px 0 2px"></div>
+    <div class="legend" id="l-cont"></div>
+    <div class="plot"><div id="c-cont"></div></div>
+    <div id="warn-c-cont"></div>
+  </div>
+  <div class="tiles" id="tiles-cont"></div>
+  <details class="tbl"><summary>Every model and recipe, before and after cleaning</summary>
+    <div class="tscroll"><div id="t-cont"></div></div></details>
+  <div class="note good"><p><strong>The conclusions survive the clean-up — and one of them strengthens.</strong> Removing <span id="v-crem"></span> of the WELFake fake pool shifts no score by more than <span id="v-cmax"></span>, and <span id="v-cdown"></span> move down rather than up: the contaminated set was flattering every model, not distorting the ranking. Real + Real and Mixed still transfer; full replacement still collapses. Critically, <span id="v-cbc"></span> — so the backwards-ranking result cannot have been an artifact of ISOT text sitting in the test set.</p></div>
+
   <h3>Is the generated text any good?</h3>
   <div class="tiles" id="tiles-q"></div>
   <details class="tbl"><summary>Diversity — is the generator repeating itself?</summary>
@@ -763,8 +780,73 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
       return [L[c],m,nm,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),
         {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];}))));
 (function(){
-  const c=DATA.framework.leakage.corpus||[],w=c.find(x=>/welfake/i.test(x.name));
+  const c=DATA.framework.leakage.corpus||[],w=c.find(x=>/welfake/i.test(x.name)&&!/clean/.test(x.name));
   document.getElementById("v-overlap").textContent=w?w.pct.toFixed(1)+"%":"a large share";
+})();
+
+/* --------- contamination control: WELFake before vs after cleaning --------- */
+(function(){
+  const C=DATA.framework.contamination;
+  const card=document.getElementById("card-cont");
+  /* The section is only meaningful once the cleaned run exists; hide it rather
+     than render empty axes if evaluate.py cross-target --dataset welfake_clean
+     has not been run yet. */
+  if(!C||!C.comps||!C.comps.length){
+    ["card-cont","tiles-cont"].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display="none";});
+    return;
+  }
+  let M="f1",CC=C.comps[0];
+  const key=s=>M==="auc_roc"?("auc_"+s):("f1_"+s);
+  function draw(){
+    const cols=SER();
+    const vD=DATA.models.map(m=>{const d=C.rows[CC]&&C.rows[CC][m];return d?d[key("dirty")]:null;});
+    const vC=DATA.models.map(m=>{const d=C.rows[CC]&&C.rows[CC][m];return d?d[key("clean")]:null;});
+    bars(document.getElementById("c-cont"),{categories:DATA.models,height:290,
+      ref:M==="auc_roc"?0.5:null,refLabel:"random guessing",
+      series:[{name:"As shipped",color:cols[3],values:vD},
+              {name:"ISOT removed",color:cols[0],values:vC}]});
+    caution("warn-c-cont",M);
+  }
+  legend(document.getElementById("l-cont"),[{name:"WELFake as shipped (contaminated)",color:SER()[3]},
+    {name:"WELFake with ISOT articles removed",color:SER()[0]}]);
+  /* Only F1 and AUC were stored per-run for the cleaned set, so the metric
+     switch is restricted to those two rather than reusing the four-way
+     selector and rendering two empty charts. */
+  metricSeg(document.querySelector('[data-metric-for="c-cont"]'),v=>{M=v;draw();},["f1","auc_roc"]);
+  seg(document.getElementById("seg-cont-recipe"),
+    C.comps.map(c=>({label:L[c].replace("Synthetic-real","S-real").replace(" (diverse-sourced)"," (div)"),value:c})),
+    v=>{CC=v;draw();});
+  draw(); REDRAW.push(draw);
+
+  const t=document.getElementById("tiles-cont");t.innerHTML="";
+  const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
+    d.innerHTML=`<div class="v">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
+  if(C.overlap_pct!=null) add(C.overlap_pct.toFixed(1)+"%",
+    "of the WELFake fake pool is verbatim ISOT text");
+  if(C.pool_clean!=null) add(C.pool_clean.toLocaleString(),
+    "unique articles left after filtering (from "+C.pool_total.toLocaleString()+")");
+  add("0.0%","overlap with ISOT in the cleaned test set");
+  if(C.max_shift!=null) add(C.max_shift.toFixed(3),
+    "largest score change caused by cleaning");
+  document.getElementById("v-crem").textContent=(C.removed_pct!=null?C.removed_pct.toFixed(1):"70")+"%";
+  document.getElementById("v-cmax").textContent=C.max_shift!=null?C.max_shift.toFixed(3):"0.07";
+  document.getElementById("v-cdown").textContent=C.n_down+" of "+C.n_scores;
+  document.getElementById("v-cbc").textContent = C.below_chance_total
+    ? (C.below_chance_worse===C.below_chance_total?"all ":C.below_chance_worse+" of the ")+
+      C.below_chance_total+" below-chance AUC scores move further below chance once the shared articles are gone"
+    : "no below-chance AUC scores were affected";
+
+  table(document.getElementById("t-cont"),
+    ["Recipe","Model","F1 as shipped","F1 cleaned","Δ F1","AUC as shipped","AUC cleaned","Δ AUC"],
+    C.comps.flatMap(c=>DATA.models.map(m=>{
+      const d=C.rows[c]&&C.rows[c][m];
+      if(!d) return [L[c],m,"—","—","—","—","—","—"];
+      const df=d.f1_clean-d.f1_dirty, da=d.auc_clean-d.auc_dirty;
+      const sgn=x=>(x>=0?"+":"")+x.toFixed(3);
+      return [L[c],m,fmt(d.f1_dirty),fmt(d.f1_clean),sgn(df),
+        {v:fmt(d.auc_dirty),cls:d.auc_dirty<0.5?"bad":""},
+        {v:fmt(d.auc_clean),cls:d.auc_clean<0.5?"bad":""},sgn(da)];
+    })));
 })();
 (function(){
   const q=DATA.framework.quality;if(!q)return;

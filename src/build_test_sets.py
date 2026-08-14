@@ -1,4 +1,6 @@
 
+import re
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -7,6 +9,14 @@ import config as cfg
 
 def load(name):
     return pd.read_csv(cfg.PROCESSED_DIR / f"{name}.csv")
+
+
+def _norm(s):
+    """Whitespace/case-insensitive key for corpus-overlap matching. Exact string
+    equality already catches 63.3% of WELFake-fake as verbatim ISOT text; this
+    normalisation is what makes the *absence* of further matches a measurement
+    rather than an assumption."""
+    return re.sub(r"\s+", " ", str(s)).strip().lower()
 
 
 def main():
@@ -65,6 +75,42 @@ def main():
         cross2.to_csv(cfg.PROCESSED_DIR / "test_crossdomain2.csv", index=False)
         print(f"test_crossdomain2 (WELFake): {len(cross2):,} "
               f"({(cross2.label==0).sum()} real / {(cross2.label==1).sum()} fake)")
+
+        # Third cross-domain target: WELFake with every article that also exists
+        # in ISOT removed first. test_crossdomain2 above samples the raw WELFake
+        # fake pool, and 63.3% of that pool is verbatim ISOT text -- WELFake is a
+        # merged corpus that absorbed the same Kaggle fake-news data ISOT derives
+        # from. Any "generalises to an independent long-form corpus" claim made
+        # on test_crossdomain2 is therefore mostly a claim about ISOT text the
+        # model may have trained on. Filtering first (on the normalised key, and
+        # dropping WELFake's own internal duplicates) leaves a pool that is
+        # genuinely disjoint from ISOT, so the same claim can be tested honestly.
+        # Both files are kept: the difference between them IS the finding.
+        isot_keys = set(isot_real["text"].map(_norm)) | set(isot_fake["text"].map(_norm))
+        wf = welfake_fake.copy()
+        wf["_key"] = wf["text"].map(_norm)
+        clean_pool = (wf[~wf["_key"].isin(isot_keys)]
+                      .drop_duplicates(subset="_key")
+                      .drop(columns="_key"))
+        removed = len(welfake_fake) - len(clean_pool)
+        print(f"  WELFake fake pool: {len(welfake_fake):,} -> {len(clean_pool):,} clean "
+              f"({removed:,} removed = {100*removed/len(welfake_fake):.1f}%: "
+              f"ISOT-overlapping or internally duplicated)")
+
+        if len(clean_pool) >= n:
+            clean_sample = clean_pool.sample(n=n, random_state=cfg.SEED)
+        else:
+            # Smaller sample than test_crossdomain2 rather than sampling with
+            # replacement -- a duplicated test row would inflate whatever score
+            # that article happens to get.
+            clean_sample = clean_pool
+            print(f"  (clean pool smaller than {n:,}; using all {len(clean_pool):,})")
+        cross3 = pd.concat(
+            [real_test[cols], clean_sample[cols]], ignore_index=True
+        ).sample(frac=1.0, random_state=cfg.SEED).reset_index(drop=True)
+        cross3.to_csv(cfg.PROCESSED_DIR / "test_crossdomain2_clean.csv", index=False)
+        print(f"test_crossdomain2_clean:     {len(cross3):,} "
+              f"({(cross3.label==0).sum()} real / {(cross3.label==1).sum()} fake)")
     else:
         print(f"  (skipping test_crossdomain2 -- {welfake_path} not found, "
               f"run load_data.py with WELFake_Dataset.csv in data/raw/ first)")
