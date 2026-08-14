@@ -482,6 +482,13 @@ def cmd_cross_target(args):
     # tables still resolve.
     out = EXTRA_DIR / ("crossdomain2_results.csv" if args.dataset == "welfake"
                        else f"crosstarget_{args.dataset}_results.csv")
+    # Merge with what's already there rather than replacing it. --comp defaults
+    # to three compositions, so a follow-up run for two extra ones would
+    # otherwise silently drop the six the report already reads. Same
+    # concat-then-dedupe pattern as the length sweep; last run wins per cell.
+    if out.exists():
+        df = (pd.concat([pd.read_csv(out), df], ignore_index=True)
+                .drop_duplicates(subset=["dataset", "comp", "model"], keep="last"))
     df.to_csv(out, index=False)
     print(f"\n=== CROSS-TARGET RESULTS ({args.dataset}) ===")
     print(df.to_string(index=False))

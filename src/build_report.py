@@ -26,6 +26,7 @@ re-adding the section is a one-line change to collect().
 import json
 
 import pandas as pd
+from sklearn.metrics import roc_auc_score
 
 import config as cfg
 
@@ -68,8 +69,9 @@ def liar_block(comps):
     return out
 
 
-def welfake_block(comps):
-    p = EXTRA / "crossdomain2_results.csv"
+def crosstarget_block(comps, fname="crossdomain2_results.csv"):
+    """Read one of evaluate.py cross-target's per-target result files."""
+    p = EXTRA / fname
     if not p.exists():
         return {}
     df = pd.read_csv(p)
@@ -83,6 +85,14 @@ def welfake_block(comps):
             for _, r in g.iterrows()
         }
     return out
+
+
+def welfake_block(comps):
+    return crosstarget_block(comps)
+
+
+def welfake_clean_block(comps):
+    return crosstarget_block(comps, "crosstarget_welfake_clean_results.csv")
 
 
 def contamination_block(comps):
@@ -161,22 +171,103 @@ def contamination_block(comps):
     return out
 
 
+SWEEP_PCT = {"swap_000": "0%", "swap_025": "25%", "swap_050": "50%",
+             "swap_075": "75%", "swap_100": "100%"}
+# The 0/50/100% points ARE real_real/mixed/real_syn -- build_swap_sweep_datasets
+# reuses them by name rather than rebuilding identical files -- so their
+# cross-target scores are stored under the composition name, not the sweep name.
+SWEEP_ALIAS = {"swap_000": "real_real", "swap_050": "mixed", "swap_100": "real_syn"}
+
+SWEEP_METRICS = ["f1", "auc_roc", "precision", "recall"]
+
+
 def sweep_block():
-    """RQ2 synthetic-fraction sweep, cross-domain only."""
+    """RQ2 synthetic-fraction sweep, on every test set it has been scored against.
+
+    Previously this kept only the cross-domain (LIAR) rows and discarded the
+    rest. That mattered more than it looks: LIAR is separable at AUC 0.9999 by
+    document length alone, so a sweep drawn only on LIAR cannot show whether its
+    shape survives where word-counting doesn't help. The in-domain rows were
+    already being computed and thrown away, and they are exactly that control.
+
+    Three test sets, in increasing order of independence:
+      - LIAR: the headline set, and the length-compromised one.
+      - In-domain (ISOT): length-neutral (AUC 0.474 from length alone), but
+        same-domain.
+      - WELFake, ISOT removed: length-neutral AND a genuinely unseen corpus.
+        Only partly available -- run_swap_sweep_experiment.py persists
+        checkpoints for CNN at the 25%/75% points but not for LR/SVM/BERT, so
+        those two columns are CNN-only. Missing cells stay null and render as
+        gaps rather than being interpolated over.
+    """
     df = pd.read_csv(EXTRA / "swap_sweep_results.csv")
-    df = df[df.test == "crossdomain"]
-    pct = {"swap_000": "0%", "swap_025": "25%", "swap_050": "50%",
-           "swap_075": "75%", "swap_100": "100%"}
-    order = list(pct.values())
-    out = {"fractions": order, "series": {}}
-    for m in MODELS:
-        g = df[df.model == m]
-        by = {pct[r["sweep"]]: r for _, r in g.iterrows() if r["sweep"] in pct}
-        out["series"][m] = {
-            met: [round(float(by[f][met]), 4) if f in by and met in by[f] else None
-                  for f in order]
-            for met in ["f1", "auc_roc", "precision", "recall"]
-        }
+    order = list(SWEEP_PCT.values())
+    out = {"fractions": order, "tests": {}, "series": {}}
+
+    LABEL = {"crossdomain": "LIAR", "indomain": "In-domain (ISOT)"}
+    for test_key, label in LABEL.items():
+        sub = df[df.test == test_key]
+        if sub.empty:
+            continue
+        block = {}
+        for m in MODELS:
+            g = sub[sub.model == m]
+            by = {SWEEP_PCT[r["sweep"]]: r for _, r in g.iterrows()
+                  if r["sweep"] in SWEEP_PCT}
+            block[m] = {met: [round(float(by[f][met]), 4)
+                              if f in by and met in by[f] else None for f in order]
+                        for met in SWEEP_METRICS}
+        out["tests"][label] = block
+
+    # Cleaned WELFake, assembled from the cross-target run rather than the sweep
+    # script (which never scored against it).
+    ct = EXTRA / "crosstarget_welfake_clean_results.csv"
+    if ct.exists():
+        cdf = pd.read_csv(ct)
+        block, any_val = {}, False
+        for m in MODELS:
+            g = cdf[cdf.model == m]
+            by = {}
+            for sweep, pct in SWEEP_PCT.items():
+                row = g[g.comp == SWEEP_ALIAS.get(sweep, sweep)]
+                if not row.empty:
+                    by[pct] = row.iloc[0]
+            block[m] = {met: [round(float(by[f][met]), 4)
+                              if f in by and met in by[f] else None for f in order]
+                        for met in SWEEP_METRICS}
+            any_val = any_val or bool(by)
+        if any_val:
+            out["tests"]["WELFake (ISOT removed)"] = block
+
+    # How well document length alone separates the classes INSIDE each sweep
+    # point's training data. Measured here rather than quoted, because it is the
+    # claim the RQ2 note rests on: if this were to drift away from 0.5 at one end
+    # of the sweep, the trend would be partly a length effect and the note would
+    # be wrong. Real fake news and synthetic fake news happen to be the same
+    # length (378 vs 376 words), which is why it stays flat -- that is a
+    # property of the data, not something the design enforced, so it is checked.
+    files = {"swap_000": "train_real_real", "swap_025": "train_swap_025",
+             "swap_050": "train_mixed", "swap_075": "train_swap_075",
+             "swap_100": "train_real_syn"}
+    aucs = []
+    for sweep, stem in files.items():
+        p = cfg.PROCESSED_DIR / f"{stem}.csv"
+        if not p.exists():
+            continue
+        t = pd.read_csv(p)
+        if t["label"].nunique() < 2:
+            continue
+        w = t["text"].astype(str).str.split().str.len()
+        aucs.append({"fraction": SWEEP_PCT[sweep],
+                     "auc": round(float(roc_auc_score(t["label"], w)), 4)})
+    if aucs:
+        vals = [a["auc"] for a in aucs]
+        out["trainLengthAuc"] = {"points": aucs,
+                                 "min": round(min(vals), 3),
+                                 "max": round(max(vals), 3)}
+
+    # Kept so anything still reading data.rq2.series keeps working.
+    out["series"] = out["tests"].get("LIAR", {})
     return out
 
 
@@ -493,8 +584,13 @@ def collect():
         "models": MODELS,
         "labels": RECIPE_LABEL,
         "metrics": METRICS,
+        # Both test sets, for the same reason RQ2 now shows both: a score on
+        # LIAR alone can't distinguish "detected the fake" from "noticed it was
+        # short". Cleaned WELFake covers every recipe here and is length-neutral.
         "rq1": {"comps": rq1_comps, "liar": liar_block(rq1_comps),
-                "welfake": welfake_block(rq1_comps)},
+                "welfake": welfake_block(rq1_comps),
+                "tests": {"LIAR": liar_block(rq1_comps),
+                          "WELFake (ISOT removed)": welfake_clean_block(rq1_comps)}},
         "rq2": sweep_block(),
         # RQ3 is the model-family comparison; the LIAR-vs-WELFake material it
         # used to hold is the cross-domain protocol common to all four

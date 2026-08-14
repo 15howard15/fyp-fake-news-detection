@@ -234,14 +234,16 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <div class="card">
     <div class="card-h">
       <div><div class="card-t">Detection performance by method and training recipe</div>
-      <div class="card-n">Higher is better. Tested on real news + LIAR fake news, never seen during training.</div></div>
+      <div class="card-n">Higher is better. Both test corpora are unseen during training. Switch between them: LIAR is short political statements, cleaned WELFake is full-length articles with every ISOT article removed.</div></div>
       <div class="seg" data-metric-for="c-rq1"></div>
     </div>
+    <div class="seg" id="seg-rq1-test" style="margin:8px 0 2px"></div>
     <div class="legend" id="l-rq1"></div>
     <div class="plot"><div id="c-rq1"></div></div>
     <div id="warn-c-rq1"></div>
   </div>
-  <details class="tbl"><summary>All metrics — every recipe × model (tested on LIAR)</summary>
+  <div class="note warn"><p><strong>Read LIAR scores with the length caveat.</strong> A word-counter alone reaches AUC 0.9999 on LIAR and 0.44 on cleaned WELFake, so where the two disagree, WELFake is the more informative one. LR on full replacement is the clearest case: 0.943 on LIAR against 0.653 on WELFake.</p></div>
+  <details class="tbl"><summary>All metrics — every recipe × model, on both corpora</summary>
     <div class="tscroll"><div id="t-rq1"></div></div></details>
 
   <h3>Validity check: detecting fake news, or detecting AI writing?</h3>
@@ -261,16 +263,20 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <div class="card">
     <div class="card-h">
       <div><div class="card-t">Performance as synthetic fake news replaces more of the fake class</div>
-      <div class="card-n">X-axis: share of the 500 fake-news training examples that are AI-generated. Tested on LIAR.</div></div>
+      <div class="card-n">X-axis: share of the 500 fake-news training examples that are AI-generated. Switch test corpus below — the shape holding on all three is what makes the trend trustworthy.</div></div>
       <div class="seg" data-metric-for="c-rq2"></div>
     </div>
+    <div class="seg" id="seg-rq2-test" style="margin:8px 0 2px"></div>
     <div class="legend" id="l-rq2"></div>
     <div class="plot"><div id="c-rq2"></div></div>
     <div id="warn-c-rq2"></div>
   </div>
   <details class="tbl"><summary>All metrics across the sweep</summary>
     <div class="tscroll"><div id="t-rq2"></div></div></details>
+  <div class="note good"><p><strong>The trend is not a length artifact.</strong> Length carries no information inside this sweep — a word-counter scores <span id="v-rq2len"></span> on the training data at every blend level, because real fake news (378 words) and synthetic fake news (376) are the same length. The shape also reproduces on the in-domain corpus, where length alone scores 0.474. What moves across the sweep is the fake class's <em>source</em>, not its length.</p></div>
+  <div class="note warn"><p><strong>The 100% endpoint is the exception.</strong> There the two corpora disagree sharply — LR reads 0.943 on LIAR but 0.638 in-domain, and CNN 0.065 against 0.424 — because at full replacement the models lean on the length gap LIAR hands them. That endpoint is the recipe rebuilt under length control in the framework tab.</p></div>
   <div class="note warn"><p><strong>CNN never benefits.</strong> The same error at every blend level — real articles called fake, never the reverse — and its confidence on those mistakes falls from 96% to 63%.</p></div>
+  <div class="note"><p><strong>Coverage note.</strong> The WELFake line is CNN-only at 25% and 75%: the sweep script saves checkpoints for CNN at those two points but not for LR, SVM or BERT, and scoring a model you didn't keep would mean retraining it. Those cells are left as gaps rather than filled in.</p></div>
 </section>
 
 <!-- ============ RQ3 — MODEL FAMILIES ============ -->
@@ -571,8 +577,25 @@ function lines(host,cfg){
   series.forEach(s=>{
     const pts=[];s.values.forEach((v,i)=>{if(v!=null)pts.push([Lp+i*xs,T+ph-(v/max)*ph,v,i]);});
     if(!pts.length)return;
-    svg.appendChild(el("polyline",{points:pts.map(p=>p[0]+","+p[1]).join(" "),fill:"none",
-      stroke:s.color,"stroke-width":2,"stroke-linecap":"round","stroke-linejoin":"round"}));
+    /* Break the line wherever a point is missing instead of joining across the
+       gap. A single polyline through the measured points would draw a straight
+       segment over the unmeasured ones, which reads as "we measured this and it
+       was on that line" -- the WELFake series genuinely has no LR/SVM/BERT
+       value at 25% and 75%, because those checkpoints were never saved. An
+       isolated dot is the honest mark; a fully-measured series still gets an
+       unbroken line, so the two are visually distinguishable. */
+    let run=[pts[0]];
+    const flush=()=>{
+      if(run.length>1)
+        svg.appendChild(el("polyline",{points:run.map(p=>p[0]+","+p[1]).join(" "),fill:"none",
+          stroke:s.color,"stroke-width":2,"stroke-linecap":"round","stroke-linejoin":"round"}));
+      run=[];
+    };
+    for(let k=1;k<pts.length;k++){
+      if(pts[k][3]===pts[k-1][3]+1) run.push(pts[k]);
+      else { flush(); run=[pts[k]]; }
+    }
+    flush();
     pts.forEach(([x,y,v,i])=>{
       svg.appendChild(el("circle",{cx:x,cy:y,r:5.5,fill:cv("--surface")}));
       const c=el("circle",{cx:x,cy:y,r:4,fill:s.color});
@@ -610,25 +633,38 @@ const metricSeg=(host,onPick,ms)=>seg(host,(ms||DATA.metrics).map(m=>({label:MET
 
 /* ================= RQ1 — models on x, recipes as series ================= */
 const RQ1C=DATA.rq1.comps;
-let RQ1_M="f1";
+/* Test sets the recipes have been scored on. LIAR first because it is the
+   headline protocol, but the switch exists because LIAR is 99.99% separable by
+   word count -- a recipe that only looks good there has not been shown to work. */
+const RQ1T=(DATA.rq1.tests&&Object.keys(DATA.rq1.tests).length)
+  ? DATA.rq1.tests : {"LIAR":DATA.rq1.liar};
+const RQ1TN=Object.keys(RQ1T);
+let RQ1_M="f1",RQ1_T=RQ1TN[0];
 function rq1(metric){
-  RQ1_M=metric;
-  const cols=SER();
+  RQ1_M=metric||RQ1_M;
+  const cols=SER(),src=RQ1T[RQ1_T]||{};
   bars(document.getElementById("c-rq1"),{
     categories:DATA.models,height:320,
-    ref:metric==="auc_roc"?0.5:null,refLabel:"random guessing",
+    ref:RQ1_M==="auc_roc"?0.5:null,refLabel:"random guessing",
     series:RQ1C.map((c,i)=>({name:L[c],color:cols[i],
-      values:DATA.models.map(m=>{const d=DATA.rq1.liar[c]&&DATA.rq1.liar[c][m];return d?d[metric]:null;})}))});
-  caution("warn-c-rq1",metric);
+      values:DATA.models.map(m=>{const d=src[c]&&src[c][m];return d?d[RQ1_M]:null;})}))});
+  caution("warn-c-rq1",RQ1_M);
 }
 legend(document.getElementById("l-rq1"),RQ1C.map((c,i)=>({name:L[c],color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq1"]'),rq1);
+if(RQ1TN.length>1)
+  seg(document.getElementById("seg-rq1-test"),
+      RQ1TN.map(t=>({label:"Tested on "+t,value:t})),v=>{RQ1_T=v;rq1();});
+else document.getElementById("seg-rq1-test").style.display="none";
 rq1("f1"); REDRAW.push(()=>rq1(RQ1_M));
+/* The table shows every corpus at once -- the chart switches, but a reader
+   comparing two numbers should not have to toggle back and forth to do it. */
 table(document.getElementById("t-rq1"),
-  ["Recipe","Model","Accuracy","Precision","Recall","F1","AUC-ROC"],
-  RQ1C.flatMap(c=>DATA.models.map(m=>{const d=DATA.rq1.liar[c]&&DATA.rq1.liar[c][m];
-    return [L[c],m,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),
-      {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];})));
+  ["Recipe","Model","Tested on","Accuracy","Precision","Recall","F1","AUC-ROC"],
+  RQ1C.flatMap(c=>DATA.models.flatMap(m=>RQ1TN.map(t=>{
+    const d=RQ1T[t][c]&&RQ1T[t][c][m];
+    return [L[c],m,t,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),
+      {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];}))));
 
 /* authorship — corpus switch keeps it to 4 categories */
 let AUTH="liar";
@@ -649,22 +685,41 @@ seg(document.getElementById("seg-auth"),[{label:"Tested on LIAR",value:"liar"},
 auth();
 
 /* ================= RQ2 ================= */
-let RQ2_M="f1";
+const RQ2T=(DATA.rq2.tests&&Object.keys(DATA.rq2.tests).length)
+  ? DATA.rq2.tests : {"LIAR":DATA.rq2.series};
+const RQ2TN=Object.keys(RQ2T);
+let RQ2_M="f1",RQ2_T=RQ2TN[0];
 function rq2(metric){
-  RQ2_M=metric;
-  const cols=SER();
+  RQ2_M=metric||RQ2_M;
+  const cols=SER(),src=RQ2T[RQ2_T]||{};
   lines(document.getElementById("c-rq2"),{categories:DATA.rq2.fractions,
     series:DATA.models.map((m,i)=>({name:m,color:cols[i],
-      values:(DATA.rq2.series[m]&&DATA.rq2.series[m][metric])||[]}))});
-  caution("warn-c-rq2",metric);
+      values:(src[m]&&src[m][RQ2_M])||[]}))});
+  caution("warn-c-rq2",RQ2_M);
 }
 legend(document.getElementById("l-rq2"),DATA.models.map((m,i)=>({name:m,color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq2"]'),rq2,["f1","auc_roc","precision","recall"]);
+if(RQ2TN.length>1)
+  seg(document.getElementById("seg-rq2-test"),
+      RQ2TN.map(t=>({label:"Tested on "+t,value:t})),v=>{RQ2_T=v;rq2();});
+else document.getElementById("seg-rq2-test").style.display="none";
 rq2("f1"); REDRAW.push(()=>rq2(RQ2_M));
-table(document.getElementById("t-rq2"),["Synthetic share","Model","Precision","Recall","F1","AUC-ROC"],
-  DATA.rq2.fractions.flatMap((f,fi)=>DATA.models.map(m=>{const s=DATA.rq2.series[m]||{};
-    return [f,m,fmt(s.precision&&s.precision[fi]),fmt(s.recall&&s.recall[fi]),fmt(s.f1&&s.f1[fi]),
-      {v:fmt(s.auc_roc&&s.auc_roc[fi]),cls:(s.auc_roc&&s.auc_roc[fi]<0.5)?"bad":""}];})));
+table(document.getElementById("t-rq2"),
+  ["Synthetic share","Model","Tested on","Precision","Recall","F1","AUC-ROC"],
+  DATA.rq2.fractions.flatMap((f,fi)=>DATA.models.flatMap(m=>RQ2TN.map(t=>{
+    const s=RQ2T[t][m]||{};
+    return [f,m,t,fmt(s.precision&&s.precision[fi]),fmt(s.recall&&s.recall[fi]),
+      fmt(s.f1&&s.f1[fi]),
+      {v:fmt(s.auc_roc&&s.auc_roc[fi]),cls:(s.auc_roc&&s.auc_roc[fi]<0.5)?"bad":""}];}))));
+/* The in-training length-AUC quoted in the note, read from the leakage report
+   rather than typed in. Flat and near 0.5 across the sweep is the whole point:
+   real fake news and synthetic fake news are the same length, so the sweep's
+   own variable never moves the length distribution. */
+(function(){
+  const el=document.getElementById("v-rq2len"),a=DATA.rq2.trainLengthAuc;
+  if(!el) return;
+  el.textContent = a ? (a.min.toFixed(2)+" to "+a.max.toFixed(2)) : "about 0.5";
+})();
 
 /* ================= RQ3 — model families ================= */
 (function(){

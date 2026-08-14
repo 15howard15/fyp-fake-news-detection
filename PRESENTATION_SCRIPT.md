@@ -179,11 +179,32 @@ Walk it group by group.
 
 *(Click back to **F1 score**.)*
 
+### Before the answer — flip the corpus switch
+
+There is a **Tested on** row under the chart. Use it; don't wait to be asked.
+
+> "Every number I just gave you was on LIAR. Let me switch to cleaned WELFake —
+> full-length articles, every ISOT article stripped out."
+
+**Point at Real + Synthetic, LR:**
+
+> "On LIAR, LR under full replacement reads 0.943 AUC. On WELFake it reads
+> 0.653. Same model, same weights — only the test corpus changed."
+
+**Why? — have this ready:**
+
+> "Because a word-counter alone scores 0.9999 on LIAR and 0.44 on WELFake.
+> LIAR's fake statements average 16 words and the real articles average 367, so
+> a model can look good there by noticing length. Where the two corpora
+> disagree, WELFake is the one to believe."
+
 ### RQ1 answer
 
-> "So: partly. LR, CNN and BERT stay usable under replacement; SVM breaks
-> entirely. And it only holds if the real-news side stays genuine — which is what
-> I checked next."
+> "So: partly, and less than LIAR alone suggests. LR, CNN and BERT stay usable
+> under replacement on LIAR; on the corpus where length can't be exploited, only
+> the recipes that keep real fake news hold up. SVM breaks entirely either way.
+> And all of it depends on the real-news side staying genuine — which is what I
+> checked next."
 
 ---
 
@@ -316,10 +337,45 @@ X-axis: **0% → 25% → 50% → 75% → 100%** synthetic.
 > a wrong rule. CNN is gradually losing its grip on a category it already found
 > hard. Same downward line, completely different cause."
 
+## Before the answer — the corpus switch again, and why RQ2 is safe
+
+If he raised the length problem in RQ1, he will expect it here. Get in first.
+
+> "The same question applies to this sweep, so I checked it. Two things."
+
+**One — length never moves inside this experiment:**
+
+> "A word-counter scores between 0.48 and 0.51 on the training data at *every*
+> blend level. Real fake news averages 378 words and my synthetic fake news
+> averages 376 — they're the same length. So sliding the synthetic fraction from
+> 0 to 100% doesn't change the length distribution at all. The thing that moves
+> across this sweep is the fake class's *source*, not its length."
+
+**Two — flip to In-domain (ISOT), where length scores 0.474:**
+
+> "And the shape reproduces. Flat until 75%, collapse at 100% — on a corpus
+> where word-counting is useless. So the trend is real."
+
+**The one honest exception — volunteer it:**
+
+> "The 100% endpoint is the exception. There the corpora disagree: LR reads
+> 0.943 on LIAR but 0.638 in-domain, CNN 0.065 against 0.424. At full
+> replacement the models lean on the length gap LIAR gives them. That endpoint
+> is exactly the recipe I rebuilt under length control — it's in the framework
+> tab."
+
+**If he asks about the gaps in the WELFake line:**
+
+> "LR, SVM and BERT have no checkpoints saved at 25% and 75% — the sweep script
+> only persists CNN there. I left those as gaps rather than drawing a line
+> through them, because a connected line would claim a measurement I don't have.
+> CNN is complete, which is why it's the only unbroken WELFake line."
+
 ### RQ2 answer
 
 > "Yes — augmentation genuinely helps, unlike replacement. But only in
-> moderation, and not for every architecture."
+> moderation, not for every architecture, and I've shown the trend holds on a
+> corpus where length can't explain it."
 
 ---
 
