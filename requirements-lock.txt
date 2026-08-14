@@ -52,6 +52,7 @@ numpy==2.5.0
 openai==2.44.0
 packaging==26.2
 pandas==3.0.3
+patsy==1.0.2
 pillow==12.2.0
 plotly==6.8.0
 propcache==0.5.2
@@ -74,6 +75,7 @@ rpds-py==2026.6.3
 safetensors==0.8.0
 scikit-learn==1.9.0
 scipy==1.18.0
+statsmodels==0.14.6
 seaborn==0.13.2
 setuptools==70.2.0
 shellingham==1.5.4

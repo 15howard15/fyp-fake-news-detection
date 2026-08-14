@@ -208,6 +208,78 @@ There is a **Tested on** row under the chart. Use it; don't wait to be asked.
 
 ---
 
+## Statistical validation — two things he will probably ask for
+
+Supervisors ask "is that difference significant?" and "did you cross-validate?"
+Both now have answers, and both answers contain a twist worth leading with.
+
+### McNemar's test
+
+> "Every comparison so far has been 'this number is bigger than that number.' I
+> ran McNemar's test on the paired predictions — same test rows, two models,
+> looking only at the rows where one is right and the other is wrong."
+
+**Point at the tiles:**
+
+> "96 comparisons across two test corpora. 91 are significant, and all 91
+> survive Holm-Bonferroni correction for running that many tests at once."
+
+**The twist — say this, don't let him say it:**
+
+> "But I'd be careful reading too much into that. With about ten thousand paired
+> rows, even a fraction of a percent reaches significance. So 'significant'
+> mostly just confirms a gap isn't noise. **The five comparisons that came back
+> null are the informative ones** — they say two systems genuinely can't be told
+> apart."
+
+**The one to point at:**
+
+> "On LIAR, Logistic Regression trained on real fake news versus trained
+> entirely on synthetic fake news: p = 0.33. Not significant. Those two are
+> statistically indistinguishable — which is the strongest evidence I have for
+> RQ1's 'synthetic can substitute' claim, and it's a null result, not a win."
+
+### 5-fold cross-validation — and the trap in it
+
+> "I cross-validated LR and SVM. Not CNN or BERT — five folds would mean five
+> more neural training runs per recipe, and I already measure their variance
+> with three-seed repeats, which answers the same question far more cheaply."
+
+**Set up the number before you show it:**
+
+> "The first time I ran it, Logistic Regression on the full-replacement recipe
+> scored **AUC 0.028**. Not 0.28 — 0.028. Far below random."
+
+**Then the diagnosis — this is the part that shows judgement:**
+
+> "That's not a broken model, it's a broken *split*. My synthetic recipes are
+> built as minimal pairs: an article labelled real, and that same article with
+> one fact changed labelled fake. Ordinary k-fold puts one half of a pair in
+> training and the other in validation. The model memorises the article as real,
+> then sees its almost-identical fake twin and calls it real too. It's wrong on
+> nearly every one of those rows, which drives AUC below 0.5 instead of just
+> lowering it."
+
+**The fix and the proof:**
+
+> "So I re-ran with a pair-aware split that keeps each pair whole. 0.028 becomes
+> 0.568. And the recipes with no synthetic data — real-only, style-robust — don't
+> move at all: 0.991 either way. That's what identifies the pairs as the cause
+> rather than something else about those recipes."
+
+**If he asks why you report both:**
+
+> "Because the gap between them is the measurement. The pair-aware number is the
+> valid one; the ordinary one shows what you'd have concluded without the
+> correction."
+
+**And be clear about what CV means here — say it unprompted:**
+
+> "One caveat I want to state myself: these are in-distribution scores. Each fold
+> trains on 80% of a recipe and tests on the held-out 20% of that same recipe.
+> Every other number in this project is cross-domain. They shouldn't go in the
+> same table."
+
 ## Chart 2: the validity check — **your strongest material**
 
 **Scroll to "Validity check: detecting fake news, or detecting AI writing?"**

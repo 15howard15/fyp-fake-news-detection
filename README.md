@@ -119,6 +119,33 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp real_syn real
 # (LIAR) is separable at AUC 0.9999 by document length ALONE, so a score there
 # is not by itself evidence a model learned anything about truth.
 
+# --- Statistical validation (no retraining, no GPU) ---
+# McNemar's test on paired predictions: is a score gap bigger than chance? Loads
+# saved checkpoints and runs inference only, caching each (model, composition)
+# once however many pairwise comparisons use it. Two axes: same model across
+# recipes, and same recipe across models.
+python src/evaluate.py significance --dataset liar
+python src/evaluate.py significance --dataset welfake_clean
+# With ~10,000 paired rows nearly everything clears p<0.05, so the NULL results
+# are the informative ones. Holm-Bonferroni columns are included and are what to
+# quote -- 96 tests in one family will throw a false positive otherwise.
+
+# --- 5-fold cross-validation, LR/SVM only ---
+# CNN and BERT are deliberately excluded: five folds would mean five extra neural
+# training runs per composition, and their run-to-run variance is already
+# measured by run_multiseed_robustness.py at a fraction of the GPU cost. LR and
+# SVM are deterministic, so the seed runs report exactly zero spread for them --
+# CV is the only variance estimate they can have.
+python src/train.py --model lr_svm --cv 5 --dataset real_real mixed real_syn style_robust
+# IMPORTANT -- these scores are IN-DISTRIBUTION (80/20 within one composition),
+# not cross-domain. Do not put them in the same table as the LIAR/WELFake numbers.
+# Two splits are reported, and the difference between them is a finding: the
+# synthetic recipes are minimal PAIRS (an article, and its one-fact-altered
+# twin), so an ordinary k-fold puts one half of a pair in train and the other in
+# validation. The model memorises the article as real and calls its fake twin
+# real too -- LR on real_syn scores AUC 0.028 that way, against 0.568 when pairs
+# are kept whole. The pair-aware (StratifiedGroupKFold) figure is the valid one.
+
 # --- Objective 1 follow-up: balance-controlled synthetic-fraction sweep (recommended read for the augmentation angle) ---
 python src/build_swap_sweep_datasets.py   # 0/25/50/75/100% synthetic, fake count fixed at 500
 python src/run_swap_sweep_experiment.py   # trains + evaluates all 4 models at each fraction

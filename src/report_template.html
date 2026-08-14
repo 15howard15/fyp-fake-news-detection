@@ -246,6 +246,26 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <details class="tbl"><summary>All metrics — every recipe × model, on both corpora</summary>
     <div class="tscroll"><div id="t-rq1"></div></div></details>
 
+  <h3>Is the gap real? McNemar's test on paired predictions</h3>
+  <div class="tiles" id="tiles-sig"></div>
+  <div class="note" id="note-sig"><p><strong>Almost everything is significant, which is why the exceptions matter.</strong> With ~10,000 paired rows even a fraction of a percent clears p&lt;0.05, so a significant result mostly confirms the gap is not noise. The comparisons that came back <em>null</em> are the informative ones — they say two systems genuinely cannot be told apart.</p></div>
+  <details class="tbl"><summary>Comparisons that were NOT significant</summary>
+    <div class="tscroll"><div id="t-signull"></div></div></details>
+  <details class="tbl"><summary>Every McNemar comparison</summary>
+    <div class="tscroll"><div id="t-sig"></div></div></details>
+
+  <h3>5-fold cross-validation — and why the split has to be pair-aware</h3>
+  <div class="card" id="card-cv">
+    <div class="card-h"><div><div class="card-t">In-distribution AUC under an ordinary split vs. a pair-aware split</div>
+    <div class="card-n">LR and SVM only — CNN and BERT keep their single-fit loop and their 3-seed runs, which measure the same variance far more cheaply. These are <strong>in-distribution</strong> scores: 80% of a recipe against the held-out 20% of that same recipe. They are not comparable to the cross-domain numbers above.</div></div>
+    <div class="seg" id="seg-cv-model"></div></div>
+    <div class="legend" id="l-cv"></div>
+    <div class="plot"><div id="c-cv"></div></div>
+  </div>
+  <div class="note crit"><p><strong>An ordinary k-fold split leaks here.</strong> The synthetic recipes are built as minimal pairs — an article and its one-fact-altered twin. An ordinary split puts one half of a pair in training and the other in validation, so the model memorises the article as real and calls its fake twin real too. That pushes AUC <em>below</em> 0.5 rather than merely lowering it: <span id="v-cvworst"></span>. Keeping each pair whole removes the effect, and recipes with no synthetic data are unmoved — which is what identifies the pairs as the cause.</p></div>
+  <details class="tbl"><summary>Cross-validated mean ± SD, both splits</summary>
+    <div class="tscroll"><div id="t-cv"></div></div></details>
+
   <h3>Validity check: detecting fake news, or detecting AI writing?</h3>
   <div class="card">
     <div class="card-h"><div><div class="card-t">AUC-ROC when both classes are AI-authored, vs. only the fake class</div>
@@ -276,6 +296,16 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <div class="note good"><p><strong>The trend is not a length artifact.</strong> Length carries no information inside this sweep — a word-counter scores <span id="v-rq2len"></span> on the training data at every blend level, because real fake news (378 words) and synthetic fake news (376) are the same length. The shape also reproduces on the in-domain corpus, where length alone scores 0.474. What moves across the sweep is the fake class's <em>source</em>, not its length.</p></div>
   <div class="note warn"><p><strong>The 100% endpoint is the exception.</strong> There the two corpora disagree sharply — LR reads 0.943 on LIAR but 0.638 in-domain, and CNN 0.065 against 0.424 — because at full replacement the models lean on the length gap LIAR hands them. That endpoint is the recipe rebuilt under length control in the framework tab.</p></div>
   <div class="note warn"><p><strong>CNN never benefits.</strong> The same error at every blend level — real articles called fake, never the reverse — and its confidence on those mistakes falls from 96% to 63%.</p></div>
+  <h3>Cross-validated in-distribution, across the same sweep</h3>
+  <div class="card" id="card-rq2cv">
+    <div class="card-h"><div><div class="card-t">5-fold CV AUC at each blend level, ordinary vs. pair-aware split</div>
+    <div class="card-n">LR and SVM only. The gap between the two lines is the size of the minimal-pair effect, and it grows with the synthetic share — at 0% there are no pairs and the lines meet.</div></div>
+    <div class="seg" id="seg-rq2cv-model"></div></div>
+    <div class="legend" id="l-rq2cv"></div>
+    <div class="plot"><div id="c-rq2cv"></div></div>
+  </div>
+  <div class="note"><p><strong>This is the sweep's own confound, and it is not the length one.</strong> Every synthetic article in these recipes is derived from a real article that is also present as a real-labelled row, so raising the synthetic share raises the number of near-duplicate pairs in lockstep. That inflates nothing on the cross-domain test sets — those articles aren't in them — but it makes ordinary cross-validation on these compositions unusable. The pair-aware line is the one to read.</p></div>
+
   <div class="note"><p><strong>Coverage note.</strong> The WELFake line is CNN-only at 25% and 75%: the sweep script saves checkpoints for CNN at those two points but not for LR, SVM or BERT, and scoring a model you didn't keep would mean retraining it. Those cells are left as gaps rather than filled in.</p></div>
 </section>
 
@@ -666,6 +696,76 @@ table(document.getElementById("t-rq1"),
     return [L[c],m,t,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),
       {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];}))));
 
+/* --------- McNemar significance --------- */
+(function(){
+  const S=DATA.rq1.significance;
+  const hide=()=>{["tiles-sig","note-sig"].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display="none";});
+    ["t-signull","t-sig"].forEach(id=>{const e=document.getElementById(id);if(e&&e.closest("details"))e.closest("details").style.display="none";});};
+  if(!S||!S.rows||!S.rows.length){hide();return;}
+  const t=document.getElementById("tiles-sig");t.innerHTML="";
+  const add=(v,l)=>{const d=document.createElement("div");d.className="tile";
+    d.innerHTML=`<div class="v">${v}</div><div class="l">${l}</div>`;t.appendChild(d);};
+  add(S.n_tests,"paired comparisons run");
+  add(S.n_sig+" / "+S.n_tests,"significant at p&lt;0.05");
+  add(S.n_sig_holm+" / "+S.n_tests,"survive Holm-Bonferroni correction");
+  add(S.null_results.length,"pairs that could NOT be told apart");
+
+  const pfmt=p=>p===0?"&lt;1e-300":(p<0.001?p.toExponential(1):p.toFixed(3));
+  const rowOf=r=>[r.dataset,r.axis,r.a,r.b,r.model,r.held==null?"—":String(r.held),
+    r.n_disc,fmt(r.acc_a),fmt(r.acc_b),{v:pfmt(r.p)},
+    {v:r.sig?"yes":"no",cls:r.sig?"":"bad"},{v:r.sig_holm?"yes":"no",cls:r.sig_holm?"":"bad"}];
+  const cols=["Test set","Axis","A","B","Model","Held constant","Discordant",
+              "Accuracy A","Accuracy B","p","p&lt;0.05","Holm"];
+  table(document.getElementById("t-signull"),cols,S.null_results.map(rowOf));
+  table(document.getElementById("t-sig"),cols,S.rows.map(rowOf));
+})();
+
+/* --------- 5-fold CV, ordinary vs pair-aware split --------- */
+(function(){
+  const C=DATA.rq1.cv;
+  if(!C||!C.comps||!C.comps.length||C.splits.length<2){
+    ["card-cv"].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display="none";});
+    const n=document.getElementById("v-cvworst");if(n&&n.closest(".note"))n.closest(".note").style.display="none";
+    const d=document.getElementById("t-cv");if(d&&d.closest("details"))d.closest("details").style.display="none";
+    return;
+  }
+  let CM="LR";
+  function draw(){
+    const cols=SER();
+    const get=(split,met)=>C.comps.map(c=>{
+      const d=C.rows[c]&&C.rows[c][CM]&&C.rows[c][CM][split];return d?d[met].mean:null;});
+    bars(document.getElementById("c-cv"),{categories:C.comps.map(c=>L[c]||c),height:300,
+      ref:0.5,refLabel:"random guessing",
+      series:[{name:"ordinary split",color:cols[3],values:get("stratified","auc_roc")},
+              {name:"pair-aware split",color:cols[0],values:get("grouped","auc_roc")}]});
+  }
+  legend(document.getElementById("l-cv"),[{name:"Ordinary k-fold (leaks across pairs)",color:SER()[3]},
+    {name:"Pair-aware k-fold",color:SER()[0]}]);
+  seg(document.getElementById("seg-cv-model"),
+      C.models.map(m=>({label:m,value:m})),v=>{CM=v;draw();});
+  draw(); REDRAW.push(draw);
+
+  if(C.max_gap){
+    const g=C.max_gap;
+    document.getElementById("v-cvworst").textContent =
+      L[g.comp]||g.comp; // filled in fully below
+    const s=C.rows[g.comp][g.model];
+    document.getElementById("v-cvworst").textContent =
+      `${g.model} on ${L[g.comp]||g.comp} moves from AUC `+
+      `${s.stratified.auc_roc.mean.toFixed(3)} to ${s.grouped.auc_roc.mean.toFixed(3)} `+
+      `once pairs are kept whole`;
+  }
+  table(document.getElementById("t-cv"),
+    ["Recipe","Model","Split","F1 (mean ± SD)","AUC-ROC (mean ± SD)","Accuracy (mean ± SD)","Folds"],
+    C.comps.flatMap(c=>C.models.flatMap(m=>C.splits.map(s=>{
+      const d=C.rows[c]&&C.rows[c][m]&&C.rows[c][m][s];
+      if(!d) return [L[c]||c,m,s,"—","—","—","—"];
+      const pm=k=>`${num(d[k].mean)} ± ${num(d[k].sd)}`;
+      return [L[c]||c,m,s,pm("f1"),
+        {v:pm("auc_roc"),cls:d.auc_roc.mean<0.5?"bad":""},pm("accuracy"),d.n_folds];
+    }))));
+})();
+
 /* authorship — corpus switch keeps it to 4 categories */
 let AUTH="liar";
 function auth(){
@@ -711,6 +811,30 @@ table(document.getElementById("t-rq2"),
     return [f,m,t,fmt(s.precision&&s.precision[fi]),fmt(s.recall&&s.recall[fi]),
       fmt(s.f1&&s.f1[fi]),
       {v:fmt(s.auc_roc&&s.auc_roc[fi]),cls:(s.auc_roc&&s.auc_roc[fi]<0.5)?"bad":""}];}))));
+/* --------- RQ2: CV across the sweep, both splits --------- */
+(function(){
+  const C=DATA.rq2.cv;
+  if(!C||!C.fractions||!C.fractions.length||!C.splits||C.splits.length<2){
+    const e=document.getElementById("card-rq2cv");
+    if(e){e.style.display="none";const n=e.nextElementSibling;if(n&&n.classList.contains("note"))n.style.display="none";}
+    return;
+  }
+  let M="LR";
+  function draw(){
+    const cols=SER();
+    const get=split=>C.fractions.map(f=>{
+      const d=C.rows[f]&&C.rows[f][M]&&C.rows[f][M][split];return d?d.auc_roc.mean:null;});
+    lines(document.getElementById("c-rq2cv"),{categories:C.fractions,
+      series:[{name:"ordinary split",color:cols[3],values:get("stratified")},
+              {name:"pair-aware split",color:cols[0],values:get("grouped")}]});
+  }
+  legend(document.getElementById("l-rq2cv"),[{name:"Ordinary k-fold (leaks across pairs)",color:SER()[3]},
+    {name:"Pair-aware k-fold",color:SER()[0]}]);
+  seg(document.getElementById("seg-rq2cv-model"),
+      ["LR","SVM"].map(m=>({label:m,value:m})),v=>{M=v;draw();});
+  draw(); REDRAW.push(draw);
+})();
+
 /* The in-training length-AUC quoted in the note, read from the leakage report
    rather than typed in. Flat and near 0.5 across the sweep is the whole point:
    real fake news and synthetic fake news are the same length, so the sweep's

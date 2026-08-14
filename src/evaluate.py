@@ -495,6 +495,221 @@ def cmd_cross_target(args):
     print(f"\nSaved to {out}")
 
 
+def predict_labels(comp, model, test):
+    """Predicted labels for one (composition, model) pair on a test frame.
+
+    Inference only -- loads the saved checkpoint, never trains. McNemar's test
+    needs the per-row correct/incorrect vector rather than an aggregate, which
+    is the one thing the metrics_*.json files don't store, so the predictions
+    have to be recomputed. They are cached by the caller so each checkpoint is
+    loaded once no matter how many pairwise comparisons use it.
+
+    (cmd_cross_target and cmd_hard_examples still carry their own copies of this
+    loading logic. They are left alone deliberately: both produce committed
+    result files, and rewriting them would mean re-running every one of those
+    results to prove the refactor changed nothing. Worth doing as its own
+    change, not folded into this one.)
+    """
+    y = test["label"].values
+    if model in ("LR", "SVM"):
+        vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
+        clf = joblib.load(cfg.MODELS_DIR / f"{'lr' if model == 'LR' else 'svm'}_{comp}.joblib")
+        return clf.predict(vec.transform(clean_series(test["text"])))
+
+    if model == "CNN":
+        import torch
+        from torch.utils.data import DataLoader
+        from train import CNNDataset, TextCNN, get_cnn_vocab_and_embed
+        DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+        vocab, embed = get_cnn_vocab_and_embed()
+        net = TextCNN(embed, cfg.CNN_NUM_FILTERS, cfg.CNN_FILTER_SIZES, cfg.CNN_DROPOUT).to(DEVICE)
+        net.load_state_dict(torch.load(cfg.MODELS_DIR / f"cnn_{comp}.pt", map_location=DEVICE))
+        net.eval()
+        dl = DataLoader(CNNDataset(clean_series(test["text"]), y, vocab, cfg.CNN_MAX_LEN),
+                        batch_size=cfg.CNN_BATCH_SIZE)
+        preds = []
+        with torch.no_grad():
+            for xb, _ in dl:
+                preds.extend(net(xb.to(DEVICE)).argmax(1).cpu().numpy())
+        return np.array(preds)
+
+    if model == "BERT":
+        import torch
+        from torch.utils.data import DataLoader
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        from train import BertDataset
+        DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+        tok = AutoTokenizer.from_pretrained(cfg.BERT_MODEL_NAME)
+        net = AutoModelForSequenceClassification.from_pretrained(
+            cfg.MODELS_DIR / f"bert_{comp}").to(DEVICE)
+        net.eval()
+        dl = DataLoader(BertDataset(clean_series(test["text"], aggressive=False), y,
+                                    tok, cfg.BERT_MAX_LEN), batch_size=cfg.BERT_BATCH_SIZE)
+        preds = []
+        with torch.no_grad():
+            for batch in dl:
+                batch.pop("labels")
+                batch = {k: v.to(DEVICE) for k, v in batch.items()}
+                with torch.cuda.amp.autocast(enabled=(DEVICE == "cuda")):
+                    preds.extend(net(**batch).logits.argmax(1).cpu().numpy())
+        return np.array(preds)
+
+    raise ValueError(f"unknown model {model!r}")
+
+
+def cmd_significance(args):
+    """McNemar's test on pairs of already-trained models. No retraining.
+
+    Every comparison in this project so far has been "0.885 is higher than
+    0.673", with nothing said about whether a gap that size could have arisen by
+    chance. McNemar's test answers that for two classifiers scored on the SAME
+    rows, which is exactly the situation here: one test set, many checkpoints.
+
+    It works on the DISCORDANT pairs only -- the rows where one model is right
+    and the other is wrong (b and c below). Rows both get right, or both get
+    wrong, carry no information about which is better and are excluded by
+    construction:
+
+                          B correct   B wrong
+        A correct            a           b
+        A wrong              c           d
+
+    The null hypothesis is b == c. Two comparison axes are available, because
+    the interesting questions come in both shapes: does the training RECIPE
+    change a given model's predictions (real_real vs style_robust for BERT), and
+    do two MODELS differ on a given recipe (BERT vs CNN on real_real).
+
+    exact=True is used when there are few discordant pairs, where the chi-square
+    approximation is unreliable; statsmodels' binomial exact test is correct at
+    any count, so the threshold only trades runtime, not validity.
+
+    Note on multiple comparisons: this runs many tests at once, so a raw p < 0.05
+    will show up by chance somewhere. significant_at_0.05 is the raw result the
+    task asked for; p_value_holm / significant_holm apply Holm-Bonferroni across
+    every test in the run, and that is the column to quote in the thesis.
+    """
+    from statsmodels.stats.contingency_tables import mcnemar
+
+    test_name = CROSS_TARGET_ALIASES.get(args.dataset, args.dataset)
+    test_path = cfg.PROCESSED_DIR / f"{test_name}.csv"
+    if not test_path.exists():
+        raise FileNotFoundError(f"{test_path} not found. Run build_test_sets.py first.")
+    test = pd.read_csv(test_path).reset_index(drop=True)
+    y = test["label"].values
+    print(f"Test set: {test_name} ({len(test):,} rows)")
+
+    # Load each (model, comp) once, however many comparisons reference it.
+    correct, missing = {}, []
+    for comp in args.comp:
+        for model in args.model:
+            try:
+                pred = predict_labels(comp, model, test)
+            except (FileNotFoundError, OSError) as e:
+                missing.append(f"{model}/{comp}")
+                print(f"  (skip {model:4s} / {comp} -- no checkpoint)")
+                continue
+            correct[(model, comp)] = (np.asarray(pred) == y).astype(int)
+            print(f"  loaded {model:4s} / {comp:22s} accuracy={correct[(model, comp)].mean():.4f}")
+
+    def test_pair(a_key, b_key, label_a, label_b, model_col, axis, held):
+        ca, cb = correct[a_key], correct[b_key]
+        b = int(((ca == 1) & (cb == 0)).sum())   # a right, b wrong
+        c = int(((ca == 0) & (cb == 1)).sum())   # a wrong, b right
+        n_disc = b + c
+        if n_disc == 0:
+            # Identical predictions on every row: no evidence of a difference,
+            # and the test is undefined. Recorded rather than dropped so the
+            # comparison doesn't silently vanish from the table.
+            return {"comparison_a": label_a, "comparison_b": label_b, "model": model_col,
+                    "axis": axis, "held_constant": held, "dataset": args.dataset,
+                    "n_samples": len(y), "n_discordant": 0, "b_a_right_b_wrong": 0,
+                    "c_a_wrong_b_right": 0, "accuracy_a": round(float(ca.mean()), 4),
+                    "accuracy_b": round(float(cb.mean()), 4), "statistic": None,
+                    "p_value": 1.0, "significant_at_0.05": False, "exact": True}
+        res = mcnemar([[int(((ca == 1) & (cb == 1)).sum()), b],
+                       [c, int(((ca == 0) & (cb == 0)).sum())]],
+                      exact=(n_disc < args.exact_below),
+                      correction=(n_disc >= args.exact_below))
+        return {"comparison_a": label_a, "comparison_b": label_b, "model": model_col,
+                "axis": axis, "held_constant": held, "dataset": args.dataset,
+                "n_samples": len(y), "n_discordant": n_disc,
+                "b_a_right_b_wrong": b, "c_a_wrong_b_right": c,
+                "accuracy_a": round(float(ca.mean()), 4),
+                "accuracy_b": round(float(cb.mean()), 4),
+                "statistic": round(float(res.statistic), 4),
+                "p_value": float(res.pvalue),
+                "significant_at_0.05": bool(res.pvalue < 0.05),
+                "exact": bool(n_disc < args.exact_below)}
+
+    rows = []
+    if args.axis in ("recipe", "both"):
+        for model in args.model:
+            comps = [c for c in args.comp if (model, c) in correct]
+            for i in range(len(comps)):
+                for j in range(i + 1, len(comps)):
+                    rows.append(test_pair((model, comps[i]), (model, comps[j]),
+                                          comps[i], comps[j], model, "recipe", model))
+    if args.axis in ("model", "both"):
+        for comp in args.comp:
+            models = [m for m in args.model if (m, comp) in correct]
+            for i in range(len(models)):
+                for j in range(i + 1, len(models)):
+                    rows.append(test_pair((models[i], comp), (models[j], comp),
+                                          models[i], models[j],
+                                          f"{models[i]} vs {models[j]}", "model", comp))
+
+    if not rows:
+        print("\nNo comparisons could be made -- no checkpoints found.")
+        return
+
+    df = pd.DataFrame(rows)
+
+    # Holm-Bonferroni, computed here rather than pulled from statsmodels so the
+    # step-down logic is visible: sort ascending, scale each p by the number of
+    # tests still to come, and enforce monotonicity so a later p can never end
+    # up smaller than an earlier one.
+    order = df["p_value"].values.argsort()
+    n = len(df)
+    adj = np.empty(n)
+    running = 0.0
+    for rank, idx in enumerate(order):
+        running = max(running, (n - rank) * df["p_value"].values[idx])
+        adj[idx] = min(1.0, running)
+    df["p_value_holm"] = adj
+    df["significant_holm"] = df["p_value_holm"] < 0.05
+
+    out = cfg.RESULTS_DIR / "statistical_significance.csv"
+    # Keep results for other test sets. The Holm columns stay as computed within
+    # the run that produced them, which is correct -- the correction applies to a
+    # family of tests, and one --dataset run is that family. Re-running the same
+    # dataset replaces its own rows.
+    if out.exists():
+        prev = pd.read_csv(out)
+        # held_constant is part of the key, not decoration: on the model axis
+        # every recipe produces the same (comparison_a, comparison_b, model)
+        # triple -- "LR" vs "SVM" for LR vs SVM -- and only held_constant says
+        # which recipe it was. Leaving it out collapses 24 rows into 6.
+        df = (pd.concat([prev, df], ignore_index=True)
+                .drop_duplicates(subset=["dataset", "axis", "comparison_a",
+                                         "comparison_b", "model", "held_constant"],
+                                 keep="last"))
+    df.to_csv(out, index=False)
+
+    print(f"\n=== McNEMAR'S TEST ({args.dataset}, {len(df)} comparisons) ===")
+    show = df[["axis", "comparison_a", "comparison_b", "model", "n_discordant",
+               "accuracy_a", "accuracy_b", "p_value", "significant_at_0.05",
+               "significant_holm"]].copy()
+    show["p_value"] = show["p_value"].map(lambda v: f"{v:.3g}")
+    print(show.to_string(index=False))
+    n_raw = int(df["significant_at_0.05"].sum())
+    n_holm = int(df["significant_holm"].sum())
+    print(f"\n{n_raw}/{len(df)} significant at raw p<0.05; "
+          f"{n_holm}/{len(df)} survive Holm-Bonferroni correction.")
+    if missing:
+        print(f"Skipped (no checkpoint): {', '.join(missing)}")
+    print(f"Saved to {out}")
+
+
 def cmd_hard_examples(args):
     """Find the most confidently-WRONG predictions for an already-trained
     checkpoint on a plain test set (test_crossdomain.csv / test_crossdomain2.csv)
@@ -1007,6 +1222,27 @@ def main():
     ct.add_argument("--comp", nargs="+", default=list(cfg.COMPOSITIONS),
                      help="composition name(s) to evaluate (checkpoints must exist under models/)")
 
+    sg = sub.add_parser(
+        "significance",
+        help="McNemar's test between already-trained checkpoints -- is a score "
+             "gap larger than chance? (see function docstring)",
+    )
+    sg.add_argument("--dataset", default="liar",
+                     help="'liar', 'welfake', 'welfake_clean', or a raw test-set stem")
+    sg.add_argument("--comp", nargs="+",
+                     default=["real_real", "mixed", "real_syn", "style_robust"],
+                     help="composition names to compare (checkpoints must exist)")
+    sg.add_argument("--model", nargs="+", choices=["LR", "SVM", "CNN", "BERT"],
+                     default=["LR", "SVM", "CNN", "BERT"],
+                     help="models to include")
+    sg.add_argument("--axis", choices=["recipe", "model", "both"], default="both",
+                     help="'recipe' = same model, two training recipes; "
+                          "'model' = same recipe, two models; 'both' = all of it")
+    sg.add_argument("--exact-below", type=int, default=25,
+                     help="use the exact binomial test when the discordant count "
+                          "is under this (default 25); above it, chi-square with "
+                          "continuity correction")
+
     sub.add_parser("seed-summary", help="mean +/- std across seeds, from results/extra/multiseed_results.csv")
 
     cs = sub.add_parser(
@@ -1069,6 +1305,8 @@ def main():
         cmd_leakage(args)
     elif args.command == "length-sweep":
         cmd_length_sweep(args)
+    elif args.command == "significance":
+        cmd_significance(args)
 
 
 if __name__ == "__main__":

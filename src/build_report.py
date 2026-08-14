@@ -266,6 +266,20 @@ def sweep_block():
                                  "min": round(min(vals), 3),
                                  "max": round(max(vals), 3)}
 
+    # In-distribution CV across the same five points, both split strategies.
+    # The gap between them widens with the synthetic fraction, which is the
+    # cleanest available demonstration that the effect is caused by minimal
+    # pairs: the 0% point has none and is unaffected.
+    cv = cv_block([SWEEP_ALIAS.get(s, s) for s in SWEEP_PCT])
+    if cv.get("comps"):
+        by_frac = {}
+        for sweep, pct in SWEEP_PCT.items():
+            comp = SWEEP_ALIAS.get(sweep, sweep)
+            if comp in cv["rows"]:
+                by_frac[pct] = cv["rows"][comp]
+        out["cv"] = {"fractions": [p for p in SWEEP_PCT.values() if p in by_frac],
+                     "rows": by_frac, "splits": cv["splits"]}
+
     # Kept so anything still reading data.rq2.series keeps working.
     out["series"] = out["tests"].get("LIAR", {})
     return out
@@ -483,6 +497,101 @@ def quality_block():
     return out
 
 
+def cv_block(comps):
+    """5-fold CV for LR/SVM, under both an ordinary and a pair-aware split.
+
+    Two things have to be said about these numbers or they will be misread:
+
+    1. They are IN-DISTRIBUTION. Each fold trains on 80% of a composition and
+       scores the held-out 20% of the same composition, where every other score
+       in this report is cross-domain. A CV AUC of 0.99 next to a cross-domain
+       AUC of 0.55 is not a contradiction, it is the gap between "separates data
+       like its own" and "transfers".
+    2. The ordinary split is not trustworthy on the synthetic recipes, and the
+       grouped one is. The synthetic compositions are minimal pairs -- an article
+       and its one-fact-altered twin -- so an ordinary split puts one half of a
+       pair in train and the other in validation. The model memorises the
+       article as real and calls its fake twin real too, which drives AUC below
+       0.5 rather than merely lowering it. Keeping pairs whole removes that.
+    """
+    p = EXTRA / "cv_results.csv"
+    if not p.exists():
+        return {}
+    df = pd.read_csv(p)
+    if "split" not in df.columns:
+        return {}
+    out = {"comps": [], "models": ["LR", "SVM"], "splits": [], "rows": {}}
+    for s in ("stratified", "grouped"):
+        if s in set(df["split"]):
+            out["splits"].append(s)
+    for comp in comps:
+        g = df[df.comp == comp]
+        if g.empty:
+            continue
+        block = {}
+        for model in out["models"]:
+            per_split = {}
+            for s in out["splits"]:
+                sel = g[(g.model == model) & (g["split"] == s)]
+                if sel.empty:
+                    continue
+                per_split[s] = {
+                    met: {"mean": round(float(sel[met].mean()), 4),
+                          "sd": round(float(sel[met].std(ddof=1)), 4)}
+                    for met in ("f1", "auc_roc", "accuracy")
+                }
+                per_split[s]["n_folds"] = int(len(sel))
+            if per_split:
+                block[model] = per_split
+        if block:
+            out["comps"].append(comp)
+            out["rows"][comp] = block
+
+    # Largest gap between the two splits, computed rather than quoted -- this is
+    # the size of the near-duplicate effect and the reason the grouped split is
+    # the one to report.
+    gaps = []
+    for comp, block in out["rows"].items():
+        for model, per in block.items():
+            if "stratified" in per and "grouped" in per:
+                gaps.append({"comp": comp, "model": model,
+                             "delta": round(per["grouped"]["auc_roc"]["mean"]
+                                            - per["stratified"]["auc_roc"]["mean"], 4)})
+    if gaps:
+        out["gaps"] = sorted(gaps, key=lambda r: -abs(r["delta"]))
+        out["max_gap"] = out["gaps"][0]
+    return out
+
+
+def significance_block():
+    """McNemar's test results, from evaluate.py significance."""
+    p = cfg.RESULTS_DIR / "statistical_significance.csv"
+    if not p.exists():
+        return {}
+    df = pd.read_csv(p)
+    out = {"datasets": sorted(df["dataset"].unique().tolist()), "rows": []}
+    for _, r in df.iterrows():
+        out["rows"].append({
+            "dataset": r["dataset"], "axis": r["axis"],
+            "a": r["comparison_a"], "b": r["comparison_b"],
+            "model": r["model"], "held": r.get("held_constant"),
+            "n": int(r["n_samples"]), "n_disc": int(r["n_discordant"]),
+            "acc_a": r["accuracy_a"], "acc_b": r["accuracy_b"],
+            "p": float(r["p_value"]),
+            "sig": bool(r["significant_at_0.05"]),
+            "sig_holm": bool(r["significant_holm"]),
+        })
+    out["n_tests"] = len(out["rows"])
+    out["n_sig"] = sum(1 for r in out["rows"] if r["sig"])
+    out["n_sig_holm"] = sum(1 for r in out["rows"] if r["sig_holm"])
+    # The comparisons that came back NOT significant are the informative ones:
+    # everything else is "a big gap is a big gap". With ~10,000 paired rows even
+    # a fraction of a percent reaches significance, so a null result here means
+    # the two systems really are hard to tell apart.
+    out["null_results"] = [r for r in out["rows"] if not r["sig"]]
+    return out
+
+
 def leakage_block():
     p = EXTRA / "leakage_report.csv"
     if not p.exists():
@@ -590,7 +699,9 @@ def collect():
         "rq1": {"comps": rq1_comps, "liar": liar_block(rq1_comps),
                 "welfake": welfake_block(rq1_comps),
                 "tests": {"LIAR": liar_block(rq1_comps),
-                          "WELFake (ISOT removed)": welfake_clean_block(rq1_comps)}},
+                          "WELFake (ISOT removed)": welfake_clean_block(rq1_comps)},
+                "cv": cv_block(rq1_comps + ["style_robust"]),
+                "significance": significance_block()},
         "rq2": sweep_block(),
         # RQ3 is the model-family comparison; the LIAR-vs-WELFake material it
         # used to hold is the cross-domain protocol common to all four

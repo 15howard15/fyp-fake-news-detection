@@ -36,6 +36,7 @@ import torch.nn as nn
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import StratifiedGroupKFold, StratifiedKFold
 from sklearn.svm import LinearSVC
 
 from torch.utils.data import DataLoader, Dataset
@@ -104,6 +105,156 @@ def train_lr_svm(train, test, comp):
     joblib.dump(vec, cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
     joblib.dump(lr, cfg.MODELS_DIR / f"lr_{comp}.joblib")
     joblib.dump(svm, cfg.MODELS_DIR / f"svm_{comp}.joblib")
+
+
+def _pair_groups(train):
+    """Group id per training row, so a synthetic fake and the real article it
+    was generated from never land in different CV folds.
+
+    This matters more than it sounds. The synthetic compositions are built as
+    minimal PAIRS: article X labelled real, and X-with-one-fact-changed labelled
+    fake, differing by a single edit and otherwise near-identical. Ordinary
+    k-fold puts one half of a pair in train and the other in validation, so the
+    model memorises "this article text is real" and then confidently calls its
+    fake twin real too. It is wrong on essentially every such row, which shows up
+    as an AUC far BELOW 0.5 rather than as poor accuracy.
+
+    Measured on real_syn: 499 of the 500 rows pair up, ordinary 5-fold gives LR
+    an AUC of 0.027, and keeping each pair whole gives 0.568. The first number is
+    a measurement of the split, not of the model.
+
+    Returns None when no pairing can be derived, in which case the grouped split
+    is skipped rather than faked.
+    """
+    key = lambda s: str(s)[:200]
+    # Any generated corpus that recorded what it was derived from.
+    src_of = {}
+    for p in sorted(cfg.SYNTHETIC_DIR.glob("*.csv")):
+        try:
+            df = pd.read_csv(p)
+        except Exception:
+            continue
+        if not {"text", "source_text"} <= set(df.columns):
+            continue
+        for t, s in zip(df["text"], df["source_text"]):
+            src_of[key(t)] = key(s)
+    if not src_of:
+        return None
+
+    groups, matched = [], 0
+    for t in train["text"]:
+        k = key(t)
+        if k in src_of:
+            groups.append(src_of[k]); matched += 1
+        else:
+            groups.append(k)          # a real article groups with itself
+    if matched == 0:
+        return None
+    return pd.factorize(pd.Series(groups))[0], matched
+
+
+def cross_validate_lr_svm(train, comp, n_splits=5):
+    """Stratified k-fold CV for LR and SVM only. No GPU, no neural training.
+
+    LR and SVM are deterministic given fixed data, so the 3-seed robustness runs
+    that quantify CNN/BERT's variance report exactly zero spread for them -- by
+    construction, not by measurement. That leaves the traditional models with no
+    variance estimate at all. Cross-validation supplies one from the only source
+    of variation they actually have: which rows they were fitted on.
+
+    CNN and BERT are deliberately excluded. Five folds would mean five more
+    neural training runs per composition, and their run-to-run variance is
+    already measured by the existing multi-seed experiment, which answers the
+    same question at a fifth of the GPU cost.
+
+    WHAT THIS DOES AND DOESN'T MEASURE -- the numbers below are in-distribution:
+    each fold trains on 80% of a composition and scores the held-out 20% of the
+    SAME composition. That is a different quantity from every other score in this
+    project, which is cross-domain (train on ISOT, test on LIAR or WELFake). A CV
+    F1 of 0.99 alongside a cross-domain F1 of 0.55 is not a contradiction; it is
+    the gap between "can it separate data like its own" and "does it transfer".
+    They must never be put in the same table without that label.
+
+    The vectorizer is refitted INSIDE each fold. Fitting it once on the whole
+    composition before splitting would let every fold's held-out rows contribute
+    to the vocabulary and the IDF weights -- a quiet leak that inflates CV scores
+    and is the most common way this measurement gets done wrong.
+    """
+    texts = clean_series(train["text"]).values
+    y = train["label"].values
+
+    # Two splits, because the difference between them is itself a result.
+    #   stratified -- ordinary k-fold, what the task asked for.
+    #   grouped    -- keeps each synthetic fake with its source article, which
+    #                 is the only one of the two that measures the model rather
+    #                 than the near-duplicate structure of the data.
+    splits = [("stratified",
+               StratifiedKFold(n_splits=n_splits, shuffle=True,
+                               random_state=cfg.SEED), None)]
+    g = _pair_groups(train)
+    if g is not None:
+        groups, matched = g
+        n_groups = len(set(groups))
+        if n_groups >= n_splits:
+            splits.append(("grouped",
+                           StratifiedGroupKFold(n_splits=n_splits, shuffle=True,
+                                                random_state=cfg.SEED), groups))
+            print(f"  pair-aware split available: {matched}/{len(train)} rows map "
+                  f"to a source article, {n_groups} groups")
+
+    rows = []
+    for split_name, splitter, groups in splits:
+        it = (splitter.split(texts, y, groups) if groups is not None
+              else splitter.split(texts, y))
+        for fold, (tr_idx, te_idx) in enumerate(it, start=1):
+            vec = TfidfVectorizer(ngram_range=cfg.TFIDF_NGRAM_RANGE,
+                                  max_features=cfg.TFIDF_MAX_FEATURES)
+            X = vec.fit_transform(texts[tr_idx])
+            Xv = vec.transform(texts[te_idx])
+            ytr, yte = y[tr_idx], y[te_idx]
+            if len(set(yte)) < 2:
+                continue      # a fold with one class has no defined AUC
+
+            # Same estimator settings as train_lr_svm, so the CV spread
+            # describes the model that was shipped rather than a nearby one.
+            lr = LogisticRegression(solver=cfg.LR_SOLVER, max_iter=1000,
+                                    class_weight="balanced").fit(X, ytr)
+            m = compute_metrics(yte, lr.predict(Xv), lr.predict_proba(Xv)[:, 1])
+            rows.append({"comp": comp, "model": "LR", "split": split_name,
+                         "fold": fold, "n_train": len(tr_idx), "n_val": len(te_idx),
+                         **{k: round(float(m[k]), 4) for k in
+                            ("accuracy", "precision", "recall", "f1", "auc_roc")}})
+
+            svm = CalibratedClassifierCV(LinearSVC(), cv=3,
+                                         method="isotonic").fit(X, ytr)
+            m = compute_metrics(yte, svm.predict(Xv), svm.predict_proba(Xv)[:, 1])
+            rows.append({"comp": comp, "model": "SVM", "split": split_name,
+                         "fold": fold, "n_train": len(tr_idx), "n_val": len(te_idx),
+                         **{k: round(float(m[k]), 4) for k in
+                            ("accuracy", "precision", "recall", "f1", "auc_roc")}})
+
+    df = pd.DataFrame(rows)
+    out = cfg.RESULTS_DIR / "extra" / "cv_results.csv"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if out.exists():
+        df = (pd.concat([pd.read_csv(out), df], ignore_index=True)
+                .drop_duplicates(subset=["comp", "model", "split", "fold"],
+                                 keep="last"))
+    df.to_csv(out, index=False)
+
+    print(f"\n[{n_splits}-fold CV | {comp}] in-distribution "
+          f"(trains on 80% of this composition, scores the held-out 20% -- "
+          f"NOT comparable to the cross-domain numbers above)")
+    cur = df[df.comp == comp]
+    for split_name, _, _ in splits:
+        for model in ("LR", "SVM"):
+            sel = cur[(cur.model == model) & (cur.split == split_name)]
+            if sel.empty:
+                continue
+            line = "  ".join(f"{k}={sel[k].mean():.4f}+/-{sel[k].std(ddof=1):.4f}"
+                             for k in ("f1", "auc_roc", "accuracy"))
+            print(f"  {split_name:10s} {model:4s} {line}   (n={len(sel)} folds)")
+    print(f"  saved to {out}")
 
 
 # ----------------------------------------------------------------------
@@ -369,6 +520,15 @@ def main():
                           "of each article (TF-IDF has no length limit so LR/SVM read all "
                           "of it, BERT truncates at 512 tokens, CNN at 300), which is an "
                           "uncontrolled confound when comparing architectures.")
+    ap.add_argument("--cv", type=int, default=None, metavar="K", nargs="?", const=5,
+                     help="additionally run stratified K-fold cross-validation "
+                          "(default 5) for LR and SVM, reporting mean +/- SD across "
+                          "folds. Applies to LR/SVM ONLY -- CNN and BERT keep their "
+                          "existing single-fit training loop and their separate "
+                          "3-seed robustness runs, which measure the same variance "
+                          "at a fraction of the GPU cost. CV scores are "
+                          "IN-DISTRIBUTION (80/20 within the composition) and are "
+                          "not comparable to the cross-domain scores.")
     args = ap.parse_args()
 
     models = ["lr_svm", "cnn", "bert"] if "all" in args.model else args.model
@@ -397,6 +557,15 @@ def main():
             comp = label  # keeps checkpoints/metrics separate from the full-text runs
         if "lr_svm" in models:
             train_lr_svm(train, test, comp)
+            if args.cv:
+                cross_validate_lr_svm(train, comp, n_splits=args.cv)
+        elif args.cv:
+            # Guard, not an oversight: --cv is scoped to the traditional models
+            # by design. Silently doing nothing here would look like the flag
+            # ran and found nothing to report.
+            print("\n(--cv ignored: cross-validation is implemented for LR/SVM "
+                  "only. CNN and BERT use their existing training loop and the "
+                  "3-seed robustness runs -- see run_multiseed_robustness.py.)")
         if "cnn" in models:
             train_cnn(train, test, comp)
         if "bert" in models:
