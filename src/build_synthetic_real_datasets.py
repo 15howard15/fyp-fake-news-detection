@@ -183,30 +183,37 @@ def main():
     # before/after pair is the finding, exactly as with contaminated vs cleaned
     # WELFake.
     #
-    # Only the FAKE side is regenerated. The pilot found that the existing
-    # synthetic_real.csv already sits on the 0.444 target, so it is reused
-    # as-is; regenerating it would have cost another 1,000 API calls to land in
-    # the same place.
+    # BOTH sides are regenerated, and both come from the *_sym corpora. An
+    # earlier plan reused the original synthetic_real.csv on the grounds that it
+    # already sat on the 0.444 target -- true, but the fake side cannot reach
+    # 0.444 at matched length, because altering a fact keeps the model closer to
+    # the source and floors it near 0.53. The two only meet when both are
+    # generated the same way, so pairing a *_sym fake against the ORIGINAL real
+    # would reintroduce the very asymmetry these compositions remove.
     sym_fake_path = cfg.SYNTHETIC_DIR / "synthetic_fake_sym.csv"
-    if not sym_fake_path.exists():
-        print(f"\n(skipping C2'/C3' -- {sym_fake_path.name} not found; run "
-              f"generate_synthetic_fake.py --symmetric first)")
+    sym_real_path = cfg.SYNTHETIC_DIR / "synthetic_real_sym.csv"
+    missing = [p.name for p in (sym_fake_path, sym_real_path) if not p.exists()]
+    if missing:
+        print(f"\n(skipping C2'/C3' -- {', '.join(missing)} not found; run "
+              f"generate_synthetic_fake.py --symmetric and "
+              f"generate_synthetic_real.py --symmetric first)")
     else:
         sym_fake_full = pd.read_csv(sym_fake_path)
-        syn_real_full = pd.read_csv(syn_real_path)
-        check_symmetry(syn_real_full, sym_fake_full, args.tolerance, args.strict)
+        sym_real_full = pd.read_csv(sym_real_path)
+        check_symmetry(sym_real_full, sym_fake_full, args.tolerance, args.strict)
 
         sym_fake = sym_fake_full[["text", "label", "source"]]
-        print("\n--- C2': synthetic-real + real-fake (symmetric-edit control) ---")
-        n = min(len(syn_real), len(isot_fake_pool), len(sym_fake))
-        c2s = pd.concat([syn_real.head(n),
+        sym_real = sym_real_full[["text", "label", "source"]]
+        print("\n--- C2': symmetric synthetic-real + real-fake ---")
+        n = min(len(sym_real), len(isot_fake_pool), len(sym_fake))
+        c2s = pd.concat([sym_real.head(n),
                          isot_fake_pool.head(n)[["text", "label", "source"]]],
                         ignore_index=True)
         save(c2s, "train_c2_sym")
 
-        print("\n--- C3': synthetic-real + symmetric synthetic-fake ---")
-        n3 = min(len(syn_real), len(sym_fake))
-        c3s = pd.concat([syn_real.head(n3), sym_fake.head(n3)], ignore_index=True)
+        print("\n--- C3': symmetric synthetic-real + symmetric synthetic-fake ---")
+        n3 = min(len(sym_real), len(sym_fake))
+        c3s = pd.concat([sym_real.head(n3), sym_fake.head(n3)], ignore_index=True)
         save(c3s, "train_c3_sym")
         print(f"  (compare against train_c3_synreal_synfake at matched scale "
               f"n={n3:,} -- same real class, same manipulation strategies, "

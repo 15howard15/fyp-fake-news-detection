@@ -126,18 +126,29 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp real_syn real
 # predicted "fake" without reference to any fact. That is the C3 authorship
 # shortcut.
 python src/evaluate.py edit-distance          # measure the gap before changing anything
-python src/generate_synthetic_fake.py --n 500 --symmetric
+python src/generate_synthetic_real.py --n 500 --symmetric --max_retries 4
+python src/generate_synthetic_fake.py --n 500 --symmetric --max_retries 4
 python src/build_synthetic_real_datasets.py   # adds train_c2_sym / train_c3_sym
 python src/train.py --model all --dataset c2_sym c3_sym
 python src/evaluate.py cross-target --dataset welfake_clean --comp c3_synreal_synfake c3_sym
-# Only the FAKE side is regenerated: a 30-article pilot found synthetic_real.csv
-# already sits on the 0.444 target, so regenerating it would have cost ~1,000
-# API calls to land in the same place. Prompt symmetry alone does NOT give
-# outcome symmetry -- handing both generators the identical paraphrase
-# instruction leaves a gap that WIDENS as the instruction gets stronger (6.0 ->
-# 8.0 -> 14.8pp across three pilot rounds), because planting a fact already
-# makes the model rewrite harder. Symmetry is enforced by measuring, not by
-# sharing prompt text; build_synthetic_real_datasets.py --strict gates on it.
+# BOTH sides are regenerated, and two controls have to hold at once:
+#   - edit-distance gap <= 5pp, else rewrite depth proxies for the label;
+#   - length-alone AUC ~ 0.5, else word count proxies for it instead.
+# They trade against each other. A longer rewrite covers more of the source and
+# so retains more of its wording; pushing the rewrite harder pushes the length
+# back down. Calibrated on 30 articles per class:
+#       no length control        length AUC 0.28   edit gap  2.1pp
+#     + length target in prompt              0.42            -
+#     + asymmetric length guard              0.47           8.4pp
+#     + stronger rewrite text                0.48          10.3pp
+#     + same instruction on BOTH sides       0.496          3.9pp  <- both pass
+# Symmetry lands at ~0.57 retained, not the 0.44 originally aimed at: the fake
+# side cannot reach 0.44 at matched length, because altering a fact keeps the
+# model closer to the source. Equal depth is what removes the shortcut; the
+# level was never the mechanism. Prompt symmetry alone does NOT give outcome
+# symmetry -- identical instructions leave a gap that WIDENS as the instruction
+# gets stronger (6.0 -> 8.0 -> 14.8pp), so it is enforced by measuring, and
+# build_synthetic_real_datasets.py --strict gates the build on it.
 # c2_sym/c3_sym are ADDITIONS. C2/C3 are two of RQ1's six recipe series, they
 # are the whole of RQ1's authorship validity chart, and C3 sets the lower bound
 # of CNN's RQ3 robustness spread -- overwriting them would delete those results
