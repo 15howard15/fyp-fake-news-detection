@@ -99,6 +99,9 @@ Step 1 - Extract 3-6 key facts (entities, numbers, dates, claims) as a list.
 Step 2 - Choose ONE fact and apply this transformation: {strategy_desc}
 Step 3 - {paraphrase}
 
+Your rewrite must be about {target} words long -- the same length as the source.
+Do not summarise or condense: cover every point the source covers.
+
 Apply the change from Step 2 as you rewrite. Every fact you did NOT choose must
 survive the rewrite unchanged in meaning. The altered fact MUST appear in what
 you write.
@@ -151,10 +154,19 @@ def generate_one(client, article: str, strategy: str, length: str = None,
     CLI rejects the combination rather than silently picking one.
     """
     if symmetric:
+        # Length target computed from the WINDOW the model is shown, not the
+        # full article -- it cannot reproduce length it never saw. Without an
+        # explicit target the rewrite compresses badly: the first 500-article
+        # run came back at a median of 206 words against synthetic-real's 367,
+        # which fixed the edit-distance confound and installed a length one in
+        # its place (a word-counter alone separated those two classes at AUC
+        # 0.28). Removing one shortcut by adding another is not a fix.
+        window = truncate_article(article)
         prompt = SYMMETRIC_TEMPLATE.format(
-            article=truncate_article(article),
+            article=window,
             strategy_desc=STRATEGY_INSTRUCTIONS[strategy],
             paraphrase=SYMMETRIC_PARAPHRASE_INSTRUCTION,
+            target=len(window.split()),
         )
         return call_llm(client, SYMMETRIC_SYSTEM_PROMPT, prompt, "synthetic_article")
 
@@ -299,13 +311,19 @@ def main():
             continue
 
         target = LENGTH_SPECS[bucket][0] if bucket else None
+        if args.symmetric:
+            # Enforce the length target rather than trusting the prompt, and
+            # enforce it asymmetrically: matching the real class's length IS the
+            # control here, and the model only ever errs short.
+            target = len(truncate_article(article).split())
         strategy = random.choice(cfg.TRANSFORMATIONS)
         data = None
         for _ in range(args.max_retries):
             data = generate_one(client, article, strategy, bucket,
                                 symmetric=args.symmetric)
             if data and quality_ok(article, data["synthetic_article"],
-                                   target_words=target):
+                                   target_words=target,
+                                   target_tol=(0.85, 1.6) if args.symmetric else 0.6):
                 break
             data = None
         if data is None:

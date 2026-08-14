@@ -40,9 +40,19 @@ def quality_ok(source: str, generated: str, min_words: int = 20,
       0.05 and the default band would reject every one of them -- the filter
       would silently throw away exactly the short data the experiment exists to
       produce. Here the source ratio carries no information, so it is not used.
-      target_tol is the fractional band either side of the target (0.6 = accept
-      40%-160% of the requested length), wide enough that the LLM's habitual
-      imprecision about word counts doesn't cost most of the batch.
+      target_tol is the accepted band around the target. A float means a
+      symmetric fraction either side (0.6 = accept 40%-160% of the requested
+      length), wide enough that the LLM's habitual imprecision about word counts
+      doesn't cost most of the batch. A (lo, hi) pair gives an ASYMMETRIC band as
+      fractions OF the target (0.85, 1.6 = accept 85%-160%).
+
+      The asymmetric form exists because the error is not symmetric in practice:
+      asked to match a source's length, the model reliably undershoots and
+      almost never overshoots. A symmetric +/-35% band around a 369-word target
+      accepts 240 words, and the run duly came back at a median of 275 against
+      the real class's 367 -- close enough to pass the filter, far enough to let
+      a word-counter separate the classes at AUC 0.42. Rejecting compression
+      harder than expansion is what actually holds the two classes level.
     """
     s_words = len(source.split())
     g_words = len(generated.split())
@@ -50,8 +60,12 @@ def quality_ok(source: str, generated: str, min_words: int = 20,
     if target_words is not None:
         # min_words would reject every valid ~20-word snippet, so the target
         # band replaces it rather than being applied on top.
-        lo = max(1, int(target_words * (1 - target_tol)))
-        hi = int(target_words * (1 + target_tol))
+        if isinstance(target_tol, (tuple, list)):
+            lo_f, hi_f = target_tol
+        else:
+            lo_f, hi_f = 1 - target_tol, 1 + target_tol
+        lo = max(1, int(target_words * lo_f))
+        hi = int(target_words * hi_f)
         return lo <= g_words <= hi
 
     if g_words < min_words:
@@ -116,11 +130,12 @@ SYMMETRIC_PARAPHRASE_INSTRUCTION = (
     "Write the story again from scratch, as a different journalist working from "
     "the same notes would. Do not reuse any phrase of more than three "
     "consecutive words from the source. Open on a different sentence from the "
-    "source's opening, present the information in a different order, and use "
-    "different vocabulary throughout, including different reporting verbs. At "
-    "the sentence level nothing should be recognisable as copied; at the fact "
-    "level it must be the same story. Keep the length within a quarter of the "
-    "source's."
+    "source's opening and present the information in a different order. Rebuild "
+    "every sentence: switch between active and passive voice, reorder the "
+    "clauses, split long sentences and merge short ones, and replace the nouns, "
+    "verbs and connectives with alternatives wherever the meaning survives. Use "
+    "different reporting verbs throughout. At the sentence level nothing should "
+    "be recognisable as copied; at the fact level it must be the same story."
 )
 
 SYMMETRIC_SYSTEM_BASE = (

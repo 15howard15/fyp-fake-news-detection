@@ -57,6 +57,9 @@ SYMMETRIC_TEMPLATE = """Source article:
 
 {paraphrase}
 
+Your rewrite must be about {target} words long -- the same length as the source.
+Do not summarise or condense: cover every point the source covers.
+
 Every fact, name, date, number, quote and claim must remain exactly as stated in
 the source. Do not add, remove, exaggerate or soften anything -- this is a pure
 wording rewrite, and the result must stay 100% factually equivalent.
@@ -93,9 +96,11 @@ def generate_one(client, article: str, symmetric: bool = False):
     """symmetric=False reproduces the existing synthetic_real.csv prompts byte
     for byte, so that corpus stays regenerable from this file."""
     if symmetric:
+        window = truncate_article(article)
         prompt = SYMMETRIC_TEMPLATE.format(
-            article=truncate_article(article),
-            paraphrase=SYMMETRIC_PARAPHRASE_INSTRUCTION)
+            article=window,
+            paraphrase=SYMMETRIC_PARAPHRASE_INSTRUCTION,
+            target=len(window.split()))
         return call_llm(client, SYMMETRIC_SYSTEM_PROMPT, prompt, "paraphrased_article")
     prompt = USER_TEMPLATE.format(article=truncate_article(article))
     return call_llm(client, SYSTEM_PROMPT, prompt, "paraphrased_article")
@@ -159,7 +164,12 @@ def main():
         data = None
         for _ in range(args.max_retries):
             data = generate_one(client, article, symmetric=args.symmetric)
-            if data and quality_ok(article, data["paraphrased_article"]):
+            ok = (quality_ok(article, data["paraphrased_article"],
+                             target_words=len(truncate_article(article).split()),
+                             target_tol=(0.85, 1.6))
+                  if (data and args.symmetric)
+                  else (data and quality_ok(article, data["paraphrased_article"])))
+            if ok:
                 break
             data = None
         if data is None:
