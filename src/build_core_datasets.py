@@ -1,12 +1,54 @@
 
+import re
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 import config as cfg
+from generate_synthetic_fake import LENGTH_SPECS
 
 
 def load(name):
     return pd.read_csv(cfg.PROCESSED_DIR / f"{name}.csv")
+
+
+def truncate_to_sentences(text: str, target: int) -> str:
+    """Cut a real article down to about `target` words, keeping whole sentences.
+
+    Two constraints, and a naive implementation cannot satisfy both:
+
+    - Sentences must stay intact. Word-count truncation leaves the real class as
+      mid-sentence fragments while the synthetic fakes are complete, well-formed
+      snippets, which hands the classifier "is this a fragment?" as a brand-new
+      shortcut -- the opposite of what a length control is for.
+    - The result must actually land near the target. Taking sentences from the
+      start until the target is reached systematically OVERSHOOTS at short
+      targets, because newswire ledes are long: the first sentence alone is
+      routinely 45+ words against a 25-word target. That leaves real text
+      reliably longer than fake text in the short bucket and rebuilds the
+      length shortcut this composition exists to remove.
+
+    So: pick the run of consecutive sentences whose total length is closest to
+    the target, rather than always starting at sentence one. Any window of an
+    ISOT article is still genuine unaltered ISOT text, so nothing about the
+    label changes -- only which part of the article is kept.
+    """
+    sents = [s for s in re.split(r"(?<=[.!?])\s+", str(text).strip()) if s]
+    if not sents:
+        return ""
+    counts = [len(s.split()) for s in sents]
+    best, best_err = None, None
+    for i in range(len(sents)):
+        total = 0
+        for j in range(i, len(sents)):
+            total += counts[j]
+            err = abs(total - target)
+            if best_err is None or err < best_err:
+                best, best_err = (i, j), err
+            if total >= target:
+                break        # longer windows from i only get worse
+    i, j = best
+    return " ".join(sents[i:j + 1])
 
 
 def main():
@@ -81,6 +123,58 @@ def main():
         synthetic.head(half)[["text", "label", "source"]],
     ], ignore_index=True)
     assemble(mixed_fake, "mixed")
+
+    # ---- real_syn_mixedlen: the same recipe with the length confound removed ----
+    #
+    # This is an ADDITIONAL composition, not a replacement for real_syn. The two
+    # differ in exactly one variable -- the length distribution of both classes --
+    # so the gap between them measures how much of real_syn's cross-domain
+    # collapse was ever about length. Swapping it in would destroy that
+    # comparison and every result already derived from real_syn.
+    #
+    # Two properties are deliberately preserved from real_syn so length really is
+    # the only thing that moved:
+    #
+    #   1. The pairing. In real_syn, 499 of the 500 real rows are the very
+    #      articles the synthetic fakes were generated from -- the set is 500
+    #      minimal pairs, article X labelled real against X-with-one-fact-changed
+    #      labelled fake. That is a strong property (the only systematic
+    #      difference within a pair is the altered fact) and it is kept here.
+    #   2. The class balance and count.
+    #
+    # What changes: each pair now lives at ~25, ~100 or ~400 words instead of
+    # both sides sitting at the source article's full length. Because BOTH sides
+    # of every pair are cut to the same target, length carries no information
+    # about the label at all -- where naively swapping in mixed-length fakes
+    # against full-length reals would have made "short => fake" a free win on
+    # two thirds of the fake class.
+    ml_path = cfg.SYNTHETIC_DIR / "synthetic_fake_mixedlen.csv"
+    if not ml_path.exists():
+        print(f"\n(skipping real_syn_mixedlen -- {ml_path.name} not found; "
+              f"run generate_synthetic_fake.py --lengths short medium long)")
+    else:
+        ml = pd.read_csv(ml_path)
+        missing = {"length", "source_text"} - set(ml.columns)
+        if missing:
+            raise ValueError(f"{ml_path.name} is missing {missing}; regenerate it.")
+        ml_rows = []
+        for _, r in ml.iterrows():
+            target = LENGTH_SPECS[r["length"]][0]
+            ml_rows.append({"text": truncate_to_sentences(r["source_text"], target),
+                            "label": cfg.LABEL_REAL, "source": "isot"})
+            ml_rows.append({"text": r["text"], "label": cfg.LABEL_FAKE,
+                            "source": "synthetic"})
+        ml_df = (pd.DataFrame(ml_rows)
+                 .sample(frac=1.0, random_state=cfg.SEED).reset_index(drop=True))
+        ml_df.to_csv(cfg.PROCESSED_DIR / "train_real_syn_mixedlen.csv", index=False)
+        w = ml_df["text"].str.split().str.len()
+        print(f"\n  train_real_syn_mixedlen: {len(ml_df):,} "
+              f"({(ml_df.label==0).sum()} real / {(ml_df.label==1).sum()} fake)")
+        # The whole point of the composition is that these two medians match.
+        # Print them so a mismatch is visible at build time rather than being
+        # discovered later in the results.
+        print(f"    median words -- real {int(w[ml_df.label==0].median())} / "
+              f"fake {int(w[ml_df.label==1].median())}")
 
     print("\nAll training sets + shared test set built.")
 

@@ -363,6 +363,31 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="tscroll"><div id="t-cont"></div></div></details>
   <div class="note good"><p><strong>The conclusions survive the clean-up — and one of them strengthens.</strong> Removing <span id="v-crem"></span> of the WELFake fake pool shifts no score by more than <span id="v-cmax"></span>, and <span id="v-cdown"></span> move down rather than up: the contaminated set was flattering every model, not distorting the ranking. Real + Real and Mixed still transfer; full replacement still collapses. Critically, <span id="v-cbc"></span> — so the backwards-ranking result cannot have been an artifact of ISOT text sitting in the test set.</p></div>
 
+  <h3>Length control — can a word-counter beat the models?</h3>
+  <div class="card" id="card-lenauc">
+    <div class="card-h">
+      <div><div class="card-t">How much of each test set is solvable from document length alone</div>
+      <div class="card-n">A "classifier" that sees nothing but the word count. 0.5 means length tells you nothing. Anything near 1.0 means a high score on that test set is not by itself evidence of anything.</div></div>
+    </div>
+    <div class="plot"><div id="c-lenauc"></div></div>
+  </div>
+  <div class="note crit"><p><strong>LIAR is almost entirely solvable by counting words.</strong> <span id="v-lenliar"></span> — its fake statements have a median of 16 words against 367 for the real articles. The WELFake sets sit near <span id="v-lenwf"></span>, so length is genuinely uninformative there.</p></div>
+
+  <div class="card" id="card-lc">
+    <div class="card-h">
+      <div><div class="card-t">Same recipe, length confound removed</div>
+      <div class="card-n">Real + Synthetic against a twin built from synthetic fakes written at ~25, ~100 and ~400 words, with each real article cut to match its pair. Everything else — the pairing, the class balance, the manipulation types — is identical, so length is the only variable.</div></div>
+      <div class="seg" data-metric-for="c-lc"></div>
+    </div>
+    <div class="seg" id="seg-lc-test" style="margin:8px 0 2px"></div>
+    <div class="legend" id="l-lc"></div>
+    <div class="plot"><div id="c-lc"></div></div>
+    <div id="warn-c-lc"></div>
+  </div>
+  <details class="tbl"><summary>Both recipes on every test set</summary>
+    <div class="tscroll"><div id="t-lc"></div></div></details>
+  <div class="note good"><p><strong>The length-controlled recipe is the better detector where it counts.</strong> On cleaned WELFake — the set where word-counting doesn't help — removing the confound <em>raises</em> AUC for three of the four models (<span id="v-lcwf"></span> on average). On LIAR it changes scores in both directions: LR falls 0.943 → 0.690 and CNN rises 0.054 → 0.552. Both moves have the same cause. LR was riding the length gap and CNN was riding it backwards; neither was reading the facts.</p></div>
+
   <h3>Is the generated text any good?</h3>
   <div class="tiles" id="tiles-q"></div>
   <details class="tbl"><summary>Diversity — is the generator repeating itself?</summary>
@@ -471,7 +496,11 @@ function bars(host,cfg){
     series.forEach((s,si)=>{
       const v=s.values[ci]; if(v==null)return;
       const bh=Math.max((v/max)*ph,1.5),x=gx+gap+si*(bw+gap),y=T+ph-bh;
-      const r=el("rect",{class:"bar",x,y,width:bw,height:bh,fill:s.color,rx:Math.min(4,bw/2)});
+      /* s.colors, when given, recolours individual bars within one series --
+         used where the bar's VALUE is the warning (a test set a word-counter
+         can solve) rather than which series it belongs to. */
+      const fill=(s.colors&&s.colors[ci])||s.color;
+      const r=el("rect",{class:"bar",x,y,width:bw,height:bh,fill,rx:Math.min(4,bw/2)});
       const ti=el("title");ti.textContent=`${s.name} — ${c}: ${v.toFixed(4)}`;r.appendChild(ti);
       svg.appendChild(r);
       if(bw>=15){const t=el("text",{class:"val",x:x+bw/2,y:y-4});t.textContent=lab(v);svg.appendChild(t);}
@@ -782,6 +811,79 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
 (function(){
   const c=DATA.framework.leakage.corpus||[],w=c.find(x=>/welfake/i.test(x.name)&&!/clean/.test(x.name));
   document.getElementById("v-overlap").textContent=w?w.pct.toFixed(1)+"%":"a large share";
+})();
+
+/* --------- length shortcut: what a word-counter alone achieves --------- */
+(function(){
+  const L4=(DATA.framework.leakage||{}).length_auc||[];
+  if(!L4.length){const e=document.getElementById("card-lenauc");if(e)e.style.display="none";return;}
+  const NAME={test_indomain:"In-domain (ISOT)",test_crossdomain:"LIAR",
+    test_crossdomain2:"WELFake (as shipped)",test_crossdomain2_clean:"WELFake (ISOT removed)"};
+  const cols=SER();
+  function draw(){
+    const c=SER();
+    bars(document.getElementById("c-lenauc"),{
+      categories:L4.map(r=>NAME[r.name]||r.name),height:250,
+      ref:0.5,refLabel:"length tells you nothing",
+      /* One series, coloured by severity: a set a word-counter can solve is a
+         problem with the set, not a result. */
+      series:[{name:"AUC from length alone",color:c[0],
+               values:L4.map(r=>r.auc),
+               colors:L4.map(r=>(r.auc>0.9||r.auc<0.1)?c[3]:c[0])}]});
+  }
+  draw(); REDRAW.push(draw);
+  const liar=L4.find(r=>r.name==="test_crossdomain");
+  const wf=L4.filter(r=>/crossdomain2/.test(r.name));
+  document.getElementById("v-lenliar").textContent =
+    liar?("a word-counter reaches AUC "+liar.auc.toFixed(4)+" on it"):"nearly perfectly separable by length";
+  document.getElementById("v-lenwf").textContent =
+    wf.length?(wf.reduce((a,b)=>a+b.auc,0)/wf.length).toFixed(2):"0.45";
+})();
+
+/* --------- length control: real_syn vs its length-matched twin --------- */
+(function(){
+  const C=DATA.framework.lengthcontrol;
+  if(!C||!C.tests||!Object.keys(C.tests).length){
+    ["card-lc","t-lc"].forEach(id=>{const e=document.getElementById(id);
+      if(e)(e.closest("details")||e).style.display="none";});
+    const n=document.getElementById("v-lcwf"); if(n&&n.closest(".note")) n.closest(".note").style.display="none";
+    return;
+  }
+  const TESTS=Object.keys(C.tests);
+  let M="auc_roc",T=TESTS.find(t=>/removed/.test(t))||TESTS[0];
+  function draw(){
+    const cols=SER();
+    const get=(c,m)=>{const d=C.tests[T][c]&&C.tests[T][c][m];return d?d[M]:null;};
+    bars(document.getElementById("c-lc"),{categories:DATA.models,height:290,
+      ref:M==="auc_roc"?0.5:null,refLabel:"random guessing",
+      series:[{name:"Real + Synthetic",color:cols[3],values:DATA.models.map(m=>get("real_syn",m))},
+              {name:"length-controlled",color:cols[0],values:DATA.models.map(m=>get("real_syn_mixedlen",m))}]});
+    caution("warn-c-lc",M);
+  }
+  legend(document.getElementById("l-lc"),[{name:"Real + Synthetic (original)",color:SER()[3]},
+    {name:"Real + Synthetic, length-controlled",color:SER()[0]}]);
+  metricSeg(document.querySelector('[data-metric-for="c-lc"]'),v=>{M=v;draw();},["auc_roc","f1"]);
+  seg(document.getElementById("seg-lc-test"),TESTS.map(t=>({label:t,value:t})),
+      v=>{T=v;draw();},TESTS.indexOf(T));
+  draw(); REDRAW.push(draw);
+
+  // Mean AUC change on the set where length is not exploitable -- the control
+  // that separates "lost a shortcut" from "just a worse model".
+  const clean=TESTS.find(t=>/removed/.test(t));
+  if(clean){
+    const ds=DATA.models.map(m=>{
+      const a=C.tests[clean].real_syn[m],b=C.tests[clean].real_syn_mixedlen[m];
+      return (a&&b)?b.auc_roc-a.auc_roc:null;}).filter(v=>v!=null);
+    const mean=ds.reduce((a,b)=>a+b,0)/ds.length;
+    document.getElementById("v-lcwf").textContent=(mean>=0?"+":"")+mean.toFixed(3)+" AUC";
+  }
+  table(document.getElementById("t-lc"),
+    ["Test set","Model","Recipe","F1","AUC-ROC","Precision","Recall"],
+    TESTS.flatMap(t=>DATA.models.flatMap(m=>C.recipes.map(c=>{
+      const d=C.tests[t][c]&&C.tests[t][c][m];
+      return [t,m,L[c],fmt(d&&d.f1),
+        {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""},
+        fmt(d&&d.precision),fmt(d&&d.recall)];}))));
 })();
 
 /* --------- contamination control: WELFake before vs after cleaning --------- */

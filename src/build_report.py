@@ -40,6 +40,7 @@ RECIPE_LABEL = {
     "c2_synreal_realfake": "Synthetic-real + Real-fake",
     "c3_synreal_synfake": "Synthetic-real + Synthetic-fake",
     "real_syn_multisource": "Real + Synthetic (diverse-sourced)",
+    "real_syn_mixedlen": "Real + Synthetic (length-controlled)",
     "style_robust": "Style-robust",
 }
 METRICS = ["f1", "auc_roc", "accuracy", "precision", "recall"]
@@ -400,11 +401,52 @@ def leakage_block():
     dups = df[df.check == "within_corpus_duplicates"][["test", "pct_of_test"]]
     tt = df[(df.check == "train_test_overlap") &
             (~df.get("by_design_full_pool", False).astype(bool))]
+    # How much of each test set a word-counter alone could solve. Stored under
+    # pct_of_test by the leakage command, but it is an AUC, not a percentage.
+    ln = df[df.check == "length_shortcut"][["test", "pct_of_test"]]
     return {
         "corpus": [{"name": r["test"], "pct": r["pct_of_test"]} for _, r in corpus.iterrows()],
         "dups": [{"name": r["test"], "pct": r["pct_of_test"]} for _, r in dups.iterrows()],
         "worst_tt": round(float(tt.pct_of_test.max()), 3) if len(tt) else 0.0,
+        "length_auc": [{"name": r["test"], "auc": r["pct_of_test"]} for _, r in ln.iterrows()],
     }
+
+
+def lengthcontrol_block():
+    """real_syn against its length-controlled twin, on every test set available.
+
+    The pair exists to answer one question: how much of what real_syn scores was
+    ever about the FACTS, and how much was about the fake class being a
+    different length from the real class at test time. Reporting it on LIAR
+    alone would not settle that -- LIAR is separable at AUC 0.9999 by word count
+    alone, so a drop there could equally mean "the model got worse". The WELFake
+    columns are the control: length is uninformative there (AUC ~0.44), so if
+    the length-controlled model holds up on WELFake while collapsing on LIAR,
+    the LIAR drop is specifically the loss of the length cue and not a weaker
+    model.
+    """
+    pair = ["real_syn", "real_syn_mixedlen"]
+    if not _metrics_json("LR", "real_syn_mixedlen"):
+        return {}
+    out = {"models": MODELS, "recipes": pair, "tests": {}}
+    # LIAR comes from the per-run metrics files train.py writes.
+    out["tests"]["LIAR"] = {c: {m: _metrics_json(m, c) for m in MODELS} for c in pair}
+    for label, fname in (("WELFake (as shipped)", "crossdomain2_results.csv"),
+                         ("WELFake (ISOT removed)", "crosstarget_welfake_clean_results.csv")):
+        p = EXTRA / fname
+        if not p.exists():
+            continue
+        df = pd.read_csv(p)
+        block = {}
+        for c in pair:
+            g = df[df.comp == c]
+            if g.empty:
+                continue
+            block[c] = {r["model"]: {k: round(float(r[k]), 4) for k in METRICS if k in r}
+                        for _, r in g.iterrows()}
+        if len(block) == len(pair):     # only show the comparison if both sides ran
+            out["tests"][label] = block
+    return out
 
 
 def demo_examples():
@@ -440,6 +482,12 @@ def demo_examples():
 def collect():
     rq1_comps = ["real_real", "mixed", "real_syn",
                  "c2_synreal_realfake", "c3_synreal_synfake"]
+    # The length-controlled twin of real_syn sits beside it rather than
+    # replacing it: the two differ in exactly one variable, so the pair is what
+    # carries the finding. Appended only if it has actually been trained, so a
+    # checkout without that run still builds a complete report.
+    if _metrics_json("LR", "real_syn_mixedlen"):
+        rq1_comps.append("real_syn_mixedlen")
     rq3_comps = rq1_comps + ["real_syn_multisource"]
     return {
         "models": MODELS,
@@ -457,7 +505,8 @@ def collect():
         "framework": {"comps": rq3_comps, "liar": liar_block(rq3_comps),
                       "welfake": welfake_block(rq3_comps), "length": length_block(),
                       "quality": quality_block(), "leakage": leakage_block(),
-                      "contamination": contamination_block(rq1_comps)},
+                      "contamination": contamination_block(rq1_comps),
+                      "lengthcontrol": lengthcontrol_block()},
         "demo": demo_examples(),
     }
 

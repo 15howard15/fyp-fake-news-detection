@@ -579,7 +579,7 @@ Nine conditions, yellow = CNN, pink = BERT.
 > scores are closer to an in-domain test than a cross-domain one. That's why they
 > look better — not because the models generalise well."
 
-### ③ Contamination control — the recovery, and your single best moment
+### ③ Contamination control — the recovery
 
 This is the part that separates "I found a problem" from "I handled a problem."
 Do not skip it, and do not rush ② to get here — ② is the setup.
@@ -622,7 +622,15 @@ Do not skip it, and do not rush ② to get here — ② is the setup.
 > "The obvious objection to my headline finding — that some models rank fake
 > news *backwards* — is 'that's probably just leakage.' If leakage caused it,
 > removing the leaked articles would push those scores back up toward 0.5.
-> They went the other way. So it isn't an artifact; it's real."
+> They went the other way. So leakage is ruled out as the cause."
+
+**Be precise here — leakage is one explanation, not the only one.** A second
+control (next section) tests a different one, and *that* one does explain part
+of it. If you claim more than "leakage is ruled out", you will be walked back.
+The honest position, which is stronger than overclaiming:
+
+> "This rules out leakage. It doesn't rule out everything — I tested a second
+> explanation separately, and that one turned out to matter."
 
 **If he asks why you kept the contaminated set at all:**
 
@@ -630,7 +638,73 @@ Do not skip it, and do not rush ② to get here — ② is the setup.
 > swapped in the clean set, you'd have to take my word that the contamination
 > didn't matter. This way you can check."
 
-### ④ "Is the generated text any good?"
+### ④ Length control — your strongest single result
+
+If you only have time for one deep result, make it this one. It is the part
+that shows you interrogated your own evaluation rather than just reporting it.
+
+**Start with the first chart — the word-counter:**
+
+> "Before comparing models, I asked what score you'd get on each test set using
+> *nothing but document length*. Not a model — literally counting words."
+
+**Point at the highlighted LIAR bar:**
+
+> "On LIAR, **AUC 0.9999**. A word-counter almost perfectly separates my main
+> cross-domain test set. LIAR statements average 16 words; the real articles
+> average 367."
+
+**Is that good or bad? — this is the moment:**
+
+> "It's bad, and it's bad for *my own headline numbers*, because LIAR is the
+> test set every model in this project was evaluated on. It means a high score
+> there is not by itself evidence that a model learned anything about truth. It
+> might just be measuring length. The WELFake sets sit at 0.44 to 0.46, so
+> that problem is specific to LIAR."
+
+**Now the second chart — what I did about it:**
+
+> "So I rebuilt the recipe with the confound removed. Same manipulations, same
+> pairing, same class balance — but the synthetic fakes are written at 25, 100
+> and 400 words, and each real article is cut to match its own pair. Length
+> now carries zero information about the label."
+
+**Switch the selector to LIAR:**
+
+> "On LIAR the scores move in *both* directions. LR falls from 0.943 to 0.690.
+> CNN rises from 0.054 to 0.552."
+
+**The interpretation — rehearse this until it's automatic:**
+
+> "Those look like opposite results but they have the same cause. LR was riding
+> the length gap forwards, CNN was riding it backwards. Neither was reading the
+> facts. Take the cue away and both collapse toward the middle — toward what
+> they actually know, which is much less than the original numbers suggested."
+
+**Switch to WELFake (ISOT removed) — the control:**
+
+> "The obvious objection is 'your new data is just worse — shorter text, less
+> information.' So I tested on cleaned WELFake, where word-counting scores
+> 0.44 and can't help. There the length-controlled recipe is **better** for
+> three of the four models — **+0.138 AUC on average**. CNN goes from 0.376 to
+> 0.768."
+
+> "So it isn't a weaker model. It's a model that lost a shortcut and is now
+> being measured on something real."
+
+**Volunteer BERT — do not let him find it:**
+
+> "BERT is the exception: it gets worse on both, −0.07 on LIAR and −0.11 on
+> WELFake. I report that rather than averaging it away. Three of four is a
+> result; four of four would be a claim I can't support."
+
+**If he asks why you didn't just replace the old recipe:**
+
+> "Because the comparison is the finding. One number on its own can't tell you
+> whether length mattered. Keeping both is what makes it measurable — same
+> reason I kept the contaminated WELFake set."
+
+### ⑤ "Is the generated text any good?"
 
 > "The only quality gate during generation was a length filter, which catches
 > refusals but says nothing about whether the text is good. So I measured it

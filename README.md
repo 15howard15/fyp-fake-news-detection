@@ -107,6 +107,17 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp real_real mix
 # changing what makes the text false. Writes a separate file; synthetic_fake.csv
 # and every result derived from it are left untouched.
 python src/generate_synthetic_fake.py --n 500 --lengths short medium long
+python src/build_core_datasets.py         # also writes train_real_syn_mixedlen.csv
+python src/train.py --model all --dataset real_syn_mixedlen
+python src/evaluate.py cross-target --dataset welfake_clean --comp real_syn real_syn_mixedlen
+# The recipe is an ADDITION, not a replacement: real_syn and real_syn_mixedlen
+# differ in exactly one variable, so the PAIR is what carries the finding.
+# Both classes are cut to the same targets -- swapping mixed-length fakes in
+# against full-length reals would make "short => fake" a free win on two thirds
+# of the fake class, a worse confound than the one being removed.
+# `evaluate.py leakage` section 4 reports why this matters: test_crossdomain
+# (LIAR) is separable at AUC 0.9999 by document length ALONE, so a score there
+# is not by itself evidence a model learned anything about truth.
 
 # --- Objective 1 follow-up: balance-controlled synthetic-fraction sweep (recommended read for the augmentation angle) ---
 python src/build_swap_sweep_datasets.py   # 0/25/50/75/100% synthetic, fake count fixed at 500

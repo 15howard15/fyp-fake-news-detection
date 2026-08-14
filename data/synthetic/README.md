@@ -13,6 +13,7 @@ All of it was produced with **GPT-4o-mini** (`config.OPENAI_MODEL`).
 | File | Rows | What it is | Made by |
 |---|---|---|---|
 | `synthetic_fake.csv` | 500 | ISOT real articles with a single fact altered — the fake class for the replacement and augmentation recipes | `generate_synthetic_fake.py` |
+| `synthetic_fake_mixedlen.csv` | 500 | The same single-fact manipulations written at three very different lengths (~25 / ~100 / ~400 words) over **disjoint** source articles, so the corpus holds no near-duplicate retellings of one story. Backs the length-controlled recipe; `synthetic_fake.csv` is untouched | `generate_synthetic_fake.py --lengths short medium long` |
 | `synthetic_fake_liar.csv` | 200 | The same idea sourced from LIAR statements instead of ISOT, for the diverse-sourcing recipe | `generate_synthetic_fake_liar.py` |
 | `synthetic_real.csv` | 1000 | ISOT real articles paraphrased with every fact preserved — the "synthetic real" control behind the authorship-shortcut check | `generate_synthetic_real.py` |
 | `style_attack.csv` | 200 | Tone-only rewrites of 200 held-out articles: real made sensational, fake made neutral. Labels unchanged | `generate_style_attack.py` |
@@ -34,6 +35,9 @@ Beyond that:
   time. This is what makes the fact changes auditable after the fact.
 - `transformation` — which manipulation was applied (`fact_manipulation`,
   `context_distortion`, `selective_omission`, `tone_adjustment`).
+- `length` — `synthetic_fake_mixedlen.csv` only: which length bucket the row was
+  generated for (`short` ≈ 25 words, `medium` ≈ 100, `long` ≈ 400). Absent from
+  every other file, whose rows follow their source article's length.
 - `orig_id` — links an attacked row to its untouched twin in the matching
   `*_originals.csv`.
 - `attack_type` — the direction of the tone rewrite.

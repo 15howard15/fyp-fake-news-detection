@@ -39,6 +39,10 @@ train_test_overlap,train_real_syn,test_indomain,3,0.029,False
 train_test_overlap,train_real_syn,test_crossdomain,3,0.03,False
 train_test_overlap,train_real_syn,test_crossdomain2,3,0.031,False
 train_test_overlap,train_real_syn,test_crossdomain2_clean,3,0.03,False
+train_test_overlap,train_real_syn_mixedlen,test_indomain,0,0.0,False
+train_test_overlap,train_real_syn_mixedlen,test_crossdomain,0,0.0,False
+train_test_overlap,train_real_syn_mixedlen,test_crossdomain2,0,0.0,False
+train_test_overlap,train_real_syn_mixedlen,test_crossdomain2_clean,0,0.0,False
 train_test_overlap,train_real_syn_multisource,test_indomain,3,0.029,False
 train_test_overlap,train_real_syn_multisource,test_crossdomain,3,0.03,False
 train_test_overlap,train_real_syn_multisource,test_crossdomain2,3,0.031,False
@@ -78,3 +82,7 @@ within_corpus_duplicates,-,isot_real,221,1.032,
 within_corpus_duplicates,-,isot_fake,5574,23.738,
 within_corpus_duplicates,-,liar_fake,13,0.23,
 within_corpus_duplicates,-,welfake_fake,8220,22.153,
+length_shortcut,-,test_indomain,,0.4744,
+length_shortcut,-,test_crossdomain,,0.9999,
+length_shortcut,-,test_crossdomain2,,0.4649,
+length_shortcut,-,test_crossdomain2_clean,,0.4418,

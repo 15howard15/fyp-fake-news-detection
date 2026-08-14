@@ -47,6 +47,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 from sklearn.calibration import CalibratedClassifierCV
+from sklearn.metrics import roc_auc_score
 
 import repro
 import config as cfg
@@ -780,6 +781,26 @@ def cmd_leakage(args):
               f"{dup:6,} duplicated ({pct:.1f}%)")
         rows.append({"check": "within_corpus_duplicates", "train": "-",
                      "test": stem, "n_overlap": dup, "pct_of_test": round(pct, 3)})
+
+    print("\n=== 4. LENGTH SHORTCUT IN EACH TEST SET ===")
+    print("  How well does a 'classifier' that knows ONLY the document's word")
+    print("  count separate the classes? 0.5 = length is uninformative.")
+    print("  A high number means a good score on that test set is not by itself")
+    print("  evidence of anything, because word-counting would also score well.")
+    for stem, df in tests.items():
+        if "label" not in df.columns or df["label"].nunique() < 2:
+            continue
+        w = df["text"].astype(str).str.split().str.len()
+        # Score fake by SHORTNESS; the sign is arbitrary, the distance from 0.5
+        # is the finding.
+        auc = roc_auc_score(df["label"], -w)
+        med_r = int(w[df.label == cfg.LABEL_REAL].median())
+        med_f = int(w[df.label == cfg.LABEL_FAKE].median())
+        flag = "  <-- length alone nearly solves this set" if auc > 0.9 or auc < 0.1 else ""
+        print(f"  {stem:24s} AUC={auc:.4f}   median words: "
+              f"real {med_r:4d} / fake {med_f:4d}{flag}")
+        rows.append({"check": "length_shortcut", "train": "-", "test": stem,
+                     "n_overlap": "", "pct_of_test": round(float(auc), 4)})
 
     out = EXTRA_DIR / "leakage_report.csv"
     pd.DataFrame(rows).to_csv(out, index=False)
