@@ -23,5 +23,9 @@ welfake_clean,real_syn_mixedlen,LR,0.6246,0.7786,0.4755,0.5904,0.7624
 welfake_clean,real_syn_mixedlen,SVM,0.5749,0.7747,0.3567,0.4885,0.6639
 welfake_clean,real_syn_mixedlen,CNN,0.678,0.7876,0.5945,0.6775,0.7685
 welfake_clean,real_syn_mixedlen,BERT,0.4237,0.4859,0.2188,0.3018,0.4528
+welfake_clean,swap_025,LR,0.9187,0.9637,0.8908,0.9258,0.9728
+welfake_clean,swap_025,SVM,0.9218,0.9801,0.8805,0.9276,0.9734
 welfake_clean,swap_025,CNN,0.9702,0.9735,0.9742,0.9738,0.9945
+welfake_clean,swap_075,LR,0.9028,0.8953,0.939,0.9167,0.9662
+welfake_clean,swap_075,SVM,0.4614,1.0,0.0536,0.1017,0.527
 welfake_clean,swap_075,CNN,0.8167,0.7708,0.9648,0.857,0.9454

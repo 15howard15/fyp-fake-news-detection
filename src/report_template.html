@@ -306,7 +306,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   </div>
   <div class="note"><p><strong>This is the sweep's own confound, and it is not the length one.</strong> Every synthetic article in these recipes is derived from a real article that is also present as a real-labelled row, so raising the synthetic share raises the number of near-duplicate pairs in lockstep. That inflates nothing on the cross-domain test sets — those articles aren't in them — but it makes ordinary cross-validation on these compositions unusable. The pair-aware line is the one to read.</p></div>
 
-  <div class="note"><p><strong>Coverage note.</strong> The WELFake line is CNN-only at 25% and 75%: the sweep script saves checkpoints for CNN at those two points but not for LR, SVM or BERT, and scoring a model you didn't keep would mean retraining it. Those cells are left as gaps rather than filled in.</p></div>
+  <div class="note"><p><strong>Coverage note.</strong> The WELFake line is complete for LR, SVM and CNN, and has gaps at 25% and 75% for BERT only — the sweep script never saved BERT checkpoints at those two points, and scoring a model you didn't keep would mean retraining it. Those cells are left as gaps rather than interpolated, so a broken line means "not measured", never "measured and unremarkable".</p></div>
 </section>
 
 <!-- ============ RQ3 — MODEL FAMILIES ============ -->
