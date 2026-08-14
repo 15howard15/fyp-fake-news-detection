@@ -531,25 +531,30 @@ def editsym_block():
     if len(clean) == len(comps):
         out["tests"]["WELFake (ISOT removed)"] = clean
 
-    # The measured edit gap each side of the fix, recomputed here so the number
-    # in the prose cannot drift from the corpora it describes.
-    import difflib
-    def sim(stem):
-        p = cfg.SYNTHETIC_DIR / f"{stem}.csv"
-        if not p.exists():
-            return None
-        df = pd.read_csv(p)
-        if not {"text", "source_text"} <= set(df.columns):
-            return None
-        vals = [difflib.SequenceMatcher(None, str(s)[:4000], str(t),
-                                        autojunk=False).ratio()
-                for s, t in zip(df["source_text"], df["text"])]
-        return round(sum(vals) / len(vals), 4)
-    r, f_old, f_new = sim("synthetic_real"), sim("synthetic_fake"), sim("synthetic_fake_sym")
-    if None not in (r, f_old, f_new):
-        out["edit"] = {"real": r, "fake_before": f_old, "fake_after": f_new,
-                       "gap_before": round(abs(r - f_old) * 100, 1),
-                       "gap_after": round(abs(r - f_new) * 100, 1)}
+    # The measured edit gap each side of the fix, read from what
+    # `evaluate.py edit-distance` already computed rather than recomputed here.
+    # difflib on 2,000 article-length documents is quadratic and took longer
+    # than the entire rest of the build; build_report.py runs after every
+    # experiment, so it has no business redoing a measurement that has its own
+    # command and its own output file -- same arrangement as leakage_report.csv.
+    p = EXTRA / "edit_distance.csv"
+    if p.exists():
+        df = pd.read_csv(p).set_index("file")["similarity_mean"].to_dict()
+        need = ("synthetic_real_sym", "synthetic_real", "synthetic_fake",
+                "synthetic_fake_sym")
+        if all(k in df and pd.notna(df[k]) for k in need):
+            r_before, r_after = float(df["synthetic_real"]), float(df["synthetic_real_sym"])
+            f_before, f_after = float(df["synthetic_fake"]), float(df["synthetic_fake_sym"])
+            out["edit"] = {
+                "real": round(r_after, 4),
+                "real_before": round(r_before, 4),
+                "fake_before": round(f_before, 4),
+                "fake_after": round(f_after, 4),
+                # Each gap is between the pair that was actually TRAINED on:
+                # C3 used the original real against the original fake, C3' uses
+                # the two symmetric corpora.
+                "gap_before": round(abs(r_before - f_before) * 100, 1),
+                "gap_after": round(abs(r_after - f_after) * 100, 1)}
     return out
 
 

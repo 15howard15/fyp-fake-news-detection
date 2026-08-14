@@ -208,6 +208,57 @@ There is a **Tested on** row under the chart. Use it; don't wait to be asked.
 
 ---
 
+## The follow-up to the validity check — what the shortcut was actually worth
+
+Do this straight after the "confidently backwards" chart, while the number is
+still on screen. It converts a problem into a diagnosis.
+
+> "So I had four models ranking fake news backwards. The obvious next question
+> is *why*, and I had a specific suspicion I could test."
+
+**The diagnosis:**
+
+> "My two synthetic classes weren't edited by the same amount. The fake class
+> altered one fact and left most of the wording alone — 65.9% of the source text
+> survived. The real class was paraphrased throughout — only 44% survived. A
+> 22-point gap. So 'reads close to the original newswire wording' predicted
+> 'fake' without any reference to the facts. The model didn't need to understand
+> anything."
+
+**What I did:**
+
+> "I regenerated both classes with the same rewrite instruction and the same
+> length target, so they differ in exactly one thing: whether a fact was
+> altered. The edit gap went from 21.5 points to 4.9, and a word-counter still
+> can't separate them — AUC 0.494."
+
+**The result — this is the moment:**
+
+> "On the cleaned WELFake set, before: all four models below chance. CNN at
+> 0.038. After: **none of them**. CNN goes from 0.038 to 0.794. Mean AUC across
+> the four moves from 0.10 to 0.68."
+
+**What it means — say this precisely:**
+
+> "That's a diagnosis, not just a fix. The backwards ranking wasn't the models
+> being broken. It was my data handing them a shortcut, and when I took the
+> shortcut away they went back to reading content. The C3 result was measuring
+> my generator, not their capability."
+
+**Volunteer the two caveats — both will be spotted otherwise:**
+
+> "Two things I'd flag myself. SVM reaches 0.500, not because it recovered but
+> because it collapses to predicting one class — that's the calibration failure
+> I document separately, not a success. And the edit gap is 4.9 points against a
+> 5-point tolerance, so it passes, but barely — I'd not claim the classes are
+> perfectly matched, only that they're within the bound I set in advance."
+
+**If he asks why the old C3 is still in the report:**
+
+> "Because the pair is the finding. On its own, the new number just says the
+> models work. Next to the old one, it says exactly how much of my earlier
+> result was an artifact — and that's the more useful claim."
+
 ## Statistical validation — two things he will probably ask for
 
 Supervisors ask "is that difference significant?" and "did you cross-validate?"
