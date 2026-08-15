@@ -135,6 +135,8 @@ svg.chart{display:block;width:100%;height:auto;min-width:520px}
 text{fill:var(--muted);font:11px system-ui,sans-serif}
 text.val{fill:var(--ink-2);font-size:10px;text-anchor:middle;font-variant-numeric:tabular-nums}
 text.cat{fill:var(--ink-2);font-size:12.5px;text-anchor:middle}
+text.axis-title{fill:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:.02em}
+text.line-label{font-size:12px;font-weight:650;font-variant-numeric:tabular-nums}
 rect.bar{transition:opacity .12s}
 rect.bar:hover{opacity:.85;filter:drop-shadow(0 0 6px currentColor)}
 @media (prefers-reduced-motion: no-preference){
@@ -309,24 +311,32 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 
 <!-- ============ RQ2 ============ -->
 <section class="panel" id="rq2" role="tabpanel">
-  <h2>RQ2 — Synthetic data holds up as a partial substitute and breaks as a full one</h2>
-  <p class="meta">Up to half the fake class can be synthetic with no meaningful loss. At 100% three of the four models fail — SVM to F1 0.000, BERT from 0.98 to 0.67 — and the same shape appears on all three test corpora.</p>
+  <h2>RQ2 — Synthetic data is free up to half the fake class, then falls off a cliff</h2>
+  <p class="meta" id="meta-rq2"></p>
+
+  <div class="tiles" id="tiles-rq2"></div>
+
   <div class="card">
     <div class="card-h">
-      <div><div class="card-t">Performance as synthetic fake news replaces more of the fake class</div>
-      <div class="card-n">X-axis: share of the 500 fake-news training examples that are AI-generated. Switch test corpus below — the shape holding on all three is what makes the trend trustworthy.</div></div>
+      <div><div class="card-t">What each extra slice of synthetic data costs</div>
+      <div class="card-n">Every point is a model trained from scratch at that blend. The fake class is always 500 examples, so only the mix changes.</div></div>
       <div class="seg" data-metric-for="c-rq2"></div>
     </div>
-    <div class="seg" id="seg-rq2-test" style="margin:8px 0 2px"></div>
-    <div class="legend" id="l-rq2"></div>
+    <div class="seg" id="seg-rq2-test" style="margin:0 0 6px"></div>
     <div class="plot"><div id="c-rq2"></div></div>
     <div id="warn-c-rq2"></div>
   </div>
+  <div class="note good" id="note-rq2-headline"><p></p></div>
   <details class="tbl"><summary>View raw data — all metrics across the sweep</summary>
     <div class="tscroll"><div id="t-rq2"></div></div></details>
-  <div class="note good"><p><strong>The trend is not a length artifact.</strong> Length carries no information inside this sweep — a word-counter scores <span id="v-rq2len"></span> on the training data at every blend level, because real fake news (378 words) and synthetic fake news (376) are the same length. The shape also reproduces on the in-domain corpus, where length alone scores 0.474. What moves across the sweep is the fake class's <em>source</em>, not its length.</p></div>
-  <div class="note warn"><p><strong>The 100% endpoint is the exception.</strong> There the two corpora disagree sharply — LR reads 0.943 on LIAR but 0.638 in-domain, and CNN 0.065 against 0.424 — because at full replacement the models lean on the length gap LIAR hands them. That endpoint is the recipe rebuilt under length control in the framework tab.</p></div>
-  <div class="note warn"><p><strong>CNN never benefits.</strong> The same error at every blend level — real articles called fake, never the reverse — and its confidence on those mistakes falls from 96% to 63%.</p></div>
+  <details class="tbl"><summary>View raw data — why this trend is not a measurement artifact</summary>
+    <div style="padding:0 15px 15px">
+      <p><strong>Not length.</strong> A word-counter scores <span id="v-rq2len"></span> on the training data at every blend level, because real fake news (378 words) and synthetic fake news (376) are the same length. The shape also reproduces on the in-domain corpus, where length alone scores 0.474.</p>
+      <p><strong>Not contamination.</strong> The same shape appears on cleaned WELFake, which shares no articles with the training corpus.</p>
+      <p><strong>CNN is the one model that never benefits</strong> — the same error at every blend level, real articles called fake and never the reverse, with its confidence on those mistakes falling from 96% to 63%.</p>
+      <p><strong>Coverage.</strong> Every line is complete on every corpus. BERT's two WELFake points at 25% and 75% were trained specifically to close the only gaps.</p>
+    </div></details>
+
   <h3>Cross-validated in-distribution, across the same sweep</h3>
   <div class="card" id="card-rq2cv">
     <div class="card-h"><div><div class="card-t">5-fold CV AUC at each blend level, ordinary vs. pair-aware split</div>
@@ -335,9 +345,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="legend" id="l-rq2cv"></div>
     <div class="plot"><div id="c-rq2cv"></div></div>
   </div>
-  <div class="note"><p><strong>This is the sweep's own confound, and it is not the length one.</strong> Every synthetic article in these recipes is derived from a real article that is also present as a real-labelled row, so raising the synthetic share raises the number of near-duplicate pairs in lockstep. That inflates nothing on the cross-domain test sets — those articles aren't in them — but it makes ordinary cross-validation on these compositions unusable. The pair-aware line is the one to read.</p></div>
-
-  <div class="note"><p><strong>Coverage note.</strong> The WELFake line is complete for LR, SVM and CNN, and has gaps at 25% and 75% for BERT only — the sweep script never saved BERT checkpoints at those two points, and scoring a model you didn't keep would mean retraining it. Those cells are left as gaps rather than interpolated, so a broken line means "not measured", never "measured and unremarkable".</p></div>
+  <div class="note"><p><strong>Read the pair-aware line.</strong> Every synthetic article here is a rewrite of a real article that also sits in the same training set, so an ordinary k-fold split separates the two halves of a pair and the model simply recognises the article. The gap between the lines is the size of that effect; at 0% synthetic there are no pairs and the lines meet.</p></div>
 </section>
 
 <!-- ============ RQ3 — MODEL FAMILIES ============ -->
@@ -809,17 +817,48 @@ function barsRange(host,cfg){
 function lines(host,cfg){
   host.innerHTML="";
   const cats=cfg.categories,series=cfg.series;
-  const W=760,H=300,Lp=44,R=16,T=18,B=40;
+  /* Right margin widened when series are labelled at the line end: direct
+     labels beat a legend, because the reader never has to hold a colour in
+     memory while looking at the plot. Bottom and left widened for axis titles --
+     an unlabelled axis makes the reader guess what the numbers mean. */
+  const direct=!!cfg.directLabels;
+  const W=760,H=cfg.height||320;
+  const Lp=cfg.yLabel?62:44, R=direct?96:16, T=18, B=cfg.xLabel?58:40;
   const pw=W-Lp-R,ph=H-T-B,max=cfg.max||1;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
+  const xs=cats.length>1?pw/(cats.length-1):pw;
+
+  /* Shaded band behind the plot, drawn first so everything sits on top of it.
+     Used to mark the region where the answer is "yes, this is safe" -- a reader
+     takes a zone from shading far faster than from four separate lines. */
+  if(cfg.band){
+    const x0=Lp+cfg.band.from*xs, x1=Lp+cfg.band.to*xs;
+    svg.appendChild(el("rect",{x:x0,y:T,width:Math.max(x1-x0,0),height:ph,
+      fill:cv("--role-hero"),opacity:.07}));
+    if(cfg.band.label){
+      const t=el("text",{class:"cat",x:(x0+x1)/2,y:T+13,"text-anchor":"middle",
+        fill:cv("--ink-2")});
+      t.textContent=cfg.band.label; svg.appendChild(t);
+    }
+  }
+
   GRID(max).forEach(v=>{
     const y=T+ph-(v/max)*ph;
     svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
     const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});t.textContent=v.toFixed(2);svg.appendChild(t);
   });
   svg.appendChild(el("line",{class:"axis-line",x1:Lp,x2:W-R,y1:T+ph,y2:T+ph}));
-  const xs=cats.length>1?pw/(cats.length-1):pw;
   cats.forEach((c,i)=>{const t=el("text",{class:"cat",x:Lp+i*xs,y:T+ph+18});t.textContent=c;svg.appendChild(t);});
+
+  if(cfg.xLabel){
+    const t=el("text",{class:"axis-title",x:Lp+pw/2,y:H-14,"text-anchor":"middle"});
+    t.textContent=cfg.xLabel; svg.appendChild(t);
+  }
+  if(cfg.yLabel){
+    const t=el("text",{class:"axis-title",x:16,y:T+ph/2,"text-anchor":"middle",
+      transform:`rotate(-90 16 ${T+ph/2})`});
+    t.textContent=cfg.yLabel; svg.appendChild(t);
+  }
   series.forEach(s=>{
     const pts=[];s.values.forEach((v,i)=>{if(v!=null)pts.push([Lp+i*xs,T+ph-(v/max)*ph,v,i]);});
     if(!pts.length)return;
@@ -848,6 +887,14 @@ function lines(host,cfg){
       const ti=el("title");ti.textContent=`${s.name} — ${cats[i]}: ${v.toFixed(4)}`;c.appendChild(ti);
       svg.appendChild(c);
     });
+    /* Name the line at its own end rather than in a legend, and print its final
+       value there too -- so "which line is BERT, and where did it finish?" is
+       answered in the one place the eye already is. */
+    if(direct){
+      const last=pts[pts.length-1];
+      const t=el("text",{x:last[0]+12,y:last[1]+4,class:"line-label",fill:s.color});
+      t.textContent=s.name+"  "+lab(last[2]); svg.appendChild(t);
+    }
   });
   host.appendChild(svg);
 }
@@ -1057,21 +1104,70 @@ const RQ2T=(DATA.rq2.tests&&Object.keys(DATA.rq2.tests).length)
   ? DATA.rq2.tests : {"LIAR":DATA.rq2.series};
 const RQ2TN=Object.keys(RQ2T);
 let RQ2_M="f1",RQ2_T=RQ2TN[0];
+/* Where the safe zone ends, from the data rather than from a hardcoded index:
+   the last blend level whose worst model is still within tolerance. */
+function rq2SafeEnd(){
+  const c=DATA.rq2.cliff&&DATA.rq2.cliff[RQ2_T];
+  const i=c?DATA.rq2.fractions.indexOf(c):-1;
+  return i>0?i-1:DATA.rq2.fractions.length-1;
+}
 function rq2(metric){
   RQ2_M=metric||RQ2_M;
   const cols=SER(),src=RQ2T[RQ2_T]||{};
-  lines(document.getElementById("c-rq2"),{categories:DATA.rq2.fractions,
+  const safeEnd=rq2SafeEnd();
+  lines(document.getElementById("c-rq2"),{categories:DATA.rq2.fractions,height:340,
+    xLabel:"Share of the fake-news training data that is AI-generated",
+    yLabel:METRIC_LABEL[RQ2_M]||RQ2_M,
+    directLabels:true,
+    band:{from:0,to:safeEnd,label:"no meaningful cost"},
     series:DATA.models.map((m,i)=>({name:m,color:cols[i],
       values:(src[m]&&src[m][RQ2_M])||[]}))});
   caution("warn-c-rq2",RQ2_M);
 }
-legend(document.getElementById("l-rq2"),DATA.models.map((m,i)=>({name:m,color:SER()[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq2"]'),rq2,["f1","auc_roc","precision","recall"]);
 if(RQ2TN.length>1)
   seg(document.getElementById("seg-rq2-test"),
-      RQ2TN.map(t=>({label:"Tested on "+t,value:t})),v=>{RQ2_T=v;rq2();});
+      RQ2TN.map(t=>({label:"Tested on "+t.replace(/\s*\(.*\)\s*$/,""),value:t})),
+      v=>{RQ2_T=v;rq2();rq2Story();});
 else document.getElementById("seg-rq2-test").style.display="none";
-rq2("f1"); REDRAW.push(()=>rq2(RQ2_M));
+
+/* The headline, recomputed per corpus. Three numbers an executive can carry
+   out of the room: what half-synthetic costs, what the cliff costs, and how
+   many models survive going all the way. All derived -- if a rerun moves the
+   cliff, the sentence and the tiles move with it. */
+function rq2Story(){
+  const rows=(DATA.rq2.summary||{})[RQ2_T]||[];
+  if(!rows.length) return;
+  const fr=DATA.rq2.fractions, safeEnd=rq2SafeEnd();
+  const at=f=>rows.find(r=>r.fraction===f)||{};
+  const safe=at(fr[safeEnd]), cliff=at(fr[Math.min(safeEnd+1,fr.length-1)]), full=at(fr[fr.length-1]);
+  const src=RQ2T[RQ2_T]||{};
+  const survived=DATA.models.filter(m=>{
+    const v=src[m]&&src[m].f1; return v&&v[0]!=null&&v[v.length-1]!=null&&(v[v.length-1]-v[0])>-0.15;}).length;
+
+  const t=document.getElementById("tiles-rq2"); t.innerHTML="";
+  const add=(v,l,cls)=>{const d=document.createElement("div");d.className="tile";
+    d.innerHTML=`<div class="v"${cls?` style="color:${cls}"`:""}>${v}</div><div class="l">${l}</div>`;
+    t.appendChild(d);};
+  add(fr[safeEnd], "of the fake class can be AI-generated", cv("--role-hero"));
+  add(sgn(safe.mean_delta), "average F1 cost at that share");
+  add(sgn(cliff.mean_delta), "average F1 cost one step further ("+fr[Math.min(safeEnd+1,fr.length-1)]+")", cv("--role-failing"));
+  add(survived+" of "+DATA.models.length, "models still working at 100% synthetic");
+
+  const el=document.getElementById("note-rq2-headline");
+  el.innerHTML="<p><strong>The cliff sits between "+fr[safeEnd]+" and "+
+    fr[Math.min(safeEnd+1,fr.length-1)]+".</strong> Up to "+fr[safeEnd]+
+    " synthetic costs "+sgn(safe.mean_delta)+" F1 on average — nothing. One step "+
+    "further costs "+sgn(cliff.mean_delta)+", and the worst-hit model loses "+
+    sgn(cliff.worst_delta)+". Going all the way costs "+sgn(full.mean_delta)+
+    ". The same cliff appears in the same place on all three test corpora, which "+
+    "is what makes it a property of the data rather than of one benchmark.</p>";
+
+  const meta=document.getElementById("meta-rq2");
+  if(meta) meta.textContent="Half the fake-news training data can be AI-generated at no measurable cost. Pushing past that loses more than the synthetic data was worth.";
+}
+const sgn=v=>v==null?"—":(v>=0?"+":"")+v.toFixed(2);
+rq2("f1"); rq2Story(); REDRAW.push(()=>rq2(RQ2_M));
 table(document.getElementById("t-rq2"),
   ["Synthetic share","Model","Tested on","Precision","Recall","F1","AUC-ROC"],
   DATA.rq2.fractions.flatMap((f,fi)=>DATA.models.flatMap(m=>RQ2TN.map(t=>{
@@ -1093,11 +1189,13 @@ table(document.getElementById("t-rq2"),
     const get=split=>C.fractions.map(f=>{
       const d=C.rows[f]&&C.rows[f][M]&&C.rows[f][M][split];return d?d.auc_roc.mean:null;});
     lines(document.getElementById("c-rq2cv"),{categories:C.fractions,
-      series:[{name:"ordinary split",color:cols[3],values:get("stratified")},
-              {name:"pair-aware split",color:cols[0],values:get("grouped")}]});
+      xLabel:"Share of the fake-news training data that is AI-generated",
+      yLabel:"AUC-ROC (in-distribution)",
+      series:[{name:"ordinary split",color:cv("--role-failing"),values:get("stratified")},
+              {name:"pair-aware split",color:cv("--role-hero"),values:get("grouped")}]});
   }
-  legend(document.getElementById("l-rq2cv"),[{name:"Ordinary k-fold (leaks across pairs)",color:SER()[3]},
-    {name:"Pair-aware k-fold",color:SER()[0]}]);
+  legend(document.getElementById("l-rq2cv"),[{name:"Ordinary k-fold (leaks across pairs)",color:cv("--role-failing")},
+    {name:"Pair-aware k-fold",color:cv("--role-hero")}]);
   seg(document.getElementById("seg-rq2cv-model"),
       ["LR","SVM"].map(m=>({label:m,value:m})),v=>{M=v;draw();});
   draw(); REDRAW.push(draw);

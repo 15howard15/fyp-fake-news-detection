@@ -303,6 +303,45 @@ def sweep_block():
         out["cv"] = {"fractions": [p for p in SWEEP_PCT.values() if p in by_frac],
                      "rows": by_frac, "splits": cv["splits"]}
 
+    # The headline the sweep actually supports, computed per corpus rather than
+    # written into the prose: how much F1 each blend level costs against the
+    # all-real baseline, as a mean over models and as the single worst model.
+    #
+    # The mean is what a reader takes away ("half your data can be synthetic for
+    # about two points"); the worst model is the honest counterweight, because a
+    # mean of -0.02 hides SVM losing 0.10 at the same point. Both are shown.
+    summary = {}
+    for label, blk in out["tests"].items():
+        rows = []
+        for i, frac in enumerate(order):
+            deltas = []
+            for m in MODELS:
+                vals = blk.get(m, {}).get("f1") or []
+                if i < len(vals) and vals[i] is not None and vals[0] is not None:
+                    deltas.append(vals[i] - vals[0])
+            if deltas:
+                rows.append({"fraction": frac,
+                             "mean_delta": round(sum(deltas) / len(deltas), 4),
+                             "worst_delta": round(min(deltas), 4),
+                             "n_models": len(deltas)})
+        summary[label] = rows
+    out["summary"] = summary
+
+    # Where the sweep stops being safe: the first blend level whose worst model
+    # drops more than SAFE_AT below its own baseline. Derived, so if a rerun
+    # moves the cliff the page moves with it instead of keeping a stale claim.
+    SAFE_DROP = 0.15
+    cliffs = {}
+    for label, rows in summary.items():
+        cliff = None
+        for r in rows:
+            if r["worst_delta"] < -SAFE_DROP:
+                cliff = r["fraction"]
+                break
+        cliffs[label] = cliff
+    out["cliff"] = cliffs
+    out["safe_drop"] = SAFE_DROP
+
     # Kept so anything still reading data.rq2.series keeps working.
     out["series"] = out["tests"].get("LIAR", {})
     return out
