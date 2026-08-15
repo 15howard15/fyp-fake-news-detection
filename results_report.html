@@ -915,7 +915,8 @@ auth();
     {name:"Same, with both classes edited to equal depth",color:SER()[0]}]);
   if(TN.length>1)
     seg(document.getElementById("seg-editsym-test"),
-        TN.map(t=>({label:"Tested on "+t,value:t})),v=>{T=v;drawC3();},TN.indexOf(T));
+        TN.map(t=>({label:"Tested on "+t,value:t})),
+        v=>{T=v;drawC3();verdict();},TN.indexOf(T));
   drawC3(); REDRAW.push(drawC3);
 
   const t=document.getElementById("tiles-editsym");t.innerHTML="";
@@ -938,8 +939,12 @@ auth();
           fmt(d&&d.precision),fmt(d&&d.recall)];})))));
 
   /* The verdict sentence is derived from the measured AUCs rather than written
-     in, so it cannot end up describing a result the numbers don't show. */
-  (function(){
+     in, so it cannot end up describing a result the numbers don't show. It has
+     to be recomputed on every corpus switch: the counts genuinely differ
+     between them (0 of 4 below chance on cleaned WELFake, 1 of 4 on LIAR),
+     and a stale sentence sitting above a redrawn chart contradicts it in
+     public. */
+  function verdict(){
     const p=E.pairs.find(x=>/c3/.test(x.after))||E.pairs[0];
     const src=E.tests[T]||E.tests[TN[0]];
     const before=DATA.models.map(m=>src[p.before]&&src[p.before][m]&&src[p.before][m].auc_roc).filter(v=>v!=null);
@@ -958,7 +963,8 @@ auth();
       num(mb)+" to "+num(ma)+". The edit-depth gap between the two classes was closed from "+
       (E.edit?E.edit.gap_before:"—")+"pp to "+(E.edit?E.edit.gap_after:"—")+
       "pp, and nothing else about the recipe changed.</p>";
-  })();
+  }
+  verdict();
 })();
 
 /* ================= RQ2 ================= */
