@@ -137,6 +137,7 @@ text.val{fill:var(--ink-2);font-size:10px;text-anchor:middle;font-variant-numeri
 text.cat{fill:var(--ink-2);font-size:12.5px;text-anchor:middle}
 text.axis-title{fill:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:.02em}
 text.line-label{font-size:12px;font-weight:650;font-variant-numeric:tabular-nums}
+text.callout{font-size:12.5px;font-weight:700;letter-spacing:-.01em}
 rect.bar{transition:opacity .12s}
 rect.bar:hover{opacity:.85;filter:drop-shadow(0 0 6px currentColor)}
 @media (prefers-reduced-motion: no-preference){
@@ -849,8 +850,12 @@ function swarm(host,cfg){
 function barsRange(host,cfg){
   host.innerHTML="";
   const cats=cfg.categories,series=cfg.series;
-  const W=cfg.width||760,H=cfg.height||300,Lp=44,R=12,T=18,B=34;
+  /* Extra headroom when a callout is expected: the annotation sits above the
+     tallest bar, and without the space it would be clipped by the viewBox. */
+  const W=cfg.width||760,H=(cfg.height||300)+(cfg.annotateCollapse?46:0);
+  const Lp=44,R=12,T=18+(cfg.annotateCollapse?46:0),B=34;
   const pw=W-Lp-R,ph=H-T-B;
+  const callouts=[];
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
   GRID(1).forEach(v=>{
     const y=T+ph-v*ph;
@@ -891,12 +896,40 @@ function barsRange(host,cfg){
           mt.textContent=`${s.name} — ${c}: one run collapsed to ${d.min.toFixed(3)} `
             +`(did not converge); best run ${d.max.toFixed(3)}`;
           mk.appendChild(mt); svg.appendChild(mk);
+          /* Queued rather than drawn here: callouts must sit above every bar,
+             and bars are still being appended. */
+          callouts.push({x:cx,y:yB,d,series:s.name,cat:c});
         }
       }
       if(bw>=15){const t=el("text",{class:"val",x:cx,y:yT-5});t.textContent=lab(d.mean);svg.appendChild(t);}
     });
     const t=el("text",{class:"cat",x:gx+gw/2,y:T+ph+17});t.textContent=c;svg.appendChild(t);
   });
+
+  /* Callouts last, so they sit above every bar. A red whisker tells a reader
+     that something is wrong but not what; naming the failure in words is the
+     difference between "that bar looks odd" and "one run in three did not
+     train". Drawn only for the worst collapse on the chart -- annotating every
+     flagged bar would rebuild the clutter the annotation is meant to cut. */
+  if(cfg.annotateCollapse && callouts.length){
+    const c=callouts.reduce((a,b)=>b.d.min<a.d.min?b:a);
+    const runs=c.d.n||3;
+    const text=`${c.series} seed failure: 1 in ${runs} identical runs failed to `
+      +`converge (F1 = ${num(c.d.min,3)})`;
+    /* Anchor the label inside the plot: left-aligned if the bar sits in the
+       left half, right-aligned otherwise, so it can never run off the edge. */
+    const leftHalf=c.x<(Lp+pw/2);
+    const tx=leftHalf?c.x+14:c.x-14;
+    const ty=T-26;
+    const t=el("text",{x:tx,y:ty,"text-anchor":leftHalf?"start":"end",
+      class:"callout",fill:cv("--role-failing")});
+    t.textContent=text; svg.appendChild(t);
+    /* Elbow leader from the label down to the collapsed run's marker. */
+    svg.appendChild(el("path",{d:`M ${tx+(leftHalf?-6:6)} ${ty-4} L ${c.x} ${ty-4} L ${c.x} ${c.y-7}`,
+      fill:"none",stroke:cv("--role-failing"),"stroke-width":1.5,opacity:.9}));
+    svg.appendChild(el("circle",{cx:c.x,cy:c.y,r:8,fill:"none",
+      stroke:cv("--role-failing"),"stroke-width":1.5,opacity:.55}));
+  }
   host.appendChild(svg);
 }
 
@@ -1370,13 +1403,13 @@ table(document.getElementById("t-rq2"),
     "Synthetic-real + Real-fake":"C2","Synthetic-real + Synthetic-fake":"C3",
     "Real + Synthetic (diverse-sourced)":"R+Syn div","Style-robust":"Style-rob",
     "swap_025":"25% syn","swap_075":"75% syn"};
-  legend(document.getElementById("l-seed"),[{name:"CNN",color:cols[2]},{name:"BERT",color:cols[3]}]);
+  legend(document.getElementById("l-seed"),[{name:"CNN",color:cv("--role-control")},{name:"BERT",color:cv("--role-hero")}]);
   REDRAW.push(()=>drawSeed());
   function drawSeed(){
   barsRange(document.getElementById("c-seed"),{categories:names.map(n=>SHORT[n]||n),
-    width:Math.max(760,names.length*92),height:300,
-    series:[{name:"CNN",color:cols[2],values:names.map(n=>S[n].CNN)},
-            {name:"BERT",color:cols[3],values:names.map(n=>S[n].BERT)}]});
+    width:Math.max(760,names.length*92),height:300,annotateCollapse:true,
+    series:[{name:"CNN",color:cv("--role-control"),values:names.map(n=>S[n].CNN)},
+            {name:"BERT",color:cv("--role-hero"),values:names.map(n=>S[n].BERT)}]});
   }
   drawSeed();
   if(SS.BERT){document.getElementById("v-bertstd").textContent=SS.BERT.mean_std.toFixed(3);
