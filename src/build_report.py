@@ -48,6 +48,27 @@ RECIPE_LABEL = {
 }
 METRICS = ["f1", "auc_roc", "accuracy", "precision", "recall"]
 
+# What KIND of thing each recipe is, so the report can colour by role instead of
+# by position in a list. Position-based colour makes the reader consult a legend
+# to find out whether a bar matters; role-based colour puts the baselines in the
+# background and the recipes this project built in the foreground.
+#
+#   control    -- the baselines everything is measured against
+#   failing    -- recipes that break, kept on the page but not emphasised
+#   optimized  -- the recipes built here to fix a specific measured problem
+RECIPE_ROLE = {
+    "real_real": "control",
+    "mixed": "control",
+    "real_syn": "failing",
+    "c2_synreal_realfake": "control",
+    "c3_synreal_synfake": "failing",
+    "real_syn_multisource": "failing",
+    "real_syn_mixedlen": "optimized",
+    "style_robust": "optimized",
+    "c2_sym": "optimized",
+    "c3_sym": "optimized",
+}
+
 
 def _metrics_json(model, comp):
     p = RESULTS / f"metrics_{model}_{comp}.json"
@@ -299,12 +320,51 @@ def style_block():
     for _, r in rev[rev.comp == "style_robust"].iterrows():
         reverse[r["model"]] = round(float(r["flip_rate"]), 4)
     original = {m: flips["Style-robust"][m] for m in MODELS}
+
+    # Which (recipe, model) cells are degenerate -- predicting essentially one
+    # class regardless of input.
+    #
+    # This matters for the flip-rate chart specifically. A flip rate of 0.000
+    # normally means "the tone rewrite fooled the model on nothing", i.e. it is
+    # the best possible score. But a model that already answers "fake" to
+    # everything also scores 0.000, because there is nothing it could be talked
+    # out of. Plotted side by side the two are indistinguishable, and the broken
+    # one looks like the winner.
+    #
+    # Measured from the confusion matrix as the share of inputs assigned to the
+    # majority predicted class, rather than inferred from F1: the two failure
+    # modes look completely different in F1 (SVM answers "real" to everything
+    # and scores 0.000; CNN answers "fake" to everything and scores 0.711) but
+    # identical in this figure. On Real + Synthetic it gives SVM 100.0% and CNN
+    # 98.2%, against 84.5% for BERT and 64.9% for LR -- so the threshold
+    # separates the two broken cells from the two working ones with room to
+    # spare, instead of being tuned to hit a wanted answer.
+    DEGENERATE_AT = 0.95
+    degenerate = {}
+    for comp in ("real_real", "mixed", "real_syn", "style_robust"):
+        label = RECIPE_LABEL.get(comp, comp)
+        row = {}
+        for m in MODELS:
+            p = cfg.RESULTS_DIR / f"metrics_{m}_{comp}.json"
+            if not p.exists():
+                continue
+            c = json.loads(p.read_text()).get("confusion")
+            if not c:
+                continue
+            n = c["tn"] + c["fp"] + c["fn"] + c["tp"]
+            pred_fake = c["tp"] + c["fp"]
+            share = max(pred_fake, n - pred_fake) / max(n, 1)
+            row[m] = {"one_class_share": round(share, 4),
+                      "degenerate": bool(share >= DEGENERATE_AT)}
+        if row:
+            degenerate[label] = row
     # Baseline (unattacked) performance, style_robust vs real_real
     baseline = {}
     for comp in ("real_real", "style_robust"):
         baseline[RECIPE_LABEL[comp]] = {m: _metrics_json(m, comp) for m in MODELS}
     return {"flips": flips, "original": original, "reverse": reverse,
-            "baseline": baseline}
+            "baseline": baseline, "degenerate": degenerate,
+            "degenerate_at": DEGENERATE_AT}
 
 
 def length_block():
@@ -753,6 +813,7 @@ def collect():
     return {
         "models": MODELS,
         "labels": RECIPE_LABEL,
+        "roles": RECIPE_ROLE,
         "metrics": METRICS,
         # Both test sets, for the same reason RQ2 now shows both: a score on
         # LIAR alone can't distinguish "detected the fake" from "noticed it was

@@ -14,6 +14,19 @@
   --accent:#22d3ee; --accent-2:#818cf8;
   --glow:rgba(34,211,238,.30); --glow-2:rgba(129,140,248,.26);
   --s1:#22d3ee; --s2:#818cf8; --s3:#fbbf24; --s4:#fb7185; --s5:#c084fc; --s6:#34d399;
+  /* Role palette. A recipe's colour now says what KIND of thing it is rather
+     than what position it happens to occupy in a list, so the eye lands on the
+     result instead of scanning a legend:
+       control    - the baselines you compare against (muted slate)
+       failing    - the recipes that break, kept visible but not shouted (rose)
+       optimized  - the recipes this project built to fix something (hero cyan)
+     Every bar still carries its printed value, which is the accessibility
+     relief for a palette that has not been machine-checked for colour-vision
+     separability -- role colours make hue MORE load-bearing, not less, so the
+     labels matter more here than they did before. */
+  --role-control:#7b879f; --role-control-2:#5a6478;
+  --role-failing:#fb7185; --role-failing-2:#f0a3ad;
+  --role-hero:#22d3ee;    --role-hero-2:#67e8f9;
   --good:#34d399; --warn:#fbbf24; --crit:#fb7185; --good-ink:#34d399;
   --shadow:0 1px 2px rgba(0,0,0,.6);
 }
@@ -26,6 +39,12 @@
   --accent:#0e7490; --accent-2:#4f46e5;
   --glow:rgba(14,116,144,.16); --glow-2:rgba(79,70,229,.14);
   --s1:#0e7490; --s2:#4f46e5; --s3:#b45309; --s4:#be123c; --s5:#7e22ce; --s6:#047857;
+  /* Re-stepped for a white surface rather than reused: the dark theme's slate
+     and cyan both wash out on white, and the point of the role palette is that
+     the hero reads as the loudest thing on the page in EITHER theme. */
+  --role-control:#6b7488; --role-control-2:#98a1b3;
+  --role-failing:#be123c; --role-failing-2:#e0607c;
+  --role-hero:#0e7490;    --role-hero-2:#0891b2;
   --good:#047857; --warn:#b45309; --crit:#be123c; --good-ink:#047857;
   --shadow:0 1px 2px rgba(13,17,23,.08);
 }
@@ -230,7 +249,11 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 
 <!-- ============ RQ1 ============ -->
 <section class="panel active" id="rq1" role="tabpanel">
-  <h2>RQ1 — Can LLM-generated fake news replace real fake news for training?</h2>
+  <!-- Declarative titles state the finding, not the question. Each one is
+       checked against the numbers on this page before it is written: a title
+       that overstates is worse than a question, because a reader stops there. -->
+  <h2>RQ1 — Full synthetic replacement fails once the evaluation removes lexical shortcuts</h2>
+  <p class="meta">On a corpus where neither word count nor shared articles can help, training on synthetic fake news alone reaches AUC 0.38–0.65 against 0.98–1.00 for real fake news. On LIAR it looks far healthier, which is the point.</p>
   <div class="card">
     <div class="card-h">
       <div><div class="card-t">Detection performance by method and training recipe</div>
@@ -292,7 +315,8 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 
 <!-- ============ RQ2 ============ -->
 <section class="panel" id="rq2" role="tabpanel">
-  <h2>RQ2 — Does adding synthetic fake news on top of real data improve performance, rather than replacing it?</h2>
+  <h2>RQ2 — Synthetic data holds up as a partial substitute and breaks as a full one</h2>
+  <p class="meta">Up to half the fake class can be synthetic with no meaningful loss. At 100% three of the four models fail — SVM to F1 0.000, BERT from 0.98 to 0.67 — and the same shape appears on all three test corpora.</p>
   <div class="card">
     <div class="card-h">
       <div><div class="card-t">Performance as synthetic fake news replaces more of the fake class</div>
@@ -324,7 +348,8 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 
 <!-- ============ RQ3 — MODEL FAMILIES ============ -->
 <section class="panel" id="rq3" role="tabpanel">
-  <h2>RQ3 — Do transformer-based detectors offer more consistent robustness than deep-learning and traditional models?</h2>
+  <h2>RQ3 — Transformers are the most recipe-robust family and the least seed-stable</h2>
+  <p class="meta">BERT swings least when the training recipe changes (0.670 spread against 0.819 for CNN and 0.908 for traditional ML) and most when only the random seed changes (SD 0.385, against 0.095 for CNN and exactly 0 for LR/SVM). No family wins both axes, so "consistent" has to be qualified before it can be answered.</p>
   <div class="note"><p><strong>Two axes, both spreads — smaller is better.</strong>
   <strong>Robustness&nbsp;↓</strong> = F1 spread across the six training recipes.
   <strong>Stability&nbsp;↓</strong> = F1 spread across three random seeds.</p></div>
@@ -356,14 +381,15 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 
 <!-- ============ RQ4 ============ -->
 <section class="panel" id="rq4" role="tabpanel">
-  <h2>RQ4 — Can style-diverse synthetic training resist stylistic and sentiment-based attacks?</h2>
+  <h2>RQ4 — Style-robust training cuts the tone attack to near zero at no accuracy cost</h2>
+  <p class="meta">Flip rates fall from 10.5–18.1% under the vulnerable Mixed recipe to 0.0–3.1%, and every model matches or beats the Real + Real baseline on the untouched test set.</p>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Flip rate after a tone-only rewrite, by training recipe &nbsp;↓</div>
     <div class="card-n">Lower is better — 0% means the tone change fooled the model on nothing it previously got right.</div></div></div>
     <div class="legend" id="l-rq4"></div>
     <div class="plot"><div id="c-rq4"></div></div>
   </div>
-  <div class="note warn"><p><strong>The two 0.0% cells are not robustness.</strong> Under Real + Synthetic, SVM and CNN already predict one class for almost everything, so almost nothing correct remains to flip.</p></div>
+  <div class="note warn" id="note-rq4-dropped"></div>
   <h3>Does the fix survive an attack it wasn't trained for?</h3>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Style-robust flip rate: trained direction vs. the untested reverse &nbsp;↓</div>
@@ -474,6 +500,59 @@ const DATA = /*__DATA__*/null;
 const NS="http://www.w3.org/2000/svg";
 const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const SER=()=>[cv("--s1"),cv("--s2"),cv("--s3"),cv("--s4"),cv("--s5"),cv("--s6")];
+
+/* ---------- role-based colour ----------
+   ROLE(comp) returns the colour a recipe should be drawn in based on what it
+   IS, not where it sits in a list. Two shades per role so that two controls (or
+   two heroes) in one chart stay distinguishable without leaving their family.
+   Falls back to the old positional palette for anything unclassified, so an
+   unlabelled recipe still renders rather than coming out undefined. */
+const ROLES=(DATA.roles)||{};
+function roleOf(comp){ return ROLES[comp]||"control"; }
+function ROLE(comp,shade){
+  const r=roleOf(comp);
+  const base = r==="optimized" ? "--role-hero"
+             : r==="failing"   ? "--role-failing"
+             :                   "--role-control";
+  return cv(shade ? base+"-2" : base);
+}
+/* Step a hex colour's lightness by `t` in [-1,1]: negative darkens toward
+   black, positive lightens toward white. Used to separate same-role series
+   without leaving the role's hue. */
+function shade(hex,t){
+  const m=/^#?([0-9a-f]{6})$/i.exec((hex||"").trim());
+  if(!m) return hex;
+  const n=parseInt(m[1],16);
+  let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  const to=t<0?0:255, k=Math.abs(t);
+  r=Math.round(r+(to-r)*k); g=Math.round(g+(to-g)*k); b=Math.round(b+(to-b)*k);
+  return "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
+}
+
+/* Assign colours across a set of recipes so a chart reads as "the greys are
+   baselines, the cyan is the thing we built".
+   Two-shade alternation was not enough: with three control recipes in RQ1 the
+   first and third came out identical, which is worse than an arbitrary palette
+   because it implies they are the same series. Same-role series are now spread
+   along a lightness ramp, so any number of them stay distinct while still
+   reading as one family. */
+function roleColors(comps){
+  const counts={};
+  comps.forEach(c=>{const r=roleOf(c);counts[r]=(counts[r]||0)+1;});
+  const seen={};
+  return comps.map(c=>{
+    const r=roleOf(c), total=counts[r];
+    const i=(seen[r]=(seen[r]||0));
+    seen[r]=i+1;
+    const base=ROLE(c);
+    if(total<2) return base;
+    /* Spread across +/-0.34 of lightness. Heroes lean lighter (they should read
+       as brighter than their neighbours); controls lean darker so they recede. */
+    const span = roleOf(c)==="optimized" ? 0.34 : -0.30;
+    const t = total===1 ? 0 : (i/(total-1))*span;
+    return shade(base,t);
+  });
+}
 const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
 const REDRAW=[];
 const METRIC_LABEL={f1:"F1 score",auc_roc:"AUC-ROC",accuracy:"Accuracy",precision:"Precision",recall:"Recall"};
@@ -564,6 +643,114 @@ function bars(host,cfg){
   host.appendChild(svg);
 }
 
+/* ---------- dumbbell: before -> after, one row per category ----------
+   Grouped bars make a reader compare two heights and compute the difference
+   themselves. A dumbbell draws the difference: the connector IS the recovery,
+   its length is the magnitude, and its direction is the sign. Used for the
+   before/after comparisons where the change is the finding rather than either
+   endpoint.
+   cfg: {categories, before:[], after:[], beforeName, afterName, ref, refLabel} */
+function dumbbell(host,cfg){
+  host.innerHTML="";
+  const cats=cfg.categories,W=cfg.width||760,rowH=cfg.rowH||46;
+  const Lp=cfg.labelW||62,R=54,T=26,B=26;
+  const H=T+B+rowH*cats.length, pw=W-Lp-R, max=cfg.max||1;
+  const x=v=>Lp+(v/max)*pw;
+  const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
+
+  for(let i=0;i<=4;i++){
+    const v=max/4*i;
+    svg.appendChild(el("line",{class:"grid-line",x1:x(v),x2:x(v),y1:T-6,y2:T+rowH*cats.length}));
+    const t=el("text",{x:x(v),y:T-12,"text-anchor":"middle"});
+    t.textContent=v.toFixed(2); svg.appendChild(t);
+  }
+  if(cfg.ref!=null){
+    svg.appendChild(el("line",{class:"ref-line",x1:x(cfg.ref),x2:x(cfg.ref),
+      y1:T-6,y2:T+rowH*cats.length}));
+    if(cfg.refLabel){
+      const t=el("text",{x:x(cfg.ref),y:T+rowH*cats.length+16,"text-anchor":"middle",
+        class:"cat"}); t.textContent=cfg.refLabel; svg.appendChild(t);
+    }
+  }
+
+  const cB=cfg.beforeColor||cv("--role-failing"), cA=cfg.afterColor||cv("--role-hero");
+  cats.forEach((c,i)=>{
+    const y=T+i*rowH+rowH/2;
+    const a=cfg.before[i], b=cfg.after[i];
+    const lab=el("text",{x:Lp-10,y:y+4,"text-anchor":"end",class:"cat"});
+    lab.textContent=c; svg.appendChild(lab);
+    if(a==null||b==null){
+      const t=el("text",{x:Lp+8,y:y+4,class:"cat"});
+      t.textContent="not measured"; svg.appendChild(t); return;
+    }
+    // Connector first so the dots sit on top of it.
+    svg.appendChild(el("line",{x1:x(a),x2:x(b),y1:y,y2:y,stroke:cA,
+      "stroke-width":7,"stroke-linecap":"round",opacity:.34}));
+    [[a,cB,cfg.beforeName],[b,cA,cfg.afterName]].forEach(([v,col,nm])=>{
+      const ring=el("circle",{cx:x(v),cy:y,r:8,fill:cv("--surface")});
+      const dot=el("circle",{cx:x(v),cy:y,r:6,fill:col});
+      const ti=el("title"); ti.textContent=`${nm} — ${c}: ${v.toFixed(4)}`;
+      dot.appendChild(ti); svg.appendChild(ring); svg.appendChild(dot);
+    });
+    // The delta, printed. The connector shows magnitude at a glance; the number
+    // is what gets quoted in a viva.
+    const d=b-a, t=el("text",{x:W-R+8,y:y+4,class:"val"});
+    t.textContent=(d>=0?"+":"")+d.toFixed(2); svg.appendChild(t);
+  });
+  host.appendChild(svg);
+}
+
+/* ---------- swarm: every observation as a dot, plus the mean ----------
+   Replaces a bar-plus-range for the recipe spread. A bar reports one number and
+   a whisker reports two; with only six or seven recipes per model the useful
+   question is where they actually fall -- whether a family is uniformly mediocre
+   or excellent-except-once. A box plot would imply quartiles that six points
+   cannot support, so each point is drawn.
+   cfg: {categories, series:[{name,color,values:[[..],[..]]}], highlight} */
+function swarm(host,cfg){
+  host.innerHTML="";
+  const cats=cfg.categories,W=cfg.width||760,H=cfg.height||300;
+  const Lp=44,R=12,T=18,B=34, pw=W-Lp-R, ph=H-T-B, max=cfg.max||1;
+  const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
+  for(let i=0;i<=4;i++){
+    const v=max/4*i,y=T+ph-(v/max)*ph;
+    svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
+    const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});
+    t.textContent=v.toFixed(2); svg.appendChild(t);
+  }
+  svg.appendChild(el("line",{class:"axis-line",x1:Lp,x2:W-R,y1:T+ph,y2:T+ph}));
+  const gw=pw/cats.length;
+  cats.forEach((c,ci)=>{
+    const cx=Lp+ci*gw+gw/2;
+    const pts=(cfg.values[ci]||[]).filter(v=>v!=null);
+    if(pts.length){
+      const mean=pts.reduce((a,b)=>a+b,0)/pts.length;
+      const my=T+ph-(mean/max)*ph;
+      // Mean bar behind the dots -- a reference, not the headline.
+      svg.appendChild(el("line",{x1:cx-26,x2:cx+26,y1:my,y2:my,
+        stroke:cv("--ink-2"),"stroke-width":2.5,opacity:.85}));
+      const mt=el("text",{class:"val",x:cx+34,y:my+4,"text-anchor":"start"});
+      mt.textContent=lab(mean); svg.appendChild(mt);
+    }
+    // Jitter deterministically: same data must draw the same picture every time.
+    pts.forEach((v,k)=>{
+      const y=T+ph-(v/max)*ph;
+      const jitter=((k%5)-2)*7;
+      const flagged=cfg.flag && cfg.flag(c,v);
+      const dot=el("circle",{cx:cx+jitter,cy:y,r:flagged?6:4.5,
+        fill:flagged?cv("--role-failing"):(cfg.colors?cfg.colors[ci]:cv("--role-hero")),
+        stroke:flagged?cv("--ink"):"none","stroke-width":flagged?1.5:0,
+        opacity:flagged?1:.82});
+      const ti=el("title");
+      ti.textContent=`${c}: ${v.toFixed(4)}`+(flagged?"  (did not converge)":"");
+      dot.appendChild(ti); svg.appendChild(dot);
+    });
+    const t=el("text",{class:"cat",x:cx,y:T+ph+17}); t.textContent=c;
+    svg.appendChild(t);
+  });
+  host.appendChild(svg);
+}
+
 /* ---------- bars with a min/max range line ---------- */
 function barsRange(host,cfg){
   host.innerHTML="";
@@ -590,10 +777,27 @@ function barsRange(host,cfg){
       r.appendChild(ti);svg.appendChild(r);
       const cx=x+bw/2,yT=T+ph-d.max*ph,yB=T+ph-d.min*ph;
       const ink=cv("--ink");
+      /* The range is the point of this chart, not an annotation on the bar --
+         a mean of 0.45 built from runs of 0.002 and 0.68 is a different fact
+         from a mean of 0.45 built from three runs at 0.45. Drawn heavy, and
+         drawn RED when the worst run collapsed, so a non-converged seed reads
+         as a failure rather than as a long whisker. */
+      const collapsed = d.min!=null && d.min<0.05 && d.max>0.2;
+      const rc = collapsed ? cv("--role-failing") : ink;
+      const rw = collapsed ? 3.4 : 2.4;
       if(Math.abs(yB-yT)>0.6){
-        svg.appendChild(el("line",{x1:cx,x2:cx,y1:yT,y2:yB,stroke:ink,"stroke-width":1.4,opacity:.7}));
-        svg.appendChild(el("line",{x1:cx-3.5,x2:cx+3.5,y1:yT,y2:yT,stroke:ink,"stroke-width":1.4,opacity:.7}));
-        svg.appendChild(el("line",{x1:cx-3.5,x2:cx+3.5,y1:yB,y2:yB,stroke:ink,"stroke-width":1.4,opacity:.7}));
+        svg.appendChild(el("line",{x1:cx,x2:cx,y1:yT,y2:yB,stroke:rc,"stroke-width":rw,
+          "stroke-linecap":"round",opacity:collapsed?1:.85}));
+        [yT,yB].forEach(yy=>svg.appendChild(el("line",{x1:cx-5,x2:cx+5,y1:yy,y2:yy,
+          stroke:rc,"stroke-width":rw,"stroke-linecap":"round",opacity:collapsed?1:.85})));
+        if(collapsed){
+          const mk=el("circle",{cx,cy:yB,r:5,fill:cv("--role-failing"),
+            stroke:cv("--surface"),"stroke-width":1.5});
+          const mt=el("title");
+          mt.textContent=`${s.name} — ${c}: one run collapsed to ${d.min.toFixed(3)} `
+            +`(did not converge); best run ${d.max.toFixed(3)}`;
+          mk.appendChild(mt); svg.appendChild(mk);
+        }
       }
       if(bw>=15){const t=el("text",{class:"val",x:cx,y:yT-5});t.textContent=lab(d.mean);svg.appendChild(t);}
     });
@@ -685,7 +889,7 @@ const RQ1TN=Object.keys(RQ1T);
 let RQ1_M="f1",RQ1_T=RQ1TN[0];
 function rq1(metric){
   RQ1_M=metric||RQ1_M;
-  const cols=SER(),src=RQ1T[RQ1_T]||{};
+  const cols=roleColors(RQ1C),src=RQ1T[RQ1_T]||{};
   bars(document.getElementById("c-rq1"),{
     categories:DATA.models,height:320,
     ref:RQ1_M==="auc_roc"?0.5:null,refLabel:"random guessing",
@@ -693,7 +897,7 @@ function rq1(metric){
       values:DATA.models.map(m=>{const d=src[c]&&src[c][m];return d?d[RQ1_M]:null;})}))});
   caution("warn-c-rq1",RQ1_M);
 }
-legend(document.getElementById("l-rq1"),RQ1C.map((c,i)=>({name:L[c],color:SER()[i]})));
+legend(document.getElementById("l-rq1"),RQ1C.map((c,i)=>({name:L[c],color:roleColors(RQ1C)[i]})));
 metricSeg(document.querySelector('[data-metric-for="c-rq1"]'),rq1);
 if(RQ1TN.length>1)
   seg(document.getElementById("seg-rq1-test"),
@@ -812,20 +1016,21 @@ auth();
   /* Only the C3 pair is charted -- C2 was never the broken one, and four series
      across four models is unreadable. C2 stays in the table below. */
   function drawC3(){
-    const cols=SER(),src=E.tests[T]||{};
+    const src=E.tests[T]||{};
     const p=E.pairs.find(x=>/c3/.test(x.after))||E.pairs[0];
-    bars(document.getElementById("c-editsym"),{
-      categories:DATA.models,height:300,ref:0.5,refLabel:"random guessing",
-      series:[
-        {name:"as built (edit gap "+(E.edit?E.edit.gap_before:"—")+"pp)",color:cols[3],
-         values:DATA.models.map(m=>{const d=src[p.before]&&src[p.before][m];return d?d.auc_roc:null;})},
-        {name:"edit-matched (gap "+(E.edit?E.edit.gap_after:"—")+"pp)",color:cols[0],
-         values:DATA.models.map(m=>{const d=src[p.after]&&src[p.after][m];return d?d.auc_roc:null;})},
-      ]});
+    /* Dumbbell, not grouped bars: the recovery is the finding here, and a
+       connector draws the recovery directly instead of asking the reader to
+       subtract two bar heights. */
+    dumbbell(document.getElementById("c-editsym"),{
+      categories:DATA.models,ref:0.5,refLabel:"random guessing",
+      beforeName:"as built",afterName:"edit-matched",
+      beforeColor:cv("--role-failing"),afterColor:cv("--role-hero"),
+      before:DATA.models.map(m=>{const d=src[p.before]&&src[p.before][m];return d?d.auc_roc:null;}),
+      after:DATA.models.map(m=>{const d=src[p.after]&&src[p.after][m];return d?d.auc_roc:null;})});
   }
   legend(document.getElementById("l-editsym"),[
-    {name:"Synthetic-real + Synthetic-fake, as built",color:SER()[3]},
-    {name:"Same, with both classes edited to equal depth",color:SER()[0]}]);
+    {name:"As built — edit gap "+(E.edit?E.edit.gap_before:"—")+"pp",color:cv("--role-failing")},
+    {name:"Both classes edited to equal depth — gap "+(E.edit?E.edit.gap_after:"—")+"pp",color:cv("--role-hero")}]);
   if(TN.length>1)
     seg(document.getElementById("seg-editsym-test"),
         TN.map(t=>({label:"Tested on "+t,value:t})),
@@ -993,9 +1198,16 @@ table(document.getElementById("t-rq2"),
   legend(document.getElementById("l-fam"),[{name:"Mean F1 across the six recipes (line = worst to best recipe)",color:cols[0]}]);
   REDRAW.push(()=>drawFam());
   function drawFam(){
-  barsRange(document.getElementById("c-fam"),{categories:DATA.models,height:290,
-    series:[{name:"Across recipes",color:cols[0],
-      values:DATA.models.map(m=>BM[m]?{mean:BM[m].mean,min:BM[m].min,max:BM[m].max}:null)}]});
+  /* Swarm rather than bar-and-whisker. Each dot is one training recipe, so the
+     shape of a family's spread is visible: whether it is uniformly middling or
+     excellent-except-once. With six or seven points per model a box plot would
+     draw quartiles the data cannot support. */
+  swarm(document.getElementById("c-fam"),{categories:DATA.models,height:290,
+    values:DATA.models.map(m=>(BM[m]&&BM[m].values)||[]),
+    colors:DATA.models.map(()=>cv("--role-hero")),
+    /* Anything at or near zero is a collapse, not a low score -- flagged so the
+       eye finds the failure rather than reading it as a short bar. */
+    flag:(c,v)=>v<0.05});
   }
   drawFam();
 
@@ -1040,19 +1252,55 @@ table(document.getElementById("t-rq2"),
 
 /* ================= RQ4 ================= */
 (function(){
-  const f=DATA.rq4.flips,recipes=Object.keys(f),cols=SER();
+  const f=DATA.rq4.flips,recipes=Object.keys(f);
+  /* Recipe label -> composition key, so role colours can be looked up. */
+  const KEY={}; Object.keys(L).forEach(k=>{KEY[L[k]]=k;});
+
+  /* A flip rate of 0.000 does not always mean "robust". On Real + Synthetic,
+     SVM and CNN score 0.000 because they already predict one class for every
+     input -- there is nothing left that CAN flip. Plotted as a bar it reads as
+     perfect robustness, which is the exact opposite of the truth, so those
+     cells are dropped and named in a callout instead.
+     LR's 0.591 on the same recipe is kept: it is the strongest evidence in RQ4
+     and dropping the whole series to remove two misleading zeros would take the
+     finding with it. */
+  const DEG=DATA.rq4.degenerate||{};
+  const collapsed=(r,m)=>!!(DEG[r]&&DEG[r][m]&&DEG[r][m].degenerate);
+  const dropped=[];
+  recipes.forEach(r=>DATA.models.forEach(m=>{
+    if(collapsed(r,m)) dropped.push({model:m,recipe:r,
+      share:DEG[r][m].one_class_share});}));
+
   REDRAW.push(()=>drawRQ4());
   function drawRQ4(){
+  /* roleColors, not ROLE per series: two control recipes would otherwise draw
+     in the identical grey and read as one series. */
+  const cols=roleColors(recipes.map(r=>KEY[r]||r));
   legend(document.getElementById("l-rq4"),recipes.map((r,i)=>({name:r,color:cols[i]})));
   bars(document.getElementById("c-rq4"),{categories:DATA.models,height:300,max:0.65,
-    series:recipes.map((r,i)=>({name:r,color:cols[i],values:DATA.models.map(m=>f[r][m])}))});
-  legend(document.getElementById("l-rev"),[{name:"Trained direction",color:cols[0]},
-    {name:"Reverse (untested) direction",color:cols[1]}]);
+    series:recipes.map((r,i)=>({name:r,color:cols[i],
+      values:DATA.models.map(m=>collapsed(r,m)?null:f[r][m])}))});
+  legend(document.getElementById("l-rev"),[{name:"Trained direction",color:cv("--role-control")},
+    {name:"Reverse (untested) direction",color:cv("--role-hero")}]);
   bars(document.getElementById("c-rev"),{categories:DATA.models,height:250,max:0.08,
-    series:[{name:"Trained direction",color:cols[0],values:DATA.models.map(m=>DATA.rq4.original[m])},
-      {name:"Reverse direction",color:cols[1],values:DATA.models.map(m=>DATA.rq4.reverse[m])}]});
+    series:[{name:"Trained direction",color:cv("--role-control"),values:DATA.models.map(m=>DATA.rq4.original[m])},
+      {name:"Reverse direction",color:cv("--role-hero"),values:DATA.models.map(m=>DATA.rq4.reverse[m])}]});
   }
   drawRQ4();
+  (function(){
+    const el=document.getElementById("note-rq4-dropped");
+    if(!el) return;
+    if(!dropped.length){ el.style.display="none"; return; }
+    const list=dropped.map(d=>`<strong>${d.model} on ${d.recipe}</strong> `+
+      `(${(d.share*100).toFixed(1)}% one class)`).join(" and ");
+    el.innerHTML="<p><strong>"+dropped.length+" bar"+(dropped.length>1?"s are":" is")+
+      " deliberately missing.</strong> "+list+" already answered with a single "+
+      "class before any attack was applied, so there was nothing left that a tone "+
+      "rewrite could talk them out of. Their 0% flip rate would sit on this chart "+
+      "looking like the best result on it, when it actually means the model was "+
+      "broken to begin with — so those cells are excluded rather than plotted. "+
+      "Every value is still in the table below.</p>";
+  })();
   const b=DATA.rq4.baseline,names=Object.keys(b);
   table(document.getElementById("t-rq4"),["Recipe","Model","Accuracy","Precision","Recall","F1","AUC-ROC"],
     names.flatMap(n=>DATA.models.map(m=>{const d=b[n][m];
@@ -1127,16 +1375,17 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
   const TESTS=Object.keys(C.tests);
   let M="auc_roc",T=TESTS.find(t=>/removed/.test(t))||TESTS[0];
   function draw(){
-    const cols=SER();
     const get=(c,m)=>{const d=C.tests[T][c]&&C.tests[T][c][m];return d?d[M]:null;};
-    bars(document.getElementById("c-lc"),{categories:DATA.models,height:290,
+    dumbbell(document.getElementById("c-lc"),{categories:DATA.models,
       ref:M==="auc_roc"?0.5:null,refLabel:"random guessing",
-      series:[{name:"Real + Synthetic",color:cols[3],values:DATA.models.map(m=>get("real_syn",m))},
-              {name:"length-controlled",color:cols[0],values:DATA.models.map(m=>get("real_syn_mixedlen",m))}]});
+      beforeName:"Real + Synthetic",afterName:"length-controlled",
+      beforeColor:ROLE("real_syn"),afterColor:ROLE("real_syn_mixedlen"),
+      before:DATA.models.map(m=>get("real_syn",m)),
+      after:DATA.models.map(m=>get("real_syn_mixedlen",m))});
     caution("warn-c-lc",M);
   }
-  legend(document.getElementById("l-lc"),[{name:"Real + Synthetic (original)",color:SER()[3]},
-    {name:"Real + Synthetic, length-controlled",color:SER()[0]}]);
+  legend(document.getElementById("l-lc"),[{name:"Real + Synthetic (original)",color:ROLE("real_syn")},
+    {name:"Real + Synthetic, length-controlled",color:ROLE("real_syn_mixedlen")}]);
   metricSeg(document.querySelector('[data-metric-for="c-lc"]'),v=>{M=v;draw();},["auc_roc","f1"]);
   seg(document.getElementById("seg-lc-test"),TESTS.map(t=>({label:t,value:t})),
       v=>{T=v;draw();},TESTS.indexOf(T));
@@ -1175,17 +1424,17 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
   let M="f1",CC=C.comps[0];
   const key=s=>M==="auc_roc"?("auc_"+s):("f1_"+s);
   function draw(){
-    const cols=SER();
     const vD=DATA.models.map(m=>{const d=C.rows[CC]&&C.rows[CC][m];return d?d[key("dirty")]:null;});
     const vC=DATA.models.map(m=>{const d=C.rows[CC]&&C.rows[CC][m];return d?d[key("clean")]:null;});
-    bars(document.getElementById("c-cont"),{categories:DATA.models,height:290,
+    dumbbell(document.getElementById("c-cont"),{categories:DATA.models,
       ref:M==="auc_roc"?0.5:null,refLabel:"random guessing",
-      series:[{name:"As shipped",color:cols[3],values:vD},
-              {name:"ISOT removed",color:cols[0],values:vC}]});
+      beforeName:"as shipped",afterName:"ISOT removed",
+      beforeColor:cv("--role-failing"),afterColor:cv("--role-hero"),
+      before:vD,after:vC});
     caution("warn-c-cont",M);
   }
-  legend(document.getElementById("l-cont"),[{name:"WELFake as shipped (contaminated)",color:SER()[3]},
-    {name:"WELFake with ISOT articles removed",color:SER()[0]}]);
+  legend(document.getElementById("l-cont"),[{name:"WELFake as shipped (contaminated)",color:cv("--role-failing")},
+    {name:"WELFake with ISOT articles removed",color:cv("--role-hero")}]);
   /* Only F1 and AUC were stored per-run for the cleaned set, so the metric
      switch is restricted to those two rather than reusing the four-way
      selector and rendering two empty charts. */
