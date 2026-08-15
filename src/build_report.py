@@ -822,7 +822,10 @@ def collect():
                 "welfake": welfake_block(rq1_comps),
                 "tests": {"LIAR": liar_block(rq1_comps),
                           "WELFake (ISOT removed)": welfake_clean_block(rq1_comps)},
-                "cv": cv_block(rq1_comps + ["style_robust"]),
+                # No "cv" key: the 5-fold section was removed from RQ1 as
+                # methodology detail that stalls an executive read. RQ2 keeps
+                # its own CV chart, which builds from sweep_block, so the
+                # measurement is still reported -- just not twice.
                 "significance": significance_block(),
                 "editsym": editsym_block()},
         "rq2": sweep_block(),

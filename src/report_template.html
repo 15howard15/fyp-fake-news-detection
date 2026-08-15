@@ -64,21 +64,28 @@ h1{font-size:30px;line-height:1.22;margin:0 0 8px;letter-spacing:-.02em}
   box-shadow:0 6px 18px -12px var(--glow)}
 .tab[aria-selected="true"]::after{content:"";position:absolute}
 .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.panel{display:none;padding-top:26px}
+.panel{display:none;padding-top:44px}
 .panel.active{display:block}
 @media (prefers-reduced-motion: no-preference){
   .panel.active{animation:rise .32s cubic-bezier(.2,.7,.3,1) both}
   @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 }
 h2{font-size:23px;line-height:1.3;margin:0 0 10px;letter-spacing:-.01em}
-h3{font-size:16px;margin:30px 0 8px}
+/* A section heading is the strongest divider on the page, so it gets the space
+   that horizontal rules and card borders used to occupy. */
+h3{font-size:17px;margin:72px 0 6px;letter-spacing:-.01em}
+h4{font-size:15px;margin:52px 0 4px;letter-spacing:-.01em}
 p{margin:0 0 14px;color:var(--ink-2);max-width:72ch}
 p.lead{color:var(--ink)}
 .answer{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--s1);
   border-radius:8px;padding:14px 16px;margin:0 0 22px}
 .answer .k{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px}
 .answer p{margin:0;color:var(--ink)}
-.note{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:13px 15px;margin:16px 0}
+/* Notes lose the box too and keep only a coloured rule on the left -- enough to
+   mark the kind of note without adding another filled rectangle. */
+.note{background:transparent;border:0;border-left:2px solid var(--border);
+  border-radius:0;padding:2px 0 2px 16px;margin:28px 0;color:var(--ink-2)}
+.note strong{color:var(--ink)}
 .note.warn{border-left:3px solid var(--warn)}
 .note.crit{border-left:3px solid var(--crit)}
 .note.good{border-left:3px solid var(--good)}
@@ -97,11 +104,12 @@ p.lead{color:var(--ink)}
    read like achievements -- 63.8% looks like coverage rather than a problem. */
 .tile .v.good{color:var(--good-ink)}
 .tile .v.bad{color:var(--crit)}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;
-  padding:16px 16px 10px;margin:16px 0;box-shadow:var(--shadow);
-  transition:border-color .2s,box-shadow .2s}
-.card:hover{border-color:rgba(34,211,238,.22);box-shadow:0 0 0 1px rgba(34,211,238,.06),0 18px 40px -28px var(--glow)}
-.card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+/* Cards carry no border or shadow. A chart is already a bounded object; boxing
+   it draws a second rectangle around a rectangle, and eight of those on a page
+   is most of what makes it feel busy. Separation now comes from space. */
+.card{background:transparent;border:0;border-radius:0;
+  padding:0;margin:52px 0;box-shadow:none}
+.card-h{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px}
 .card-t{font-size:14.5px;font-weight:640;color:var(--ink)}
 .card-n{font-size:12.5px;color:var(--muted);margin-top:3px;max-width:70ch}
 .seg{display:flex;gap:2px;background:var(--page);border:1px solid var(--border);border-radius:7px;padding:2px;flex-wrap:wrap}
@@ -109,13 +117,20 @@ p.lead{color:var(--ink)}
   font:600 12px/1 system-ui,sans-serif;color:var(--ink-2);padding:6px 9px}
 .seg button:hover{color:var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.07)}
-.legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 2px;font-size:12.5px;color:var(--ink-2)}
+/* Legend sits in one horizontal row directly above its chart, so the eye reads
+   the key once and then never leaves the plot. */
+.legend{display:flex;gap:20px;flex-wrap:wrap;margin:0 0 14px;font-size:12.5px;color:var(--ink-2)}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
-.plot{overflow-x:auto}
+.plot{overflow-x:auto;padding:20px 0 8px}
 svg.chart{display:block;width:100%;height:auto;min-width:520px}
 .grid-line{stroke:var(--grid);stroke-width:1}
 .axis-line{stroke:var(--axis);stroke-width:1}
+/* GRIDLINE POLICY: charts draw major lines only (0.50 and 1.00). The old
+   five-line grid put four rules behind every bar, and with the value printed on
+   top of each bar those rules were never the thing anyone read -- they were
+   just ink competing with the data. 0.50 stays because on an AUC chart it is
+   the meaningful threshold, not a tick. */
 .ref-line{stroke:var(--muted);stroke-width:1;stroke-dasharray:4 3}
 text{fill:var(--muted);font:11px system-ui,sans-serif}
 text.val{fill:var(--ink-2);font-size:10px;text-anchor:middle;font-variant-numeric:tabular-nums}
@@ -252,65 +267,44 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <!-- Declarative titles state the finding, not the question. Each one is
        checked against the numbers on this page before it is written: a title
        that overstates is worse than a question, because a reader stops there. -->
-  <h2>RQ1 — Full synthetic replacement fails once the evaluation removes lexical shortcuts</h2>
-  <p class="meta">On a corpus where neither word count nor shared articles can help, training on synthetic fake news alone reaches AUC 0.38–0.65 against 0.98–1.00 for real fake news. On LIAR it looks far healthier, which is the point.</p>
+  <h2>RQ1 — Can LLM-generated fake news replace real fake news for training?</h2>
+  <p class="meta">Full synthetic replacement fails once the evaluation removes lexical shortcuts.</p>
   <div class="card">
     <div class="card-h">
       <div><div class="card-t">Detection performance by method and training recipe</div>
-      <div class="card-n">Higher is better. Both test corpora are unseen during training. Switch between them: LIAR is short political statements, cleaned WELFake is full-length articles with every ISOT article removed.</div></div>
+      <div class="card-n">Higher is better. Both corpora are unseen during training — LIAR is short political statements, WELFake is full-length articles.</div></div>
       <div class="seg" data-metric-for="c-rq1"></div>
     </div>
-    <div class="seg" id="seg-rq1-test" style="margin:8px 0 2px"></div>
+    <div class="seg" id="seg-rq1-test" style="margin:0 0 14px"></div>
     <div class="legend" id="l-rq1"></div>
     <div class="plot"><div id="c-rq1"></div></div>
     <div id="warn-c-rq1"></div>
   </div>
   <div class="note warn"><p><strong>Read LIAR scores with the length caveat.</strong> A word-counter alone reaches AUC 0.9999 on LIAR and 0.44 on cleaned WELFake, so where the two disagree, WELFake is the more informative one. LR on full replacement is the clearest case: 0.943 on LIAR against 0.653 on WELFake.</p></div>
-  <details class="tbl"><summary>All metrics — every recipe × model, on both corpora</summary>
+  <details class="tbl"><summary>View raw data — all metrics — every recipe × model, on both corpora</summary>
     <div class="tscroll"><div id="t-rq1"></div></div></details>
 
-  <h3>Is the gap real? McNemar's test on paired predictions</h3>
-  <div class="tiles" id="tiles-sig"></div>
-  <div class="note" id="note-sig"><p><strong>Almost everything is significant, which is why the exceptions matter.</strong> With ~10,000 paired rows even a fraction of a percent clears p&lt;0.05, so a significant result mostly confirms the gap is not noise. The comparisons that came back <em>null</em> are the informative ones — they say two systems genuinely cannot be told apart.</p></div>
-  <details class="tbl"><summary>Comparisons that were NOT significant</summary>
-    <div class="tscroll"><div id="t-signull"></div></div></details>
-  <details class="tbl"><summary>Every McNemar comparison</summary>
-    <div class="tscroll"><div id="t-sig"></div></div></details>
-
-  <h3>5-fold cross-validation — and why the split has to be pair-aware</h3>
-  <div class="card" id="card-cv">
-    <div class="card-h"><div><div class="card-t">In-distribution AUC under an ordinary split vs. a pair-aware split</div>
-    <div class="card-n">LR and SVM only — CNN and BERT keep their single-fit loop and their 3-seed runs, which measure the same variance far more cheaply. These are <strong>in-distribution</strong> scores: 80% of a recipe against the held-out 20% of that same recipe. They are not comparable to the cross-domain numbers above.</div></div>
-    <div class="seg" id="seg-cv-model"></div></div>
-    <div class="legend" id="l-cv"></div>
-    <div class="plot"><div id="c-cv"></div></div>
-  </div>
-  <div class="note crit"><p><strong>An ordinary k-fold split leaks here.</strong> The synthetic recipes are built as minimal pairs — an article and its one-fact-altered twin. An ordinary split puts one half of a pair in training and the other in validation, so the model memorises the article as real and calls its fake twin real too. That pushes AUC <em>below</em> 0.5 rather than merely lowering it: <span id="v-cvworst"></span>. Keeping each pair whole removes the effect, and recipes with no synthetic data are unmoved — which is what identifies the pairs as the cause.</p></div>
-  <details class="tbl"><summary>Cross-validated mean ± SD, both splits</summary>
-    <div class="tscroll"><div id="t-cv"></div></div></details>
-
-  <h3>Validity check: detecting fake news, or detecting AI writing?</h3>
-  <div class="card">
-    <div class="card-h"><div><div class="card-t">AUC-ROC when both classes are AI-authored, vs. only the fake class</div>
-    <div class="card-n">1.0 = perfect ranking · 0.5 = random guessing · below 0.5 = confidently backwards. Shown on both corpora so it can't be dismissed as one dataset's quirk.</div></div>
-    <div class="seg" id="seg-auth"></div></div>
-    <div class="legend" id="l-auth"></div>
-    <div class="plot"><div id="c-auth"></div></div>
-  </div>
-  <div class="note crit"><p><strong>Confidently backwards, not uncertain.</strong> AUC-ROC falls below 0.50 for all four models on both corpora. The models learned that AI-paraphrased text means “real”, so genuine unedited articles look fake to them.</p></div>
-
-  <h4>What was the shortcut worth? Rebuilding the controls with the edit depth matched</h4>
+  <h3>Models Exploit AI-Authorship Signatures Instead of Semantic Truth</h3>
+  <p class="meta" id="meta-auth"></p>
   <div class="card" id="card-editsym">
-    <div class="card-h"><div><div class="card-t">The same controls, with both classes rewritten to the same depth</div>
-    <div class="card-n">The real class was rewritten throughout while the fake class kept most of the source wording, so “close to the source” predicted “fake” with no reference to any fact. These rebuild the fake class at the real class's rewrite depth and change nothing else — same real rows, same manipulation strategies, same counts.</div></div>
+    <div class="card-h"><div><div class="card-t">Both classes machine-written: before and after matching the edit depth</div>
+    <div class="card-n">Left dot = as originally built, where the fake class kept far more of the source wording than the real class. Right dot = the same recipe with both classes rewritten equally. Nothing else changed.</div></div>
     <div class="seg" id="seg-editsym-test"></div></div>
     <div class="legend" id="l-editsym"></div>
     <div class="plot"><div id="c-editsym"></div></div>
   </div>
   <div class="tiles" id="tiles-editsym"></div>
-  <details class="tbl"><summary>Before and after, every model</summary>
-    <div class="tscroll"><div id="t-editsym"></div></div></details>
   <div class="note" id="note-editsym"><p></p></div>
+  <details class="tbl"><summary>View raw data — before and after, every model</summary>
+    <div class="tscroll"><div id="t-editsym"></div></div></details>
+  <h3>Is the gap real? McNemar's test on paired predictions</h3>
+  <div class="tiles" id="tiles-sig"></div>
+  <div class="note" id="note-sig"><p><strong>Almost everything is significant, which is why the exceptions matter.</strong> With ~10,000 paired rows even a fraction of a percent clears p&lt;0.05, so a significant result mostly confirms the gap is not noise. The comparisons that came back <em>null</em> are the informative ones — they say two systems genuinely cannot be told apart.</p></div>
+  <details class="tbl"><summary>View raw data — comparisons that were NOT significant</summary>
+    <div class="tscroll"><div id="t-signull"></div></div></details>
+  <details class="tbl"><summary>View raw data — every McNemar comparison</summary>
+    <div class="tscroll"><div id="t-sig"></div></div></details>
+
 </section>
 
 <!-- ============ RQ2 ============ -->
@@ -328,7 +322,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="plot"><div id="c-rq2"></div></div>
     <div id="warn-c-rq2"></div>
   </div>
-  <details class="tbl"><summary>All metrics across the sweep</summary>
+  <details class="tbl"><summary>View raw data — all metrics across the sweep</summary>
     <div class="tscroll"><div id="t-rq2"></div></div></details>
   <div class="note good"><p><strong>The trend is not a length artifact.</strong> Length carries no information inside this sweep — a word-counter scores <span id="v-rq2len"></span> on the training data at every blend level, because real fake news (378 words) and synthetic fake news (376) are the same length. The shape also reproduces on the in-domain corpus, where length alone scores 0.474. What moves across the sweep is the fake class's <em>source</em>, not its length.</p></div>
   <div class="note warn"><p><strong>The 100% endpoint is the exception.</strong> There the two corpora disagree sharply — LR reads 0.943 on LIAR but 0.638 in-domain, and CNN 0.065 against 0.424 — because at full replacement the models lean on the length gap LIAR hands them. That endpoint is the recipe rebuilt under length control in the framework tab.</p></div>
@@ -372,7 +366,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="legend" id="l-seed"></div>
     <div class="plot"><div id="c-seed"></div></div>
   </div>
-  <details class="tbl" open><summary>Seed detail — mean ± SD alongside the range actually observed</summary>
+  <details class="tbl"><summary>View raw data — seed detail, mean ± SD alongside the range actually observed</summary>
     <div class="tscroll"><div id="t-seed"></div></div></details>
   <div class="note warn"><p><strong>± is a spread, not a range.</strong> Reconstructing endpoints from three runs invents numbers never observed: it implies ≈0.06–0.83 for BERT under full replacement, where the runs were <span id="v-realsyn-runs"></span>. Quote the observed column.</p></div>
   <div class="note crit"><p><strong>BERT is the least reproducible model here.</strong> Mean seed SD <span id="v-bertstd"></span>, worst case <span id="v-bertmax"></span>, against <span id="v-cnnstd"></span> for CNN and exactly 0.000 for LR and SVM.</p></div>
@@ -397,7 +391,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="legend" id="l-rev"></div>
     <div class="plot"><div id="c-rev"></div></div>
   </div>
-  <details class="tbl"><summary>Does robustness cost ordinary accuracy? (no attack applied)</summary>
+  <details class="tbl"><summary>View raw data — does robustness cost ordinary accuracy? (no attack applied)</summary>
     <div class="tscroll"><div id="t-rq4"></div></div></details>
   <div class="note good"><p><strong>No accuracy cost.</strong> Every model matches or beats Real + Real on the untouched test set.</p></div>
 </section>
@@ -416,7 +410,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="plot"><div id="c-fw"></div></div>
     <div id="warn-c-fw"></div>
   </div>
-  <details class="tbl"><summary>All metrics on both corpora</summary>
+  <details class="tbl"><summary>View raw data — all metrics on both corpora</summary>
     <div class="tscroll"><div id="t-fw"></div></div></details>
 
   <div class="note crit"><p><strong>WELFake is not independent.</strong> <span id="v-overlap"></span> of its fake articles are exact text matches for articles in ISOT, the training corpus — against 0.0% for LIAR.</p></div>
@@ -434,7 +428,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div id="warn-c-cont"></div>
   </div>
   <div class="tiles" id="tiles-cont"></div>
-  <details class="tbl"><summary>Every model and recipe, before and after cleaning</summary>
+  <details class="tbl"><summary>View raw data — every model and recipe, before and after cleaning</summary>
     <div class="tscroll"><div id="t-cont"></div></div></details>
   <div class="note good"><p><strong>The conclusions survive the clean-up — and one of them strengthens.</strong> Removing <span id="v-crem"></span> of the WELFake fake pool shifts no score by more than <span id="v-cmax"></span>, and <span id="v-cdown"></span> move down rather than up: the contaminated set was flattering every model, not distorting the ranking. Real + Real and Mixed still transfer; full replacement still collapses. Critically, <span id="v-cbc"></span> — so the backwards-ranking result cannot have been an artifact of ISOT text sitting in the test set.</p></div>
 
@@ -459,13 +453,13 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
     <div class="plot"><div id="c-lc"></div></div>
     <div id="warn-c-lc"></div>
   </div>
-  <details class="tbl"><summary>Both recipes on every test set</summary>
+  <details class="tbl"><summary>View raw data — both recipes on every test set</summary>
     <div class="tscroll"><div id="t-lc"></div></div></details>
   <div class="note good"><p><strong>The length-controlled recipe is the better detector where it counts.</strong> On cleaned WELFake — the set where word-counting doesn't help — removing the confound <em>raises</em> AUC for three of the four models (<span id="v-lcwf"></span> on average). On LIAR it changes scores in both directions: LR falls 0.943 → 0.690 and CNN rises 0.054 → 0.552. Both moves have the same cause. LR was riding the length gap and CNN was riding it backwards; neither was reading the facts.</p></div>
 
   <h3>Is the generated text any good?</h3>
   <div class="tiles" id="tiles-q"></div>
-  <details class="tbl"><summary>Diversity — is the generator repeating itself?</summary>
+  <details class="tbl"><summary>View raw data — diversity — is the generator repeating itself?</summary>
     <div class="tscroll"><div id="t-div"></div></div></details>
   <div class="note"><p><strong>Fact edits verify where the evidence was saved.</strong> <span id="v-fact"></span> Where the full source was stored the rate is <span id="v-factfull"></span>, against <span id="v-facttrunc"></span> where only a 1,000-character preview was kept.</p></div>
   <div class="note warn"><p><strong>Plausibility caveat.</strong> The judge is the same model family that generated the text, so self-preference bias cannot be ruled out.</p></div>
@@ -585,6 +579,12 @@ function lab(v){
 }
 const fmt=v=>v==null?"—":v.toFixed(4).replace(/0+$/,"").replace(/\.$/,"");
 
+/* Major gridline positions only -- baseline, midpoint, top. Every bar and dot
+   on this page carries its own printed value, so intermediate rules add ink
+   without adding information. Returned as a list so all five chart types read
+   their grid from one place and cannot drift apart. */
+const GRID=max=>[0,max/2,max];
+
 /* Same problem as lab(), one level down: a mean of 0.9995 printed as "1.000"
    claims a perfect score, and an SD of 0.0003 printed as "0.000" claims zero
    variance. Widen the precision until the digits stop lying. */
@@ -607,12 +607,12 @@ function bars(host,cfg){
   const Lp=44,R=12,T=18,B=34;
   const pw=W-Lp-R,ph=H-T-B,max=cfg.max||1;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
-  for(let i=0;i<=4;i++){
-    const v=max/4*i,y=T+ph-(v/max)*ph;
+  GRID(max).forEach(v=>{
+    const y=T+ph-(v/max)*ph;
     svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
     const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});
-    t.textContent=max<=0.7?v.toFixed(2):v.toFixed(2);svg.appendChild(t);
-  }
+    t.textContent=v.toFixed(2);svg.appendChild(t);
+  });
   let refY=null;
   if(cfg.ref!=null){refY=T+ph-(cfg.ref/max)*ph;
     svg.appendChild(el("line",{class:"ref-line",x1:Lp,x2:W-R,y1:refY,y2:refY}));}
@@ -658,12 +658,11 @@ function dumbbell(host,cfg){
   const x=v=>Lp+(v/max)*pw;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
 
-  for(let i=0;i<=4;i++){
-    const v=max/4*i;
+  GRID(max).forEach(v=>{
     svg.appendChild(el("line",{class:"grid-line",x1:x(v),x2:x(v),y1:T-6,y2:T+rowH*cats.length}));
     const t=el("text",{x:x(v),y:T-12,"text-anchor":"middle"});
     t.textContent=v.toFixed(2); svg.appendChild(t);
-  }
+  });
   if(cfg.ref!=null){
     svg.appendChild(el("line",{class:"ref-line",x1:x(cfg.ref),x2:x(cfg.ref),
       y1:T-6,y2:T+rowH*cats.length}));
@@ -712,12 +711,12 @@ function swarm(host,cfg){
   const cats=cfg.categories,W=cfg.width||760,H=cfg.height||300;
   const Lp=44,R=12,T=18,B=34, pw=W-Lp-R, ph=H-T-B, max=cfg.max||1;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
-  for(let i=0;i<=4;i++){
-    const v=max/4*i,y=T+ph-(v/max)*ph;
+  GRID(max).forEach(v=>{
+    const y=T+ph-(v/max)*ph;
     svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
     const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});
     t.textContent=v.toFixed(2); svg.appendChild(t);
-  }
+  });
   svg.appendChild(el("line",{class:"axis-line",x1:Lp,x2:W-R,y1:T+ph,y2:T+ph}));
   const gw=pw/cats.length;
   cats.forEach((c,ci)=>{
@@ -758,11 +757,11 @@ function barsRange(host,cfg){
   const W=cfg.width||760,H=cfg.height||300,Lp=44,R=12,T=18,B=34;
   const pw=W-Lp-R,ph=H-T-B;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
-  for(let i=0;i<=4;i++){
-    const v=i/4,y=T+ph-v*ph;
+  GRID(1).forEach(v=>{
+    const y=T+ph-v*ph;
     svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
     const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});t.textContent=v.toFixed(2);svg.appendChild(t);
-  }
+  });
   svg.appendChild(el("line",{class:"axis-line",x1:Lp,x2:W-R,y1:T+ph,y2:T+ph}));
   const gw=pw/cats.length,gap=4,bw=(gw-gap*(series.length+1))/series.length;
   cats.forEach((c,ci)=>{
@@ -813,11 +812,11 @@ function lines(host,cfg){
   const W=760,H=300,Lp=44,R=16,T=18,B=40;
   const pw=W-Lp-R,ph=H-T-B,max=cfg.max||1;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
-  for(let i=0;i<=4;i++){
-    const v=max/4*i,y=T+ph-(v/max)*ph;
+  GRID(max).forEach(v=>{
+    const y=T+ph-(v/max)*ph;
     svg.appendChild(el("line",{class:"grid-line",x1:Lp,x2:W-R,y1:y,y2:y}));
     const t=el("text",{x:Lp-8,y:y+3.5,"text-anchor":"end"});t.textContent=v.toFixed(2);svg.appendChild(t);
-  }
+  });
   svg.appendChild(el("line",{class:"axis-line",x1:Lp,x2:W-R,y1:T+ph,y2:T+ph}));
   const xs=cats.length>1?pw/(cats.length-1):pw;
   cats.forEach((c,i)=>{const t=el("text",{class:"cat",x:Lp+i*xs,y:T+ph+18});t.textContent=c;svg.appendChild(t);});
@@ -879,7 +878,15 @@ function seg(host,items,onPick,initial){
 const metricSeg=(host,onPick,ms)=>seg(host,(ms||DATA.metrics).map(m=>({label:METRIC_LABEL[m],value:m})),onPick);
 
 /* ================= RQ1 — models on x, recipes as series ================= */
-const RQ1C=DATA.rq1.comps;
+const RQ1C_ALL=DATA.rq1.comps;
+/* The CHART shows the 2x2 replacement matrix only -- real/synthetic on each
+   axis. Real + Mixed belongs to the augmentation story (RQ2), and the
+   length-controlled recipe belongs to the length-confound story in the
+   framework tab; both are answers to different questions, and six series on
+   four models is more than anyone reads at a glance. The table below still
+   carries every recipe, so nothing is lost, only deferred. */
+const RQ1_CHART_SKIP=["mixed","real_syn_mixedlen"];
+const RQ1C=RQ1C_ALL.filter(c=>RQ1_CHART_SKIP.indexOf(c)<0);
 /* Test sets the recipes have been scored on. LIAR first because it is the
    headline protocol, but the switch exists because LIAR is 99.99% separable by
    word count -- a recipe that only looks good there has not been shown to work. */
@@ -901,14 +908,19 @@ legend(document.getElementById("l-rq1"),RQ1C.map((c,i)=>({name:L[c],color:roleCo
 metricSeg(document.querySelector('[data-metric-for="c-rq1"]'),rq1);
 if(RQ1TN.length>1)
   seg(document.getElementById("seg-rq1-test"),
-      RQ1TN.map(t=>({label:"Tested on "+t,value:t})),v=>{RQ1_T=v;rq1();});
+      /* The corpus name only; the parenthetical about how it was cleaned is a
+         methods detail, and it lives in the framework tab where the cleaning is
+         explained. On a switch label it is just noise. */
+      RQ1TN.map(t=>({label:"Tested on "+t.replace(/\s*\(.*\)\s*$/,""),value:t})),
+      v=>{RQ1_T=v;rq1();});
 else document.getElementById("seg-rq1-test").style.display="none";
 rq1("f1"); REDRAW.push(()=>rq1(RQ1_M));
 /* The table shows every corpus at once -- the chart switches, but a reader
    comparing two numbers should not have to toggle back and forth to do it. */
 table(document.getElementById("t-rq1"),
   ["Recipe","Model","Tested on","Accuracy","Precision","Recall","F1","AUC-ROC"],
-  RQ1C.flatMap(c=>DATA.models.flatMap(m=>RQ1TN.map(t=>{
+  /* RQ1C_ALL, not RQ1C: the chart is edited for legibility, the table is not. */
+  RQ1C_ALL.flatMap(c=>DATA.models.flatMap(m=>RQ1TN.map(t=>{
     const d=RQ1T[t][c]&&RQ1T[t][c][m];
     return [L[c],m,t,fmt(d&&d.accuracy),fmt(d&&d.precision),fmt(d&&d.recall),fmt(d&&d.f1),
       {v:fmt(d&&d.auc_roc),cls:d&&d.auc_roc<0.5?"bad":""}];}))));
@@ -936,70 +948,6 @@ table(document.getElementById("t-rq1"),
   table(document.getElementById("t-signull"),cols,S.null_results.map(rowOf));
   table(document.getElementById("t-sig"),cols,S.rows.map(rowOf));
 })();
-
-/* --------- 5-fold CV, ordinary vs pair-aware split --------- */
-(function(){
-  const C=DATA.rq1.cv;
-  if(!C||!C.comps||!C.comps.length||C.splits.length<2){
-    ["card-cv"].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display="none";});
-    const n=document.getElementById("v-cvworst");if(n&&n.closest(".note"))n.closest(".note").style.display="none";
-    const d=document.getElementById("t-cv");if(d&&d.closest("details"))d.closest("details").style.display="none";
-    return;
-  }
-  let CM="LR";
-  function draw(){
-    const cols=SER();
-    const get=(split,met)=>C.comps.map(c=>{
-      const d=C.rows[c]&&C.rows[c][CM]&&C.rows[c][CM][split];return d?d[met].mean:null;});
-    bars(document.getElementById("c-cv"),{categories:C.comps.map(c=>L[c]||c),height:300,
-      ref:0.5,refLabel:"random guessing",
-      series:[{name:"ordinary split",color:cols[3],values:get("stratified","auc_roc")},
-              {name:"pair-aware split",color:cols[0],values:get("grouped","auc_roc")}]});
-  }
-  legend(document.getElementById("l-cv"),[{name:"Ordinary k-fold (leaks across pairs)",color:SER()[3]},
-    {name:"Pair-aware k-fold",color:SER()[0]}]);
-  seg(document.getElementById("seg-cv-model"),
-      C.models.map(m=>({label:m,value:m})),v=>{CM=v;draw();});
-  draw(); REDRAW.push(draw);
-
-  if(C.max_gap){
-    const g=C.max_gap;
-    document.getElementById("v-cvworst").textContent =
-      L[g.comp]||g.comp; // filled in fully below
-    const s=C.rows[g.comp][g.model];
-    document.getElementById("v-cvworst").textContent =
-      `${g.model} on ${L[g.comp]||g.comp} moves from AUC `+
-      `${s.stratified.auc_roc.mean.toFixed(3)} to ${s.grouped.auc_roc.mean.toFixed(3)} `+
-      `once pairs are kept whole`;
-  }
-  table(document.getElementById("t-cv"),
-    ["Recipe","Model","Split","F1 (mean ± SD)","AUC-ROC (mean ± SD)","Accuracy (mean ± SD)","Folds"],
-    C.comps.flatMap(c=>C.models.flatMap(m=>C.splits.map(s=>{
-      const d=C.rows[c]&&C.rows[c][m]&&C.rows[c][m][s];
-      if(!d) return [L[c]||c,m,s,"—","—","—","—"];
-      const pm=k=>`${num(d[k].mean)} ± ${num(d[k].sd)}`;
-      return [L[c]||c,m,s,pm("f1"),
-        {v:pm("auc_roc"),cls:d.auc_roc.mean<0.5?"bad":""},pm("accuracy"),d.n_folds];
-    }))));
-})();
-
-/* authorship — corpus switch keeps it to 4 categories */
-let AUTH="liar";
-function auth(){
-  const src=AUTH==="liar"?DATA.rq1.liar:DATA.rq1.welfake,cols=SER();
-  const c2="c2_synreal_realfake",c3="c3_synreal_synfake";
-  bars(document.getElementById("c-auth"),{categories:DATA.models,height:280,ref:0.5,
-    refLabel:"random guessing",
-    series:[{name:"Only the fake class is AI-written",color:cols[0],
-      values:DATA.models.map(m=>src[c2]&&src[c2][m]?src[c2][m].auc_roc:null)},
-      {name:"Both classes are AI-written",color:cols[1],
-      values:DATA.models.map(m=>src[c3]&&src[c3][m]?src[c3][m].auc_roc:null)}]});
-}
-legend(document.getElementById("l-auth"),[{name:"Only the fake class is AI-written",color:SER()[0]},
-  {name:"Both classes are AI-written",color:SER()[1]}]);
-seg(document.getElementById("seg-auth"),[{label:"Tested on LIAR",value:"liar"},
-  {label:"Tested on WELFake",value:"welfake"}],v=>{AUTH=v;auth(); REDRAW.push(auth);});
-auth();
 
 /* --------- authorship shortcut: before vs after matching the edit depth --------- */
 (function(){
@@ -1031,6 +979,25 @@ auth();
   legend(document.getElementById("l-editsym"),[
     {name:"As built — edit gap "+(E.edit?E.edit.gap_before:"—")+"pp",color:cv("--role-failing")},
     {name:"Both classes edited to equal depth — gap "+(E.edit?E.edit.gap_after:"—")+"pp",color:cv("--role-hero")}]);
+
+  /* The C2-vs-C3 contrast used to be its own chart. It is one sentence of
+     numbers, so it is now the section subtitle -- computed from the same data
+     the chart drew, so removing the chart cost no rigour and no drift risk.
+     C2 = only the REAL class is machine-written. C3 = both are, and they were
+     edited to different depths. If machine-authorship alone were the problem,
+     C2 would fail too; it does not, which is what isolates the edit gap. */
+  (function(){
+    const el=document.getElementById("meta-auth"); if(!el) return;
+    const src=DATA.rq1.tests&&DATA.rq1.tests.LIAR; if(!src) return;
+    const grab=c=>DATA.models.map(m=>src[c]&&src[c][m]&&src[c][m].auc_roc).filter(v=>v!=null);
+    const c2=grab("c2_synreal_realfake"), c3=grab("c3_synreal_synfake");
+    if(!c2.length||!c3.length) return;
+    const rng=a=>num(Math.min.apply(null,a))+"–"+num(Math.max.apply(null,a));
+    el.innerHTML="When only the real class is machine-written, the models are fine — AUC "+
+      rng(c2)+". When both classes are machine-written but rewritten to different "+
+      "depths, the same models score "+rng(c3)+", far <em>below</em> random guessing. "+
+      "They had learned to spot the rewriting, not the lie.";
+  })();
   if(TN.length>1)
     seg(document.getElementById("seg-editsym-test"),
         TN.map(t=>({label:"Tested on "+t,value:t})),
