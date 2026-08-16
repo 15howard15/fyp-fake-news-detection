@@ -804,8 +804,12 @@ function dumbbell(host,cfg){
    cfg: {categories, series:[{name,color,values:[[..],[..]]}], highlight} */
 function swarm(host,cfg){
   host.innerHTML="";
-  const cats=cfg.categories,W=cfg.width||760,H=cfg.height||300;
-  const Lp=44,R=12,T=18,B=34, pw=W-Lp-R, ph=H-T-B, max=cfg.max||1;
+  const cats=cfg.categories,W=cfg.width||760;
+  /* Headroom for the gap annotation, so the sentence sits above the plot
+     instead of on top of the dots. */
+  const gapOn=cfg.annotateGap!=null && cats.indexOf(cfg.annotateGap)>=0;
+  const H=(cfg.height||300)+(gapOn?44:0);
+  const Lp=44,R=12,T=18+(gapOn?44:0),B=34, pw=W-Lp-R, ph=H-T-B, max=cfg.max||1;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
   GRID(max).forEach(v=>{
     const y=T+ph-(v/max)*ph;
@@ -843,6 +847,41 @@ function swarm(host,cfg){
     const t=el("text",{class:"cat",x:cx,y:T+ph+17}); t.textContent=c;
     svg.appendChild(t);
   });
+
+  /* Gap annotation. Names the empty band in one named column: where the dots
+     split into two groups with nothing between them, that emptiness is a
+     finding, and an unlabelled gap is only ever read as "the dots are spread
+     out". The split point and both group sizes are FOUND, not written in --
+     the largest interval between consecutive sorted values -- so if a rerun
+     moves the gap the sentence moves with it, and if the gap closes the
+     annotation disappears rather than describing something no longer there. */
+  if(gapOn){
+    const ci=cats.indexOf(cfg.annotateGap);
+    const pts=(cfg.values[ci]||[]).filter(v=>v!=null).sort((a,b)=>a-b);
+    let best=null;
+    for(let k=1;k<pts.length;k++){
+      const g=pts[k]-pts[k-1];
+      if(!best||g>best.g) best={g,lo:pts[k-1],hi:pts[k],below:k,above:pts.length-k};
+    }
+    if(best && best.g>=(cfg.gapMin||0.2)){
+      const cx=Lp+ci*gw+gw/2;
+      const yHi=T+ph-(best.hi/max)*ph, yLo=T+ph-(best.lo/max)*ph;
+      /* The empty band itself, drawn only across this column's width. */
+      svg.appendChild(el("rect",{x:cx-gw/2+16,y:yHi,width:gw-32,height:Math.max(yLo-yHi,1),
+        fill:cv("--role-failing"),opacity:.10}));
+      [yHi,yLo].forEach(yy=>svg.appendChild(el("line",{x1:cx-gw/2+16,x2:cx+gw/2-16,
+        y1:yy,y2:yy,stroke:cv("--role-failing"),"stroke-width":1.2,
+        "stroke-dasharray":"4 3",opacity:.75})));
+      const text=`${cfg.annotateGap} is bimodal: ${best.above} recipes at `
+        +`${num(best.hi,2)}+, ${best.below} at ${num(best.lo,2)} or below, nothing between`;
+      const ty=T-24;
+      const t2=el("text",{x:cx+gw/2-16,y:ty,"text-anchor":"end",class:"callout",
+        fill:cv("--role-failing")});
+      t2.textContent=text; svg.appendChild(t2);
+      svg.appendChild(el("path",{d:`M ${cx} ${ty+6} L ${cx} ${yHi-2}`,fill:"none",
+        stroke:cv("--role-failing"),"stroke-width":1.5,opacity:.9}));
+    }
+  }
   host.appendChild(svg);
 }
 
@@ -1390,6 +1429,12 @@ table(document.getElementById("t-rq2"),
   swarm(document.getElementById("c-fam"),{categories:DATA.models,height:290,
     values:DATA.models.map(m=>(BM[m]&&BM[m].values)||[]),
     colors:DATA.models.map(()=>cv("--role-hero")),
+    /* BERT only. Every model here has a gap somewhere -- these are seven
+       recipes, not a distribution -- but BERT's is the one that splits its
+       recipes into two comparable groups with a near-perfect cluster on one
+       side, which is the claim RQ3 makes. Annotating all four would restate
+       "the dots are spread out" four times. */
+    annotateGap:"BERT",
     /* Anything at or near zero is a collapse, not a low score -- flagged so the
        eye finds the failure rather than reading it as a short bar. */
     flag:(c,v)=>v<0.05});
