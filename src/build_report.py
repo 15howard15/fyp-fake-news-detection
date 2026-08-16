@@ -56,6 +56,26 @@ METRICS = ["f1", "auc_roc", "accuracy", "precision", "recall"]
 #   control    -- the baselines everything is measured against
 #   failing    -- recipes that break, kept on the page but not emphasised
 #   optimized  -- the recipes built here to fix a specific measured problem
+# Audience-facing names. RECIPE_LABEL is the compact form used where several
+# recipes share an axis; these spell out what the recipe actually IS, for charts
+# with room for them. "C2" and "Synthetic-real + Real-fake" both require the
+# reader to already know the design -- on a slide that is a wall the audience
+# stops at.
+RECIPE_PLAIN = {
+    "real_real": "Real news + real fake news",
+    "mixed": "Real news + half-synthetic fakes",
+    "real_syn": "Real news + all-synthetic fakes",
+    "c2_synreal_realfake": "AI-rewritten real news + real fake news",
+    "c3_synreal_synfake": "AI-rewritten real news + AI-written fakes",
+    "real_syn_multisource": "Real news + synthetic fakes from mixed sources",
+    "real_syn_mixedlen": "Real news + length-matched synthetic fakes",
+    "style_robust": "Tone-balanced training (the fix)",
+    "c2_sym": "AI-rewritten real + real fake, edit-matched",
+    "c3_sym": "Both classes AI-written, edit-matched",
+    "swap_025": "Real news + 25% synthetic fakes",
+    "swap_075": "Real news + 75% synthetic fakes",
+}
+
 RECIPE_ROLE = {
     "real_real": "control",
     "mixed": "control",
@@ -853,6 +873,11 @@ def collect():
         "models": MODELS,
         "labels": RECIPE_LABEL,
         "roles": RECIPE_ROLE,
+        # Keyed by the compact label as well as the composition name, because
+        # seed_block/seed_runs_block key their output by label rather than comp.
+        "plain": dict(RECIPE_PLAIN,
+                      **{RECIPE_LABEL[c]: p for c, p in RECIPE_PLAIN.items()
+                         if c in RECIPE_LABEL}),
         "metrics": METRICS,
         # Both test sets, for the same reason RQ2 now shows both: a score on
         # LIAR alone can't distinguish "detected the fake" from "noticed it was

@@ -138,6 +138,7 @@ text.cat{fill:var(--ink-2);font-size:12.5px;text-anchor:middle}
 text.axis-title{fill:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:.02em}
 text.line-label{font-size:12px;font-weight:650;font-variant-numeric:tabular-nums}
 text.callout{font-size:12.5px;font-weight:700;letter-spacing:-.01em}
+text.row-label{fill:var(--ink);font-size:12.5px}
 rect.bar{transition:opacity .12s}
 rect.bar:hover{opacity:.85;filter:drop-shadow(0 0 6px currentColor)}
 @media (prefers-reduced-motion: no-preference){
@@ -371,7 +372,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <h3>Evidence 2 — stability across random seeds</h3>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Spread across random seeds — can a single reported run be trusted?</div>
-    <div class="card-n">Same data, same settings, three different random seeds. Bar = mean, line = lowest to highest run. LR and SVM are deterministic, so their spread is exactly zero by construction.</div></div></div>
+    <div class="card-n">Each row is one training setup, run three times with nothing changed but the random seed. The line spans the worst and best of those runs; the dot is their average. A long line means the same recipe gave materially different answers. LR and SVM are left out — they are deterministic, so their three runs are identical by construction.</div></div></div>
     <div class="legend" id="l-seed"></div>
     <div class="plot"><div id="c-seed"></div></div>
   </div>
@@ -707,6 +708,91 @@ function dumbbell(host,cfg){
     const d=b-a, t=el("text",{x:W-R+8,y:y+4,class:"val"});
     t.textContent=(d>=0?"+":"")+d.toFixed(2); svg.appendChild(t);
   });
+  host.appendChild(svg);
+}
+
+/* ---------- rangeRows: horizontal min-max ranges, one row per condition ----------
+   Replaces a vertical bar-and-whisker for the seed chart. Three reasons it is
+   the right shape here:
+
+   1. Labels. Nine conditions on a horizontal axis forced abbreviations -- "C2",
+      "R+Mix", "R+Syn div" -- which an audience cannot decode. Rotated, each row
+      has a whole line to itself, so the recipe can be named in plain English.
+   2. The bars were noise. The question is "how far apart are two runs of the
+      same thing", and a filled bar from zero to the mean answers a different
+      question loudly. A range line with a mean marker IS the answer.
+   3. Sorting. Ordered worst-first, the chart reads top-down as a ranking, which
+      is how a list is read anyway.
+
+   cfg: {rows:[{name, series:[{name,color,min,max,mean,collapsed}]}], xLabel} */
+function rangeRows(host,cfg){
+  host.innerHTML="";
+  const rows=cfg.rows, W=cfg.width||760, rowH=cfg.rowH||36;
+  const Lp=cfg.labelW||286, R=64, T=cfg.annotate?58:24, B=44;
+  const H=T+B+rowH*rows.length, pw=W-Lp-R, max=cfg.max||1;
+  const x=v=>Lp+(v/max)*pw;
+  const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
+
+  GRID(max).forEach(v=>{
+    svg.appendChild(el("line",{class:"grid-line",x1:x(v),x2:x(v),y1:T-8,y2:T+rowH*rows.length}));
+    const t=el("text",{x:x(v),y:T-16,"text-anchor":"middle"});
+    t.textContent=v.toFixed(2); svg.appendChild(t);
+  });
+  if(cfg.xLabel){
+    const t=el("text",{class:"axis-title",x:Lp+pw/2,y:H-12,"text-anchor":"middle"});
+    t.textContent=cfg.xLabel; svg.appendChild(t);
+  }
+
+  let flagged=null;
+  rows.forEach((r,i)=>{
+    const yTop=T+i*rowH;
+    /* Zebra banding instead of row rules: separation without another line. */
+    if(i%2===0) svg.appendChild(el("rect",{x:Lp-10,y:yTop,width:pw+20,height:rowH,
+      fill:cv("--ink"),opacity:.028}));
+    const lab2=el("text",{x:Lp-18,y:yTop+rowH/2+4,"text-anchor":"end",class:"row-label"});
+    lab2.textContent=r.name; svg.appendChild(lab2);
+
+    const n=r.series.length;
+    r.series.forEach((s,si)=>{
+      if(s.min==null) return;
+      const yy=yTop+rowH/2+(si-(n-1)/2)*11;
+      const collapsed=!!s.collapsed;
+      const col=collapsed?cv("--role-failing"):s.color;
+      svg.appendChild(el("line",{x1:x(s.min),x2:x(s.max),y1:yy,y2:yy,stroke:col,
+        "stroke-width":collapsed?4.5:3.5,"stroke-linecap":"round",
+        opacity:collapsed?1:.55}));
+      /* End caps make the extremes readable when a range is very short. */
+      [s.min,s.max].forEach(v=>svg.appendChild(el("line",{x1:x(v),x2:x(v),
+        y1:yy-4,y2:yy+4,stroke:col,"stroke-width":collapsed?2.5:2,opacity:collapsed?1:.7})));
+      const dot=el("circle",{cx:x(s.mean),cy:yy,r:4,fill:col,
+        stroke:cv("--surface"),"stroke-width":1.5});
+      const ti=el("title");
+      ti.textContent=`${s.name} — ${r.name}: runs from ${s.min.toFixed(3)} to `
+        +`${s.max.toFixed(3)}, mean ${s.mean.toFixed(3)}`
+        +(collapsed?"  (one run did not converge)":"");
+      dot.appendChild(ti); svg.appendChild(dot);
+      if(collapsed && !flagged) flagged={x:x(s.min),y:yy,s,r};
+    });
+    /* Spread printed at the right: the number the row exists to communicate. */
+    const worst=r.series.reduce((a,b)=>
+      ((b.max-b.min)>((a&&a.max-a.min)||-1)?b:a),null);
+    if(worst&&worst.min!=null){
+      const t=el("text",{x:W-R+10,y:yTop+rowH/2+4,class:"val","text-anchor":"start",
+        fill:(worst.max-worst.min)>0.3?cv("--role-failing"):cv("--ink-2")});
+      t.textContent="±"+((worst.max-worst.min)/2).toFixed(2); svg.appendChild(t);
+    }
+  });
+
+  if(cfg.annotate && flagged){
+    const text=cfg.annotate;
+    const t=el("text",{x:Lp,y:T-38,"text-anchor":"start",class:"callout",
+      fill:cv("--role-failing")});
+    t.textContent=text; svg.appendChild(t);
+    svg.appendChild(el("path",{d:`M ${Lp+6} ${T-32} L ${flagged.x} ${T-32} L ${flagged.x} ${flagged.y-7}`,
+      fill:"none",stroke:cv("--role-failing"),"stroke-width":1.5,opacity:.9}));
+    svg.appendChild(el("circle",{cx:flagged.x,cy:flagged.y,r:8,fill:"none",
+      stroke:cv("--role-failing"),"stroke-width":1.5,opacity:.6}));
+  }
   host.appendChild(svg);
 }
 
@@ -1426,20 +1512,31 @@ table(document.getElementById("t-rq2"),
   }
   drawFam();
 
-  const S=DATA.rq3.seeds,names=Object.keys(S);
-  // Nine conditions with full recipe names collide on a horizontal axis, so the
-  // chart gets abbreviations and the table below carries the full names.
-  const SHORT={"Real + Real":"R+R","Real + Mixed":"R+Mix","Real + Synthetic":"R+Syn",
-    "Synthetic-real + Real-fake":"C2","Synthetic-real + Synthetic-fake":"C3",
-    "Real + Synthetic (diverse-sourced)":"R+Syn div","Style-robust":"Style-rob",
-    "swap_025":"25% syn","swap_075":"75% syn"};
+  const S=DATA.rq3.seeds;
+  const PLAIN=DATA.plain||{};
+  /* Sorted by how far the two runs of the same setup ended up apart, worst
+     first. The chart is a ranking of "which of these can I not trust from a
+     single run", so it should read like one. */
+  const names=Object.keys(S).sort((a,b)=>{
+    const sp=k=>Math.max.apply(null,DATA.models.map(m=>S[k][m]?S[k][m].max-S[k][m].min:0));
+    return sp(b)-sp(a);
+  });
   legend(document.getElementById("l-seed"),[{name:"CNN",color:cv("--role-control")},{name:"BERT",color:cv("--role-hero")}]);
   REDRAW.push(()=>drawSeed());
   function drawSeed(){
-  barsRange(document.getElementById("c-seed"),{categories:names.map(n=>SHORT[n]||n),
-    width:Math.max(760,names.length*92),height:300,annotateCollapse:true,
-    series:[{name:"CNN",color:cv("--role-control"),values:names.map(n=>S[n].CNN)},
-            {name:"BERT",color:cv("--role-hero"),values:names.map(n=>S[n].BERT)}]});
+  rangeRows(document.getElementById("c-seed"),{
+    xLabel:"F1 across three identical runs — a long line means the same setup gave different answers",
+    annotate:"1 in 3 identical BERT runs failed to converge (F1 = 0.002)",
+    rows:names.map(n=>({
+      name:PLAIN[n]||n,
+      series:["CNN","BERT"].map(m=>{
+        const d=S[n][m]; if(!d) return {name:m,min:null};
+        return {name:m,min:d.min,max:d.max,mean:d.mean,
+                color:m==="BERT"?cv("--role-hero"):cv("--role-control"),
+                /* A run at or near zero is a training failure, not a low score,
+                   and gets the failing colour wherever it appears. */
+                collapsed:d.min<0.05&&d.max>0.2};
+      })}))});
   }
   drawSeed();
   if(SS.BERT){document.getElementById("v-bertstd").textContent=SS.BERT.mean_std.toFixed(3);
