@@ -372,7 +372,7 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
   <h3>Evidence 2 — stability across random seeds</h3>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Spread across random seeds — can a single reported run be trusted?</div>
-    <div class="card-n">Each row is one training setup, run three times with nothing changed but the random seed. The line spans the worst and best of those runs; the dot is their average. A long line means the same recipe gave materially different answers. LR and SVM are left out — they are deterministic, so their three runs are identical by construction.</div></div></div>
+    <div class="card-n">Each row is one training setup, run three times with nothing changed but the random seed. The line spans the worst and best of those runs; the dot is their average. A long line means the same recipe gave materially different answers. Three of the nine measured setups are shown — the failure, the baseline and the fix; all nine are in the table below. LR and SVM are left out entirely: they are deterministic, so their three runs are identical by construction.</div></div></div>
     <div class="legend" id="l-seed"></div>
     <div class="plot"><div id="c-seed"></div></div>
   </div>
@@ -1601,10 +1601,23 @@ table(document.getElementById("t-rq2"),
 
   const S=DATA.rq3.seeds;
   const PLAIN=DATA.plain||{};
-  /* Sorted by how far the two runs of the same setup ended up apart, worst
-     first. The chart is a ranking of "which of these can I not trust from a
-     single run", so it should read like one. */
-  const names=Object.keys(S).sort((a,b)=>{
+  /* Three recipes, not nine. All nine were measured and all nine are in the
+     table below; the chart shows the three that carry the argument:
+
+        all-synthetic  -- where a run failed outright
+        real fake news -- the baseline it should be compared against
+        tone-balanced  -- the recipe that resolves it
+
+     The other six are variations that move the number without changing the
+     conclusion, and nine rows of that is a slide people stop reading. Named by
+     composition rather than by display string, so a relabelling cannot silently
+     empty the chart. */
+  const SEED_FOCUS=["real_syn","real_real","style_robust"];
+  const focusKeys=SEED_FOCUS.map(c=>L[c]||c).filter(k=>S[k]);
+  /* Worst spread first. With this trio that also happens to read as the
+     narrative -- failure, baseline, fix -- because the fix is the steadiest
+     thing on the chart, which is itself part of the point. */
+  const names=(focusKeys.length?focusKeys:Object.keys(S)).sort((a,b)=>{
     const sp=k=>Math.max.apply(null,DATA.models.map(m=>S[k][m]?S[k][m].max-S[k][m].min:0));
     return sp(b)-sp(a);
   });
@@ -1612,6 +1625,9 @@ table(document.getElementById("t-rq2"),
   REDRAW.push(()=>drawSeed());
   function drawSeed(){
   rangeRows(document.getElementById("c-seed"),{
+    /* Taller rows because there are only three: the space the other six used
+       to occupy becomes breathing room rather than being reclaimed. */
+    rowH:54,
     xLabel:"F1 across three identical runs — a long line means the same setup gave different answers",
     annotate:"1 in 3 identical BERT runs failed to converge (F1 = 0.002)",
     rows:names.map(n=>({
@@ -1634,13 +1650,26 @@ table(document.getElementById("t-rq2"),
   // the individual runs. Quoting mean +/- SD as though it were an interval is
   // the specific error this table exists to make impossible.
   const R=DATA.rq3.seedRuns||{};
+  /* allNames, not names: the CHART is filtered to the three recipes that carry
+     the argument, the table is not. Filtering both would turn an editorial
+     choice about focus into six missing measurements, and the card above
+     promises they are here. Ordered by spread like the chart, so the two agree
+     on what "worst" means. */
+  const allNames=Object.keys(S).sort((a,b)=>{
+    const sp=k=>Math.max.apply(null,DATA.models.map(m=>S[k][m]?S[k][m].max-S[k][m].min:0));
+    return sp(b)-sp(a);
+  });
   table(document.getElementById("t-seed"),
     ["Training recipe","Model","Mean ± SD","Observed range","Individual runs","n"],
-    names.flatMap(n=>["CNN","BERT"].map(m=>{
+    allNames.flatMap(n=>["CNN","BERT"].map(m=>{
       const d=S[n]&&S[n][m], runs=(R[n]&&R[n][m])||[];
-      if(!d)return [n,m,"—","—","—","—"];
+      /* Same plain names as the chart -- a reader who opens the table after
+         reading the chart should not have to re-map "swap_025" onto a row they
+         just saw named in English. */
+      const nm=PLAIN[n]||n;
+      if(!d)return [nm,m,"—","—","—","—"];
       const wide=d.std>=0.15;
-      return [n,m,{v:`${num(d.mean)} ± ${num(d.std)}`,cls:wide?"bad":""},
+      return [nm,m,{v:`${num(d.mean)} ± ${num(d.std)}`,cls:wide?"bad":""},
         `${num(d.min)} – ${num(d.max)}`,
         runs.map(v=>num(v)).join(", "), d.n];
     })));
