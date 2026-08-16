@@ -385,14 +385,16 @@ code{background:var(--surface);border:1px solid var(--border);border-radius:4px;
 <!-- ============ RQ4 ============ -->
 <section class="panel" id="rq4" role="tabpanel">
   <h2>RQ4 — Style-robust training cuts the tone attack to near zero at no accuracy cost</h2>
-  <p class="meta">Flip rates fall from 10.5–18.1% under the vulnerable Mixed recipe to 0.0–3.1%, and every model matches or beats the Real + Real baseline on the untouched test set.</p>
+  <p class="meta" id="meta-rq4"></p>
   <div class="card">
-    <div class="card-h"><div><div class="card-t">Flip rate after a tone-only rewrite, by training recipe &nbsp;↓</div>
-    <div class="card-n">Lower is better — 0% means the tone change fooled the model on nothing it previously got right.</div></div></div>
-    <div class="legend" id="l-rq4"></div>
+    <div class="card-h"><div><div class="card-t">Flip rate after a tone-only rewrite: each model's worst case, before and after</div>
+    <div class="card-n">A flip is an article the model had right and gets wrong once its tone is rewritten — the facts are untouched. Each line starts at that model's most vulnerable training recipe and ends at the style-robust one.</div></div></div>
     <div class="plot"><div id="c-rq4"></div></div>
   </div>
+  <div class="note good" id="note-rq4-headline"><p></p></div>
   <div class="note warn" id="note-rq4-dropped"></div>
+  <details class="tbl"><summary>View raw data — flip rate for every recipe and model</summary>
+    <div class="tscroll"><div id="t-rq4flips"></div></div></details>
   <h3>Does the fix survive an attack it wasn't trained for?</h3>
   <div class="card">
     <div class="card-h"><div><div class="card-t">Style-robust flip rate: trained direction vs. the untested reverse &nbsp;↓</div>
@@ -704,6 +706,76 @@ function dumbbell(host,cfg){
     // is what gets quoted in a viva.
     const d=b-a, t=el("text",{x:W-R+8,y:y+4,class:"val"});
     t.textContent=(d>=0?"+":"")+d.toFixed(2); svg.appendChild(t);
+  });
+  host.appendChild(svg);
+}
+
+/* ---------- slope: two states, one line per subject ----------
+   For a before/after where the QUESTION is direction and magnitude, not the
+   two levels. Grouped bars make the reader pair two heights and subtract; a
+   slope draws the change as an angle, which is read without arithmetic.
+   Each line is labelled at both ends, so it needs no legend.
+   cfg: {rows:[{name,before,after,color,beforeNote}], leftLabel, rightLabel,
+         yLabel, valueFmt} */
+function slope(host,cfg){
+  host.innerHTML="";
+  const rows=cfg.rows.filter(r=>r.before!=null&&r.after!=null);
+  if(!rows.length){host.innerHTML="";return;}
+  const W=cfg.width||760, H=cfg.height||400;
+  const LX=cfg.leftX||168, RX=W-(cfg.rightX||186), T=64, B=44;
+  const ph=H-T-B;
+  /* Scale to the data with a little headroom, not to 1.0: every value here is
+     a small rate, and a 0-1 axis would flatten all four lines into the floor.
+     Starting at zero is kept -- these are rates, and a truncated baseline would
+     exaggerate the very reduction the chart exists to show. */
+  const max=Math.max.apply(null,rows.flatMap(r=>[r.before,r.after]))*1.15||1;
+  const y=v=>T+ph-(v/max)*ph;
+  const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
+
+  [LX,RX].forEach(x=>svg.appendChild(el("line",{class:"axis-line",x1:x,x2:x,y1:T-10,y2:T+ph+10})));
+  const head=(x,txt,anchor)=>{const t=el("text",{x,y:T-30,"text-anchor":anchor,class:"axis-title"});
+    t.textContent=txt; svg.appendChild(t);};
+  head(LX,cfg.leftLabel||"Before","middle");
+  head(RX,cfg.rightLabel||"After","middle");
+  if(cfg.yLabel){
+    const t=el("text",{x:16,y:T+ph/2,"text-anchor":"middle",class:"axis-title",
+      transform:`rotate(-90 16 ${T+ph/2})`});
+    t.textContent=cfg.yLabel; svg.appendChild(t);
+  }
+
+  /* Collision avoidance: when two lines land within a few pixels at an end,
+     nudge the labels apart so neither is unreadable. Sorted by value so the
+     nudging preserves order. */
+  const place=(vals,minGap)=>{
+    const idx=vals.map((v,i)=>i).sort((a,b)=>vals[a]-vals[b]);
+    const out=[]; let last=Infinity;
+    idx.forEach(i=>{ let yy=y(vals[i]); if(last-yy<minGap) yy=last-minGap; out[i]=yy; last=yy; });
+    return out;
+  };
+  const yL=place(rows.map(r=>r.before),15), yR=place(rows.map(r=>r.after),15);
+  const f=cfg.valueFmt||(v=>v.toFixed(3));
+
+  rows.forEach((r,i)=>{
+    const y0=y(r.before), y1=y(r.after);
+    svg.appendChild(el("line",{x1:LX,x2:RX,y1:y0,y2:y1,stroke:r.color,
+      "stroke-width":2.5,"stroke-linecap":"round",opacity:.9}));
+    [[LX,y0],[RX,y1]].forEach(([x,yy])=>{
+      svg.appendChild(el("circle",{cx:x,cy:yy,r:6,fill:cv("--surface")}));
+      svg.appendChild(el("circle",{cx:x,cy:yy,r:4.5,fill:r.color}));
+    });
+    const tl=el("text",{x:LX-16,y:yL[i]+4,"text-anchor":"end",class:"line-label",fill:r.color});
+    tl.textContent=r.name+"  "+f(r.before);
+    const ti=el("title");
+    ti.textContent=`${r.name}: ${f(r.before)}`+(r.beforeNote?` (${r.beforeNote})`:"")
+      +` → ${f(r.after)}`;
+    tl.appendChild(ti); svg.appendChild(tl);
+    /* The percentage is the only quantity comparable across models here: LR
+       falls 0.56 in absolute terms and BERT 0.15, but both are ~a complete
+       removal of the attack. */
+    const drop=r.before>0?Math.round(100*(r.before-r.after)/r.before):null;
+    const tr=el("text",{x:RX+16,y:yR[i]+4,"text-anchor":"start",class:"line-label",fill:r.color});
+    tr.textContent=f(r.after)+(drop!=null?"   −"+drop+"%":"");
+    svg.appendChild(tr);
   });
   host.appendChild(svg);
 }
@@ -1414,15 +1486,36 @@ table(document.getElementById("t-rq2"),
     if(collapsed(r,m)) dropped.push({model:m,recipe:r,
       share:DEG[r][m].one_class_share});}));
 
+  /* Each model's WORST surviving baseline -- the recipe that left it most
+     exposed -- paired with its style-robust result. Degenerate cells are
+     excluded from the search: SVM and CNN score a flip rate of 0.000 on Real +
+     Synthetic only because they already answer with one class, and letting a
+     broken model supply a "baseline" would understate what the fix repaired. */
+  const BASE=recipes.filter(r=>r!=="Style-robust");
+  const worstBaseline=m=>{
+    let best=null;
+    BASE.forEach(r=>{
+      if(collapsed(r,m)) return;
+      const v=f[r]&&f[r][m];
+      if(v!=null&&(!best||v>best.v)) best={v,recipe:r};
+    });
+    return best;
+  };
+
   REDRAW.push(()=>drawRQ4());
   function drawRQ4(){
-  /* roleColors, not ROLE per series: two control recipes would otherwise draw
-     in the identical grey and read as one series. */
-  const cols=roleColors(recipes.map(r=>KEY[r]||r));
-  legend(document.getElementById("l-rq4"),recipes.map((r,i)=>({name:r,color:cols[i]})));
-  bars(document.getElementById("c-rq4"),{categories:DATA.models,height:300,max:0.65,
-    series:recipes.map((r,i)=>({name:r,color:cols[i],
-      values:DATA.models.map(m=>collapsed(r,m)?null:f[r][m])}))});
+  /* Model colours, matched to the RQ2 line chart, so "cyan is LR" holds across
+     the report rather than being relearned per section. */
+  const mcols=SER();
+  const rows=DATA.models.map((m,i)=>{
+    const w=worstBaseline(m);
+    return w?{name:m,before:w.v,after:f["Style-robust"][m],color:mcols[i],
+              beforeNote:"worst baseline: "+w.recipe}:null;
+  }).filter(Boolean);
+  slope(document.getElementById("c-rq4"),{rows,height:400,
+    leftLabel:"Vulnerable baseline",rightLabel:"Style-robust (after fix)",
+    yLabel:"Flip rate — lower is better",
+    valueFmt:v=>(v*100).toFixed(1)+"%"});
   legend(document.getElementById("l-rev"),[{name:"Trained direction",color:cv("--role-control")},
     {name:"Reverse (untested) direction",color:cv("--role-hero")}]);
   bars(document.getElementById("c-rev"),{categories:DATA.models,height:250,max:0.08,
@@ -1430,19 +1523,53 @@ table(document.getElementById("t-rq2"),
       {name:"Reverse direction",color:cv("--role-hero"),values:DATA.models.map(m=>DATA.rq4.reverse[m])}]});
   }
   drawRQ4();
+  /* Headline + subtitle, derived. The percentage reduction is the quantity
+     that compares across models: LR sheds 0.56 of flip rate and BERT 0.15, but
+     both amount to the attack being removed. */
+  (function(){
+    const reds=DATA.models.map(m=>{
+      const w=worstBaseline(m); const a=f["Style-robust"][m];
+      return (w&&w.v>0&&a!=null)?(w.v-a)/w.v:null;}).filter(v=>v!=null);
+    if(!reds.length) return;
+    const lo=Math.round(Math.min.apply(null,reds)*100), hi=Math.round(Math.max.apply(null,reds)*100);
+    const worstAfter=Math.max.apply(null,DATA.models.map(m=>f["Style-robust"][m]||0));
+    const meta=document.getElementById("meta-rq4");
+    if(meta) meta.textContent="Every model's worst-case flip rate falls by "+lo+"–"+hi+
+      "%, to no more than "+(worstAfter*100).toFixed(1)+"% — and none of them gives up accuracy to get there.";
+    const el=document.getElementById("note-rq4-headline");
+    if(el) el.innerHTML="<p><strong>The attack stops working.</strong> A tone rewrite changes no facts, "+
+      "so a model reading content should ignore it entirely. Before the fix, rewriting tone flipped up to "+
+      (Math.max.apply(null,DATA.models.map(m=>{const w=worstBaseline(m);return w?w.v:0;}))*100).toFixed(1)+
+      "% of correct answers. After it, at most "+(worstAfter*100).toFixed(1)+"% — "+
+      /* "a 83%" vs "an 83%": the article depends on how the number is spoken,
+         and the number is derived, so the article has to be too. */
+      (/^(8|11|18)/.test(String(lo))?"an ":"a ")+lo+"–"+hi+
+      "% reduction across all four models, with BERT reaching zero.</p>";
+  })();
+
+  /* The per-recipe detail the grouped bars used to carry, now a table: the
+     chart answers "did the fix work", the table answers "what did each recipe
+     score", and those are different questions asked at different moments. */
+  table(document.getElementById("t-rq4flips"),
+    ["Recipe","Model","Flip rate","Note"],
+    recipes.flatMap(r=>DATA.models.map(m=>{
+      const bad=collapsed(r,m);
+      return [r,m,bad?"—":fmt(f[r][m]),
+        bad?{v:"excluded: "+(DEG[r][m].one_class_share*100).toFixed(1)+"% one class",cls:"bad"}:""];
+    })));
+
   (function(){
     const el=document.getElementById("note-rq4-dropped");
     if(!el) return;
     if(!dropped.length){ el.style.display="none"; return; }
     const list=dropped.map(d=>`<strong>${d.model} on ${d.recipe}</strong> `+
       `(${(d.share*100).toFixed(1)}% one class)`).join(" and ");
-    el.innerHTML="<p><strong>"+dropped.length+" bar"+(dropped.length>1?"s are":" is")+
-      " deliberately missing.</strong> "+list+" already answered with a single "+
-      "class before any attack was applied, so there was nothing left that a tone "+
-      "rewrite could talk them out of. Their 0% flip rate would sit on this chart "+
-      "looking like the best result on it, when it actually means the model was "+
-      "broken to begin with — so those cells are excluded rather than plotted. "+
-      "Every value is still in the table below.</p>";
+    el.innerHTML="<p><strong>Two measurements are excluded.</strong> "+list+
+      " already answered with a single class before any attack was applied, so "+
+      "there was nothing left that a tone rewrite could talk them out of. Their "+
+      "0% flip rate would read as the best result here when it actually means the "+
+      "model was broken to begin with, so neither is used as a baseline. Both are "+
+      "marked in the table above.</p>";
   })();
   const b=DATA.rq4.baseline,names=Object.keys(b);
   table(document.getElementById("t-rq4"),["Recipe","Model","Accuracy","Precision","Recall","F1","AUC-ROC"],
