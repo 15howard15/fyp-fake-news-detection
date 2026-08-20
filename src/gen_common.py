@@ -59,8 +59,6 @@ def quality_ok(source: str, generated: str, min_words: int = 20,
     g_words = len(generated.split())
 
     if target_words is not None:
-        # min_words would reject every valid ~20-word snippet, so the target
-        # band replaces it rather than being applied on top.
         if isinstance(target_tol, (tuple, list)):
             lo_f, hi_f = target_tol
         else:
@@ -95,38 +93,13 @@ def call_llm(client, system_prompt: str, prompt: str, response_key: str):
             return data
     except json.JSONDecodeError:
         return None
-    except Exception as e:  # network / rate limit
+    except Exception as e:
         print(f"  API error: {e}")
         time.sleep(5)
         return None
     return None
 
 
-# ----------------------------------------------------------------------
-# Symmetric-edit generation (generate_synthetic_fake.py --symmetric and
-# generate_synthetic_real.py --symmetric)
-# ----------------------------------------------------------------------
-# The default generators edit the two classes by very different amounts. Measured
-# with difflib over 120 articles against the 4,000-character window the prompt
-# actually sees: synthetic FAKE retains 65.9% of the source verbatim (it alters
-# one fact and is told to leave the rest alone), synthetic REAL retains 44.0%
-# (it is told to rewrite throughout). A 21.8-point gap in how heavily the two
-# classes were rewritten is a feature the model can read INSTEAD of the facts --
-# "closer to newswire wording" becomes a proxy for "fake". That is the C3
-# authorship shortcut.
-#
-# The fix is to give both classes the SAME paraphrase instruction and let them
-# differ in exactly one thing: whether a fact was altered. Writing the shared
-# half once, here, is what makes that claim checkable -- two separately-worded
-# prompts that merely sound similar would leave the symmetry asserted rather
-# than enforced.
-# Calibrated against a 30-article pilot per class rather than guessed. The first
-# wording included "keep roughly the same length and the same order of events",
-# which held the rewrite back to 0.65 similarity -- LESS rewriting than the
-# original synthetic-real prompt achieved (0.44). Dropping that clause and
-# adding the explicit four-word reuse limit is what brings both classes down to
-# the 0.44 target. The clause about presentation order is deliberate: reordering
-# is most of what separates a genuine rewrite from a synonym swap.
 SYMMETRIC_PARAPHRASE_INSTRUCTION = (
     "Write the story again from scratch, as a different journalist working from "
     "the same notes would. Do not reuse any phrase of more than three "
@@ -148,12 +121,6 @@ SYMMETRIC_SYSTEM_BASE = (
 )
 
 
-# Shared by generate_style.py attack, generate_style.py counter-training, and
-# generate_style.py attack-reverse -- all three were found to have this exact
-# system prompt copy-pasted verbatim; the two forward-direction scripts also
-# shared both tone-transfer templates verbatim. generate_style.py attack-reverse
-# keeps its own two templates (genuinely different wording -- opposite tone
-# direction) but reuses this system prompt.
 STYLE_TRANSFER_SYSTEM_PROMPT = (
     "You are a controlled text-style-transfer tool for academic robustness "
     "testing of fake-news detectors. You rewrite an article's TONE ONLY. "

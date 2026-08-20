@@ -132,21 +132,12 @@ def main():
         raise FileNotFoundError("Run generate_synthetic_fake.py first (need synthetic_fake.csv).")
     syn_fake = pd.read_csv(syn_fake_path)[["text", "label", "source"]]
 
-    # Recreate the SAME split as everywhere else (same SEED), so real_train
-    # here matches the train portion used by every other script -- no leakage
-    # into real_test / test_indomain / test_crossdomain.
     real_train, _test = train_test_split(
         isot_real, test_size=cfg.TEST_SIZE, random_state=cfg.SEED, shuffle=True
     )
     isot_fake_pool = isot_fake.sample(frac=1.0, random_state=cfg.SEED).reset_index(drop=True)
 
     print("\n--- C2: synthetic-real + real-fake ---")
-    # Capped by len(syn_fake) too (not just syn_real/isot_fake_pool) so C2
-    # lands at the SAME n as C0/C1/mixed/C3 (500/500, set by synthetic_fake
-    # supply) instead of 1,000/1,000. Without this, the 5-way replacement
-    # comparison had two conditions at a different scale AND balance than the
-    # other three -- see the comment in build_datasets.py core for why that
-    # confound mattered (it was producing a spurious "collapse" reading).
     n_c2 = min(len(syn_real), len(isot_fake_pool), len(syn_fake))
     real_fake_part = isot_fake_pool.head(n_c2)[["text", "label", "source"]]
     c2 = pd.concat([syn_real.head(n_c2), real_fake_part], ignore_index=True)
@@ -161,7 +152,7 @@ def main():
     print(f"  (compare vs train_real_syn at matched scale n={n_c3:,})")
 
     print("\n--- C6: (real_real + synthetic_real) + (real_fake + synthetic_fake) ---")
-    LOWRES_N = 1000  # matches train_lowres_real / train_lowres_aug scale
+    LOWRES_N = 1000
     real_part_1000 = real_train.head(LOWRES_N)[["text", "label", "source"]]
     fake_part_1000 = isot_fake_pool.head(LOWRES_N)[["text", "label", "source"]]
     n_sr = min(len(syn_real), LOWRES_N)
@@ -174,22 +165,6 @@ def main():
           "Compare vs train_lowres_aug (same RR/RF/SF, no SR) to isolate the added "
           "synthetic-real effect specifically.)")
 
-    # ---- C2'/C3': the same controls with the edit-distance asymmetry removed ----
-    #
-    # ADDITIONAL compositions, never replacements. C2/C3 above are two of RQ1's
-    # six recipe series, they are the whole of RQ1's authorship validity chart,
-    # and C3 sets the lower bound of CNN's RQ3 robustness spread. Overwriting
-    # them would not update those results, it would delete them -- and the
-    # before/after pair is the finding, exactly as with contaminated vs cleaned
-    # WELFake.
-    #
-    # BOTH sides are regenerated, and both come from the *_sym corpora. An
-    # earlier plan reused the original synthetic_real.csv on the grounds that it
-    # already sat on the 0.444 target -- true, but the fake side cannot reach
-    # 0.444 at matched length, because altering a fact keeps the model closer to
-    # the source and floors it near 0.53. The two only meet when both are
-    # generated the same way, so pairing a *_sym fake against the ORIGINAL real
-    # would reintroduce the very asymmetry these compositions remove.
     sym_fake_path = cfg.SYNTHETIC_DIR / "synthetic_fake_sym.csv"
     sym_real_path = cfg.SYNTHETIC_DIR / "synthetic_real_sym.csv"
     missing = [p.name for p in (sym_fake_path, sym_real_path) if not p.exists()]

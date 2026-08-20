@@ -12,7 +12,6 @@ TF-IDF / CNN. Both paths are provided.
 import re
 import html
 
-# Lazy NLTK import so the module loads even before nltk data is downloaded.
 _STOPWORDS = None
 
 

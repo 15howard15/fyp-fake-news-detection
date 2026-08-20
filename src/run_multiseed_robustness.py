@@ -36,12 +36,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 COMPS = ["real_real", "mixed", "real_syn", "swap_025", "swap_075",
          "c2_synreal_realfake", "c3_synreal_synfake",
-         # Added last: these two were the only reported compositions still
-         # resting on a single run. Note that swap_000/050/100 are NOT missing
-         # -- they are the same data as real_real/mixed/real_syn above, so all
-         # five sweep points are covered by this list.
          "style_robust", "real_syn_multisource"]
-SEEDS = [42, 1, 2]  # 42 = the seed already used everywhere else in the project
+SEEDS = [42, 1, 2]
 
 
 def load_tests():
@@ -56,15 +52,7 @@ def load_tests():
     return out
 
 
-# ---- CNN -- Vocab/CNNDataset/TextCNN/load_glove shared with train.py ----
 def run_cnn(tests, rows):
-    # Same source as train.py (train_real_real), but explicitly .clone()'d
-    # per (comp, seed) below -- nn.Embedding.from_pretrained(..., freeze=False)
-    # shares memory with the tensor you pass it, so reusing embed_base directly
-    # across multiple training runs would let each run's fine-tuning leak into
-    # the next one's "fresh" starting point. 13 already cloned correctly before
-    # anyone else did; get_cnn_vocab_and_embed() now clones internally too, so
-    # this local clone is redundant-but-harmless belt-and-suspenders.
     vocab, embed_base = get_cnn_vocab_and_embed()
 
     for comp in COMPS:

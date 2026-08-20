@@ -101,9 +101,6 @@ def check_diversity(rows):
                      "distinct_1": round(d1, 4), "distinct_2": round(d2, 4),
                      "distinct_3": round(d3, 4), "mean_pairwise_sim": round(sim, 4)})
 
-    # Reference point: the same measures on the REAL articles the synthetic
-    # ones were derived from. Synthetic text scoring close to real text is the
-    # outcome that supports using it as a training substitute.
     p = cfg.PROCESSED_DIR / "isot_fake.csv"
     if p.exists():
         real = pd.read_csv(p)["text"].astype(str).head(500).tolist()
@@ -184,20 +181,6 @@ def check_fact_changes(rows):
             fuzzy["all"] += (f_o and f_n and f_v)
 
         n = max(parsed, 1)
-        # Each criterion needs the matching standard that actually fits it,
-        # not one standard applied uniformly:
-        #   - "original traceable" and "altered present" SHOULD use the loose
-        #     test, because the model records the fact in its own words rather
-        #     than quoting the article, so a verbatim test understates them.
-        #   - "altered is genuinely new" MUST use the strict test. Only one
-        #     fact changes per article, so the altered version shares nearly
-        #     all its content words with the original ("$31 billion over the
-        #     next decade" vs "$50 billion over the next decade"); a loose test
-        #     would call that "already present in the source" and wrongly count
-        #     a real edit as a non-edit.
-        # The combined figure therefore uses loose/loose/strict, which is why
-        # it is higher than a naive intersection of all three loose or all
-        # three strict counts.
         combined = 0
         for _, r in df.iterrows():
             mf = str(r.get("modified_fact", ""))
@@ -217,28 +200,6 @@ def check_fact_changes(rows):
         print(f"    {'EDIT VERIFIED (loose/loose/strict, see code)':44s} "
               f"{'':10s} {100*combined/n:9.1f}%")
 
-        # That headline figure can be dragged down by an artefact of the audit
-        # trail rather than by bad generation. HISTORICALLY, the generators
-        # stored only truncate_article(article, 1000) in `source_text` -- a
-        # 1,000-character preview -- while ISOT articles typically run
-        # 1,500-2,500 characters. When the altered fact came from later in the
-        # article, the evidence needed to verify it was never saved, so a real
-        # edit registered as "unverifiable".
-        #
-        # The generators now store up to cfg.FULL_SOURCE_CAP (10,000) chars,
-        # which is effectively the whole article, so data generated AFTER that
-        # change has no truncation artefact and this split simply reports ~100%
-        # complete. The split is kept because older corpora (and the committed
-        # results) still carry the 1,000-char previews; it separates "the edit
-        # failed" from "the edit cannot be checked", which are very different
-        # claims. A source_text counts as "truncated" only if its length sits
-        # exactly AT a known cap boundary (historic 1000, or current
-        # cfg.FULL_SOURCE_CAP). We test against those known caps rather than the
-        # data's own max -- otherwise, in a fully complete corpus, the single
-        # longest genuine article would be mislabelled as "truncated" and
-        # everything shorter as "complete", inventing a split that isn't real.
-        # New-cap data therefore has zero truncated rows and the split below
-        # simply doesn't run, which is correct.
         src_len = df["source_text"].astype(str).str.len()
         caps = {1000, getattr(cfg, "FULL_SOURCE_CAP", 10_000)}
         complete = ~src_len.isin(caps)

@@ -16,7 +16,6 @@ def load_isot():
     real = pd.read_csv(true_path)
     fake = pd.read_csv(fake_path)
 
-    # ISOT columns: title, text, subject, date. We combine title + text.
     real["text"] = (real["title"].fillna("") + ". " + real["text"].fillna("")).str.strip()
     fake["text"] = (fake["title"].fillna("") + ". " + fake["text"].fillna("")).str.strip()
 

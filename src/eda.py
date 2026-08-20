@@ -1,7 +1,7 @@
 
 import pandas as pd
 import matplotlib
-matplotlib.use("Agg")  # no GUI needed
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import config as cfg
@@ -51,7 +51,6 @@ def length_analysis(frames):
             "median_words": int(lengths.median()),
             "p95_words": int(lengths.quantile(0.95)),
         })
-        # clip for readable histogram
         plt.hist(lengths.clip(upper=600), bins=50, alpha=0.5, label=name)
     plt.title("Word-count distribution (clipped at 600)")
     plt.xlabel("words")
@@ -73,7 +72,7 @@ def top_words(frames, n=20):
     from collections import Counter
     out = {}
     for name, df in frames.items():
-        cleaned = clean_series(df["text"].head(3000))  # sample for speed
+        cleaned = clean_series(df["text"].head(3000))
         counter = Counter()
         for t in cleaned:
             counter.update(t.split())

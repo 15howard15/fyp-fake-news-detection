@@ -39,7 +39,7 @@ from sklearn.model_selection import train_test_split
 import config as cfg
 from generate_synthetic_fake import LENGTH_SPECS
 
-FRACTIONS = [0.25, 0.75]  # 0.00/0.50/1.00 already exist as real_real/mixed/real_syn
+FRACTIONS = [0.25, 0.75]
 
 
 def isot_pools():
@@ -106,7 +106,7 @@ def truncate_to_sentences(text: str, target: int) -> str:
             if best_err is None or err < best_err:
                 best, best_err = (i, j), err
             if total >= target:
-                break        # longer windows from i only get worse
+                break
     i, j = best
     return " ".join(sents[i:j + 1])
 
@@ -122,7 +122,6 @@ def cmd_core(args):
     real_train, real_test, isot_fake_pool = isot_pools()
     print(f"ISOT real -> train {len(real_train):,} / test {len(real_test):,}")
 
-    # ---- Shared test set: held-out real + ALL liar fake ----
     test = pd.concat([
         real_test[["text", "label", "source"]],
         liar_fake[["text", "label", "source"]],
@@ -134,27 +133,11 @@ def cmd_core(args):
           f"{(test.label==cfg.LABEL_FAKE).sum()} fake)")
 
     n_real = len(real_train)
-    # Keep fake count = min(real_train, available isot fake not in test, synthetic).
-    # IMPORTANT: this must be the SAME target count for all three compositions,
-    # otherwise real_real/mixed vs real_syn aren't comparable (real_syn is 100%
-    # synthetic, so it needs `len(synthetic)` fake examples available, not
-    # `len(synthetic) * 2` — that x2 only makes sense for the 50/50 "mixed" case
-    # and was silently giving real_syn half the fake count of the other two).
     n_fake = min(n_real, len(isot_fake_pool), len(synthetic))
     print(f"Using {n_fake:,} fake samples per composition "
           f"(same count for real_real / mixed / real_syn — capped by synthetic "
           f"supply: {len(synthetic):,} available).")
 
-    # Cap the REAL side to n_fake too (balanced 1:1), instead of using the
-    # full real_train (~17k). Uncapped, real_real/mixed/real_syn end up at a
-    # ~34:1 real:fake ratio while the C2/C3 synthetic-real controls (built in
-    # build_synthetic_real_datasets.py) are 1:1 -- an uncontrolled second
-    # variable (class balance) riding alongside the one you actually want to
-    # isolate (fake-class source). Confusion matrices showed LR/SVM at 34:1
-    # collapse to predicting ~100% "real" regardless of what the fake class
-    # contains, which was masquerading as "synthetic fake breaks
-    # generalization." Capping here makes real_real/mixed/real_syn/C2/C3 all
-    # comparable at the same ratio.
     real_part = real_train.head(n_fake)[["text", "label", "source"]]
 
     def assemble(fake_part, comp):
@@ -221,9 +204,6 @@ def _core_mixedlen():
     w = ml_df["text"].str.split().str.len()
     print(f"\n  train_real_syn_mixedlen: {len(ml_df):,} "
           f"({(ml_df.label==0).sum()} real / {(ml_df.label==1).sum()} fake)")
-    # The whole point of the composition is that these two medians match.
-    # Print them so a mismatch is visible at build time rather than being
-    # discovered later in the results.
     print(f"    median words -- real {int(w[ml_df.label==0].median())} / "
           f"fake {int(w[ml_df.label==1].median())}")
 
@@ -258,7 +238,7 @@ def cmd_sweep(args):
         ["text", "label", "source"]]
     real_train, _test, isot_fake_pool = isot_pools()
 
-    n_fake = min(len(real_train), len(isot_fake_pool), len(synthetic))  # 500
+    n_fake = min(len(real_train), len(isot_fake_pool), len(synthetic))
     real_part = real_train.head(n_fake)[["text", "label", "source"]]
     print(f"Fixed total fake count: {n_fake} (matches real class: {len(real_part)})")
 
@@ -328,9 +308,6 @@ def cmd_multisource(args):
     isot_syn_path = cfg.SYNTHETIC_DIR / "synthetic_fake.csv"
     isot_synthetic = pd.read_csv(isot_syn_path)[["text", "label", "source"]]
 
-    # Replace up to half of the fake class with LIAR-sourced synthetic,
-    # keeping the TOTAL fake count identical to train_real_syn.csv so this is
-    # a single-variable swap (source mix), not a size or balance change.
     target_liar = n_fake // 2
     n_liar = min(target_liar, len(liar_synthetic))
     n_isot = n_fake - n_liar

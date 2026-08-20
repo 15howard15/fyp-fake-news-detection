@@ -67,6 +67,44 @@ Put these in `data/raw/`:
 - **LIAR**: `train.tsv`, `test.tsv`, `valid.tsv` from
   https://huggingface.co/datasets/liar  (or the original UCSB release)
 
+## Synthetic corpora (`data/synthetic/`)
+
+The LLM-generated text the findings rest on. These files are committed, unlike
+everything else under `data/`, because they **cannot be recreated**: generation
+used paid OpenAI calls at `temperature=0.7`, so re-running the generators
+produces different text and would not reproduce the reported numbers.
+`data/raw/` and `data/processed/` are excluded instead — the raw corpora are
+public downloads, and the processed splits rebuild from raw + these files via
+`build_datasets.py`. All of it was produced with **GPT-4o-mini**
+(`config.OPENAI_MODEL`).
+
+| File | Rows | What it is |
+|---|---|---|
+| `synthetic_fake.csv` | 500 | ISOT real articles with a single fact altered — the fake class for the replacement and sweep recipes |
+| `synthetic_fake_mixedlen.csv` | 500 | The same manipulations at ~25 / ~100 / ~400 words over **disjoint** sources, for the length-controlled recipe |
+| `synthetic_fake_sym.csv` | 500 | The same manipulations rewritten to the **same depth and length** as `synthetic_real_sym.csv`, so neither rewrite depth nor word count can stand in for the label (3.9pp edit gap, length-alone AUC 0.496) |
+| `synthetic_real.csv` | 1000 | ISOT real articles paraphrased with every fact preserved — the control behind the authorship-shortcut check |
+| `synthetic_real_sym.csv` | 500 | Paraphrase-only rewrites at the same instruction and per-article length target as `synthetic_fake_sym.csv`; together they form C2′/C3′ |
+| `synthetic_fake_liar.csv` | 200 | The same idea sourced from LIAR statements instead of ISOT, for the diverse-sourcing recipe |
+| `style_attack.csv` + `_originals.csv` | 200 each | Tone-only rewrites (real→sensational, fake→neutral) and their untouched twins, for the paired before/after comparison |
+| `style_attack_reverse.csv` + `_originals.csv` | 200 each | The opposite attack (real→neutral, fake→sensational), testing whether the fix generalizes |
+| `counter_style_training.csv` | 200 | Paired tone-shifted twins added to training so tone stops predicting the label — the style-robust fix |
+
+Beyond `text` / `label` (0 = real, 1 = fake) / `source`, the notable columns are
+`source_text` (the originating article, **truncated to 1,000 characters** in
+`synthetic_fake.csv`, which is why only some fact edits verify end to end),
+`modified_fact` (the edit as `original -> altered`, recorded at generation time,
+which is what makes the changes auditable), `transformation` (which of the four
+manipulations was applied), `length` (the bucket, `synthetic_fake_mixedlen.csv`
+only), and `orig_id` / `attack_type` (linking an attacked row to its twin).
+
+**Please note.** Rows labelled `1` contain deliberately false statements,
+generated to train and stress-test detection models. They derive from ISOT, an
+existing public fake-news research corpus, and are research material — not
+claims about the world, and not for redistribution as news. Quality was measured
+rather than assumed: run `python src/check_synthetic_quality.py` for diversity
+and fact-change verification.
+
 ## Run order (each step depends on the previous)
 
 ```bash

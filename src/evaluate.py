@@ -27,13 +27,6 @@ import argparse
 import json
 import sys
 
-# Windows' default console codepage (cp1252/gbk, not UTF-8) can't print
-# certain characters that show up in real news text (curly quotes, em
-# dashes, etc.) -- hard-examples/case-studies print raw article text, and a
-# single un-encodable character used to crash the whole run AFTER inference
-# had already finished but BEFORE any results were saved (the CSV write
-# happens once at the end of the loop). Reconfigure stdout to replace
-# un-encodable characters instead of raising, so a print never loses work.
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -57,13 +50,9 @@ from metrics import compute_metrics
 EXTRA_DIR = cfg.RESULTS_DIR / "extra"
 EXTRA_DIR.mkdir(parents=True, exist_ok=True)
 
-# The 5 conditions in the dashboard's merged "Replacement (full matrix)" tab.
 ERROR_ANALYSIS_COMPS = ["real_real", "mixed", "real_syn", "c2_synreal_realfake", "c3_synreal_synfake"]
 
 
-# ======================================================================
-# `master` -- aggregate metrics_*.json into master_results.csv + heatmap
-# ======================================================================
 def cmd_master(args):
     rows = []
     for path in sorted(cfg.RESULTS_DIR.glob("metrics_*.json")):
@@ -84,16 +73,8 @@ def cmd_master(args):
         return
 
     df = pd.DataFrame(rows)
-    # This file is the Q1 replacement-matrix source (real_real/mixed/real_syn
-    # only) -- results/ also holds metrics for compositions added later
-    # (style_robust, real_syn_multisource, seed-repeat runs, etc.) that don't
-    # belong in this table. Filter to cfg.COMPOSITIONS BEFORE building the
-    # pivot: Categorical-with-fixed-categories alone doesn't drop non-matching
-    # rows, it just turns them into NaN composition values, which then
-    # collide during pivot() (>1 row per (model, NaN)) and crash the heatmap.
     df = df[df["composition"].isin(cfg.COMPOSITIONS)].reset_index(drop=True)
 
-    # order nicely
     model_order = ["LR", "SVM", "CNN", "BERT"]
     df["model"] = pd.Categorical(df["model"], categories=model_order, ordered=True)
     df["composition"] = pd.Categorical(df["composition"],
@@ -106,7 +87,6 @@ def cmd_master(args):
     print(df.to_string(index=False))
     print(f"\nSaved to {out_csv}")
 
-    # F1 heatmap (model x composition)
     pivot = df.pivot(index="model", columns="composition", values="f1")
     plt.figure(figsize=(7, 4))
     plt.imshow(pivot.values, aspect="auto", cmap="viridis")
@@ -125,25 +105,6 @@ def cmd_master(args):
     print(f"Heatmap saved to {cfg.RESULTS_DIR / 'f1_heatmap.png'}")
 
 
-# ======================================================================
-# `error-analysis` -- WHY does train_real_syn collapse to ~0 F1 cross-domain?
-#
-# Two pieces of evidence, both cheap to compute from what's already built:
-#
-#   (A) Prediction distribution + confusion matrix for the 5 "replacement
-#       axis" compositions (real_real, mixed, real_syn, C2, C3), all 4
-#       models, on test_crossdomain. compute_metrics() already returns a
-#       confusion matrix (see metrics.py) but 09/10 never saved it to the
-#       results CSV -- this captures it so we can see WHETHER a model is
-#       predicting almost everything as one class (as opposed to just being
-#       "less accurate").
-#
-#   (B) Vocabulary/length overlap: how much of test_crossdomain's fake-class
-#       vocabulary is unseen relative to train_real_real, compared to
-#       test_indomain's fake class. Turns the "LIAR is a genre/length shift,
-#       not just a topic shift" caveat into a measured number instead of a
-#       hand-wave.
-# ======================================================================
 def pred_dist(preds, y_true=None):
     preds = np.asarray(preds)
     n = len(preds)
@@ -174,9 +135,6 @@ def run_traditional(test_df):
         yt = test_df["label"].values
 
         lr = LogisticRegression(solver=cfg.LR_SOLVER, max_iter=1000).fit(X_train, y_train)
-        # method="isotonic" -- see train.py's train_lr_svm(). Default "sigmoid"
-        # calibration can invert the ranking when LinearSVC's scores are
-        # near-perfectly separable, which is common for TF-IDF text features.
         svm = CalibratedClassifierCV(LinearSVC(), cv=3, method="isotonic").fit(X_train, y_train)
         for mname, model in (("LR", lr), ("SVM", svm)):
             prob = model.predict_proba(Xt)[:, 1]
@@ -201,9 +159,6 @@ def run_deep(test_df, models):
     rows = []
 
     if "cnn" in models:
-        # Vocab/CNNDataset/TextCNN/load_glove shared with train.py (were
-        # identical copy-pasted code). Fixed vocab from train_real_real so
-        # all 5 CNNs here are on equal footing -- same policy train.py uses.
         import torch.nn as nn
         from train import Vocab, CNNDataset, TextCNN, load_glove, get_cnn_vocab_and_embed
 
@@ -223,7 +178,6 @@ def run_deep(test_df, models):
             gen = torch.Generator().manual_seed(cfg.SEED)
             dl = DataLoader(CNNDataset(tr["clean"], tr["label"], vocab, cfg.CNN_MAX_LEN),
                              batch_size=cfg.CNN_BATCH_SIZE, shuffle=True, generator=gen)
-            # Fresh embed per composition -- see train.py's get_cnn_vocab_and_embed().
             _, embed = get_cnn_vocab_and_embed()
             model = TextCNN(embed, cfg.CNN_NUM_FILTERS, cfg.CNN_FILTER_SIZES, cfg.CNN_DROPOUT).to(DEVICE)
             opt = torch.optim.Adam(model.parameters(), lr=cfg.CNN_LR)
@@ -252,7 +206,6 @@ def run_deep(test_df, models):
     if "bert" in models:
         from transformers import (AutoTokenizer, AutoModelForSequenceClassification,
                                    get_linear_schedule_with_warmup)
-        # BertDataset shared with train.py (identical code).
         from train import BertDataset
 
         tok = AutoTokenizer.from_pretrained(cfg.BERT_MODEL_NAME)
@@ -275,8 +228,6 @@ def run_deep(test_df, models):
                 cfg.BERT_MODEL_NAME, num_labels=2).to(DEVICE)
             opt = torch.optim.AdamW(model.parameters(), lr=cfg.BERT_LR)
             scaler = torch.cuda.amp.GradScaler(enabled=(DEVICE == "cuda"))
-            # Linear warmup (10%) + decay, and gradient clipping -- matches
-            # train.py's train_bert() recipe.
             total_steps = len(dl) * cfg.BERT_EPOCHS
             warmup_steps = max(1, int(0.1 * total_steps))
             sched = get_linear_schedule_with_warmup(opt, warmup_steps, total_steps)
@@ -399,7 +350,6 @@ def cmd_cross_target(args):
 
     rows = []
     for comp in args.comp:
-        # ---- LR / SVM ----
         try:
             vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
             Xt = vec.transform(clean_series(test["text"]))
@@ -416,7 +366,6 @@ def cmd_cross_target(args):
         except FileNotFoundError as e:
             print(f"  (skip LR/SVM for {comp} -- {e})")
 
-        # ---- CNN ----
         try:
             import torch
             from torch.utils.data import DataLoader
@@ -443,7 +392,6 @@ def cmd_cross_target(args):
         except FileNotFoundError as e:
             print(f"  (skip CNN for {comp} -- {e})")
 
-        # ---- BERT ----
         try:
             import torch
             from torch.utils.data import DataLoader
@@ -474,17 +422,8 @@ def cmd_cross_target(args):
             print(f"  (skip BERT for {comp} -- {e})")
 
     df = pd.DataFrame(rows)
-    # One file per target. This used to be a single hard-coded
-    # crossdomain2_results.csv for every --dataset, so a run against LIAR
-    # silently overwrote the WELFake numbers the report reads. The default
-    # target keeps its historical filename so build_report.py and the thesis
-    # tables still resolve.
     out = EXTRA_DIR / ("crossdomain2_results.csv" if args.dataset == "welfake"
                        else f"crosstarget_{args.dataset}_results.csv")
-    # Merge with what's already there rather than replacing it. --comp defaults
-    # to three compositions, so a follow-up run for two extra ones would
-    # otherwise silently drop the six the report already reads. Same
-    # concat-then-dedupe pattern as the length sweep; last run wins per cell.
     if out.exists():
         df = (pd.concat([pd.read_csv(out), df], ignore_index=True)
                 .drop_duplicates(subset=["dataset", "comp", "model"], keep="last"))
@@ -618,9 +557,6 @@ def cmd_edit_distance(args):
           f"(first {args.window:,} chars, the window the prompt saw) ===")
     print(df.to_string(index=False))
 
-    # Pairwise gaps. The mean is what the tolerance is checked against, but the
-    # quartiles are printed too: two corpora can share a mean and still be
-    # trivially separable if one is much more spread out than the other.
     print("\n=== PAIRWISE ASYMMETRY (percentage points of similarity) ===")
     pair_rows = []
     for i in range(len(df)):
@@ -685,7 +621,6 @@ def cmd_significance(args):
     y = test["label"].values
     print(f"Test set: {test_name} ({len(test):,} rows)")
 
-    # Load each (model, comp) once, however many comparisons reference it.
     correct, missing = {}, []
     for comp in args.comp:
         for model in args.model:
@@ -700,13 +635,10 @@ def cmd_significance(args):
 
     def test_pair(a_key, b_key, label_a, label_b, model_col, axis, held):
         ca, cb = correct[a_key], correct[b_key]
-        b = int(((ca == 1) & (cb == 0)).sum())   # a right, b wrong
-        c = int(((ca == 0) & (cb == 1)).sum())   # a wrong, b right
+        b = int(((ca == 1) & (cb == 0)).sum())
+        c = int(((ca == 0) & (cb == 1)).sum())
         n_disc = b + c
         if n_disc == 0:
-            # Identical predictions on every row: no evidence of a difference,
-            # and the test is undefined. Recorded rather than dropped so the
-            # comparison doesn't silently vanish from the table.
             return {"comparison_a": label_a, "comparison_b": label_b, "model": model_col,
                     "axis": axis, "held_constant": held, "dataset": args.dataset,
                     "n_samples": len(y), "n_discordant": 0, "b_a_right_b_wrong": 0,
@@ -751,10 +683,6 @@ def cmd_significance(args):
 
     df = pd.DataFrame(rows)
 
-    # Holm-Bonferroni, computed here rather than pulled from statsmodels so the
-    # step-down logic is visible: sort ascending, scale each p by the number of
-    # tests still to come, and enforce monotonicity so a later p can never end
-    # up smaller than an earlier one.
     order = df["p_value"].values.argsort()
     n = len(df)
     adj = np.empty(n)
@@ -766,16 +694,8 @@ def cmd_significance(args):
     df["significant_holm"] = df["p_value_holm"] < 0.05
 
     out = cfg.RESULTS_DIR / "statistical_significance.csv"
-    # Keep results for other test sets. The Holm columns stay as computed within
-    # the run that produced them, which is correct -- the correction applies to a
-    # family of tests, and one --dataset run is that family. Re-running the same
-    # dataset replaces its own rows.
     if out.exists():
         prev = pd.read_csv(out)
-        # held_constant is part of the key, not decoration: on the model axis
-        # every recipe produces the same (comparison_a, comparison_b, model)
-        # triple -- "LR" vs "SVM" for LR vs SVM -- and only held_constant says
-        # which recipe it was. Leaving it out collapses 24 rows into 6.
         df = (pd.concat([prev, df], ignore_index=True)
                 .drop_duplicates(subset=["dataset", "axis", "comparison_a",
                                          "comparison_b", "model", "held_constant"],
@@ -872,7 +792,6 @@ def cmd_hard_examples(args):
             print(f"  (skip {comp} -- {e})")
             continue
         wrong = pred != y
-        # confidence of the WRONG prediction: P(fake) if it predicted fake, else P(real)
         wrong_conf = np.where(pred == cfg.LABEL_FAKE, prob, 1 - prob)
         order = [i for i in np.argsort(-wrong_conf) if wrong[i]][: args.n]
         print(f"\n=== {args.model.upper()} | {comp} | {args.dataset}: {int(wrong.sum())}/{len(y)} wrong ===")
@@ -941,12 +860,6 @@ def cmd_length_sweep(args):
                     txt = base["text"].astype(str)
                     tag = "full"
                 else:
-                    # --truncate-class fake reproduces LIAR's structure, where
-                    # only the FAKE class is short and the real class stays
-                    # full-length. Truncating both classes equally (the default)
-                    # removes that asymmetry, so both are worth running: if the
-                    # asymmetry itself is what models exploit, only the
-                    # fake-only variant will show it.
                     def _cut(s):
                         return " ".join(str(s).split()[:L])
                     if args.truncate_class == "fake":
@@ -966,9 +879,6 @@ def cmd_length_sweep(args):
                              "auc_roc": round(m["auc_roc"], 4)})
             print()
 
-    # Merge rather than overwrite, so running the 'both' and 'fake' variants in
-    # separate invocations doesn't silently discard the earlier one (same
-    # pattern as run_multiseed_robustness.py).
     out = EXTRA_DIR / "length_sweep_results.csv"
     df_new = pd.DataFrame(rows)
     if out.exists():
@@ -1017,17 +927,10 @@ def cmd_leakage(args):
         print("No train_*.csv found. Run the build_*_datasets.py scripts first.")
         return
 
-    # Compositions that draw on the FULL ISOT fake pool (or a much larger slice
-    # of it) rather than the balanced 500-article sample every headline result
-    # uses. Overlap with the held-out test set is an unavoidable consequence of
-    # that design, not a splitting bug -- README already flags augmented_full as
-    # "NOT a controlled pair ... report separately". Their numbers are still
-    # printed and saved; they are just excluded from the pass/fail threshold so
-    # a by-design overlap can't mask a real regression elsewhere.
     FULL_POOL_COMPS = {
-        "train_augmented_full",   # entire ISOT real-fake pool + synthetic on top
+        "train_augmented_full",
         "train_c6_full_augmented",
-        "train_lowres_real",      # 1,000-article fake baseline, not the 500 sample
+        "train_lowres_real",
         "train_lowres_aug",
     }
 
@@ -1069,7 +972,7 @@ def cmd_leakage(args):
                 continue
             for src, g in df.groupby("source"):
                 if src == "isot":
-                    continue  # real class is ISOT-by-construction; not informative
+                    continue
                 n = g["text"].astype(str).isin(isot_all).sum()
                 pct = 100.0 * n / max(len(g), 1)
                 print(f"  {stem:22s} source={src:10s} {n:5d}/{len(g):5d} "
@@ -1100,8 +1003,6 @@ def cmd_leakage(args):
         if "label" not in df.columns or df["label"].nunique() < 2:
             continue
         w = df["text"].astype(str).str.split().str.len()
-        # Score fake by SHORTNESS; the sign is arbitrary, the distance from 0.5
-        # is the finding.
         auc = roc_auc_score(df["label"], -w)
         med_r = int(w[df.label == cfg.LABEL_REAL].median())
         med_f = int(w[df.label == cfg.LABEL_FAKE].median())
@@ -1194,12 +1095,6 @@ def cmd_case_studies(args):
         DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
         class _LoadableTextCNN(nn.Module):
-            # Empty-shell constructor for load_state_dict -- NOT the same
-            # signature as train.py's TextCNN (which needs a pretrained
-            # embedding matrix to construct from). Mirrors 15_eval_style_
-            # robustness.py's TextCNN, which stayed a separate file for
-            # this exact reason: loading and training need different
-            # constructors around the same architecture.
             def __init__(self, embed_dim, num_filters, filter_sizes, dropout, vocab_size):
                 super().__init__()
                 self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=0)

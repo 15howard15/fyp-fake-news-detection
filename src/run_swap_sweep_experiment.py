@@ -26,7 +26,6 @@ EXTRA_DIR = cfg.RESULTS_DIR / "extra"
 EXTRA_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# (sweep label, actual filename stem) -- 0/50/100 reuse already-built files
 SWEEP_POINTS = [
     ("swap_000", "real_real"),
     ("swap_025", "swap_025"),
@@ -71,15 +70,11 @@ def run_traditional(tests):
     return rows
 
 
-# ---- CNN -- Vocab/CNNDataset/TextCNN/load_glove shared with train.py ----
 from train import Vocab, CNNDataset, TextCNN, load_glove, get_cnn_vocab_and_embed
 
 
 def run_cnn(tests):
     rows = []
-    # Vocab built once from train_real_real (cheap to re-fetch -- GloVe itself
-    # is cached inside get_cnn_vocab_and_embed, only the vocab lookup table is
-    # actually reused across sweep points here).
     vocab, _ = get_cnn_vocab_and_embed()
 
     for label, fname in SWEEP_POINTS:
@@ -89,7 +84,6 @@ def run_cnn(tests):
         gen = torch.Generator().manual_seed(cfg.SEED)
         dl = DataLoader(CNNDataset(tr["clean"], tr["label"], vocab, cfg.CNN_MAX_LEN),
                          batch_size=cfg.CNN_BATCH_SIZE, shuffle=True, generator=gen)
-        # Fresh embed per sweep point -- see train.py's get_cnn_vocab_and_embed().
         _, embed = get_cnn_vocab_and_embed()
         model = TextCNN(embed, cfg.CNN_NUM_FILTERS, cfg.CNN_FILTER_SIZES, cfg.CNN_DROPOUT).to(DEVICE)
         opt = torch.optim.Adam(model.parameters(), lr=cfg.CNN_LR)
@@ -100,11 +94,6 @@ def run_cnn(tests):
                 xb, yb = xb.to(DEVICE), yb.to(DEVICE)
                 opt.zero_grad(); loss = crit(model(xb), yb); loss.backward(); opt.step()
 
-        # Save checkpoints for the two sweep points that don't already exist
-        # elsewhere (swap_000/050/100 are the same data as real_real/mixed/
-        # real_syn, already checkpointed by train.py) -- lets evaluate.py
-        # hard-examples inspect what CNN gets wrong as synthetic fraction
-        # rises, without retraining.
         if label in ("swap_025", "swap_075"):
             torch.save(model.state_dict(), cfg.MODELS_DIR / f"cnn_{label}.pt")
 
@@ -126,7 +115,6 @@ def run_cnn(tests):
     return rows
 
 
-# ---- BERT -- BertDataset shared with train.py ----
 from train import BertDataset
 
 
@@ -145,8 +133,6 @@ def run_bert(tests, grad_accum):
             cfg.BERT_MODEL_NAME, num_labels=2).to(DEVICE)
         opt = torch.optim.AdamW(model.parameters(), lr=cfg.BERT_LR)
         scaler = torch.cuda.amp.GradScaler(enabled=(DEVICE == "cuda"))
-        # Linear warmup (10%) + decay, and gradient clipping -- see the
-        # matching comment in train.py's train_bert().
         steps_per_epoch = -(-len(dl) // grad_accum)
         total_steps = steps_per_epoch * cfg.BERT_EPOCHS
         warmup_steps = max(1, int(0.1 * total_steps))

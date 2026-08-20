@@ -24,18 +24,14 @@ def main():
     isot_fake = load("isot_fake")
     liar_fake = load("liar_fake")
 
-    # Same split as the training build so the held-out portions match exactly.
     _, real_test = train_test_split(
         isot_real, test_size=cfg.TEST_SIZE, random_state=cfg.SEED, shuffle=True
     )
-    # Hold out ISOT fake too, using the SAME logic as the training build so we
-    # don't leak training fakes into the in-domain test.
     isot_fake_pool = isot_fake.sample(frac=1.0, random_state=cfg.SEED).reset_index(drop=True)
     n_fake_train = min(len(isot_real) - len(real_test), len(isot_fake_pool))
-    isot_fake_heldout = isot_fake_pool.iloc[n_fake_train:]  # everything not used in training
+    isot_fake_heldout = isot_fake_pool.iloc[n_fake_train:]
 
     if len(isot_fake_heldout) == 0:
-        # If all ISOT fake was used in training, carve a fresh 20% held-out slice.
         _, isot_fake_heldout = train_test_split(
             isot_fake, test_size=cfg.TEST_SIZE, random_state=cfg.SEED, shuffle=True
         )
@@ -57,13 +53,6 @@ def main():
     print(f"test_crossdomain: {len(cross):,} "
           f"({(cross.label==0).sum()} real / {(cross.label==1).sum()} fake)")
 
-    # Second cross-domain target: WELFake instead of LIAR. Genre-matched to
-    # ISOT (full-length articles) unlike LIAR (short political statements),
-    # so this isolates topic/source domain shift from the length/genre shift
-    # LIAR conflates it with. Uses the SAME real_test rows as test_crossdomain
-    # (only the fake-class source differs) and samples WELFake-fake down to
-    # len(liar_fake) so both cross-domain test sets are the same size and
-    # directly comparable.
     welfake_path = cfg.PROCESSED_DIR / "welfake_fake.csv"
     if welfake_path.exists():
         welfake_fake = load("welfake_fake")
@@ -76,16 +65,6 @@ def main():
         print(f"test_crossdomain2 (WELFake): {len(cross2):,} "
               f"({(cross2.label==0).sum()} real / {(cross2.label==1).sum()} fake)")
 
-        # Third cross-domain target: WELFake with every article that also exists
-        # in ISOT removed first. test_crossdomain2 above samples the raw WELFake
-        # fake pool, and 63.3% of that pool is verbatim ISOT text -- WELFake is a
-        # merged corpus that absorbed the same Kaggle fake-news data ISOT derives
-        # from. Any "generalises to an independent long-form corpus" claim made
-        # on test_crossdomain2 is therefore mostly a claim about ISOT text the
-        # model may have trained on. Filtering first (on the normalised key, and
-        # dropping WELFake's own internal duplicates) leaves a pool that is
-        # genuinely disjoint from ISOT, so the same claim can be tested honestly.
-        # Both files are kept: the difference between them IS the finding.
         isot_keys = set(isot_real["text"].map(_norm)) | set(isot_fake["text"].map(_norm))
         wf = welfake_fake.copy()
         wf["_key"] = wf["text"].map(_norm)
@@ -100,9 +79,6 @@ def main():
         if len(clean_pool) >= n:
             clean_sample = clean_pool.sample(n=n, random_state=cfg.SEED)
         else:
-            # Smaller sample than test_crossdomain2 rather than sampling with
-            # replacement -- a duplicated test row would inflate whatever score
-            # that article happens to get.
             clean_sample = clean_pool
             print(f"  (clean pool smaller than {n:,}; using all {len(clean_pool):,})")
         cross3 = pd.concat(

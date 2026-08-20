@@ -48,19 +48,6 @@ RECIPE_LABEL = {
 }
 METRICS = ["f1", "auc_roc", "accuracy", "precision", "recall"]
 
-# What KIND of thing each recipe is, so the report can colour by role instead of
-# by position in a list. Position-based colour makes the reader consult a legend
-# to find out whether a bar matters; role-based colour puts the baselines in the
-# background and the recipes this project built in the foreground.
-#
-#   control    -- the baselines everything is measured against
-#   failing    -- recipes that break, kept on the page but not emphasised
-#   optimized  -- the recipes built here to fix a specific measured problem
-# Audience-facing names. RECIPE_LABEL is the compact form used where several
-# recipes share an axis; these spell out what the recipe actually IS, for charts
-# with room for them. "C2" and "Synthetic-real + Real-fake" both require the
-# reader to already know the design -- on a slide that is a wall the audience
-# stops at.
 RECIPE_PLAIN = {
     "real_real": "Real news + real fake news",
     "mixed": "Real news + half-synthetic fakes",
@@ -178,8 +165,6 @@ def contamination_block(comps):
         if row:
             out["comps"].append(comp)
             out["rows"][comp] = row
-    # Largest single move in either metric -- the headline "conclusions survive"
-    # figure, computed rather than eyeballed so it cannot drift from the data.
     pairs = [(v[a], v[b])
              for r in out["rows"].values() for v in r.values()
              for a, b in (("f1_clean", "f1_dirty"), ("auc_clean", "auc_dirty"))]
@@ -187,17 +172,10 @@ def contamination_block(comps):
     out["n_scores"] = len(pairs)
     out["n_down"] = sum(1 for c, d in pairs if c < d)
     out["n_up"] = sum(1 for c, d in pairs if c > d)
-    # Does removing the shared articles rescue the below-chance AUCs, or make
-    # them worse? If cleaning made them worse, the backwards-ranking result
-    # cannot have been an artifact of ISOT text leaking into the test set --
-    # which is the single most likely objection to that finding.
     bc = [(v["auc_clean"], v["auc_dirty"])
           for r in out["rows"].values() for v in r.values() if v["auc_dirty"] < 0.5]
     out["below_chance_total"] = len(bc)
     out["below_chance_worse"] = sum(1 for c, d in bc if c < d)
-    # Recomputed from the corpora rather than copied from the build log, so the
-    # figure in the report can never drift from the filter that produced the
-    # test set. Same normalisation as build_test_sets.py.
     wf = cfg.PROCESSED_DIR / "welfake_fake.csv"
     if wf.exists():
         import re
@@ -216,9 +194,6 @@ def contamination_block(comps):
 
 SWEEP_PCT = {"swap_000": "0%", "swap_025": "25%", "swap_050": "50%",
              "swap_075": "75%", "swap_100": "100%"}
-# The 0/50/100% points ARE real_real/mixed/real_syn -- build_datasets.py sweep
-# reuses them by name rather than rebuilding identical files -- so their
-# cross-target scores are stored under the composition name, not the sweep name.
 SWEEP_ALIAS = {"swap_000": "real_real", "swap_050": "mixed", "swap_100": "real_syn"}
 
 SWEEP_METRICS = ["f1", "auc_roc", "precision", "recall"]
@@ -262,8 +237,6 @@ def sweep_block():
                         for met in SWEEP_METRICS}
         out["tests"][label] = block
 
-    # Cleaned WELFake, assembled from the cross-target run rather than the sweep
-    # script (which never scored against it).
     ct = EXTRA / "crosstarget_welfake_clean_results.csv"
     if ct.exists():
         cdf = pd.read_csv(ct)
@@ -282,13 +255,6 @@ def sweep_block():
         if any_val:
             out["tests"]["WELFake (ISOT removed)"] = block
 
-    # How well document length alone separates the classes INSIDE each sweep
-    # point's training data. Measured here rather than quoted, because it is the
-    # claim the RQ2 note rests on: if this were to drift away from 0.5 at one end
-    # of the sweep, the trend would be partly a length effect and the note would
-    # be wrong. Real fake news and synthetic fake news happen to be the same
-    # length (378 vs 376 words), which is why it stays flat -- that is a
-    # property of the data, not something the design enforced, so it is checked.
     files = {"swap_000": "train_real_real", "swap_025": "train_swap_025",
              "swap_050": "train_mixed", "swap_075": "train_swap_075",
              "swap_100": "train_real_syn"}
@@ -309,10 +275,6 @@ def sweep_block():
                                  "min": round(min(vals), 3),
                                  "max": round(max(vals), 3)}
 
-    # In-distribution CV across the same five points, both split strategies.
-    # The gap between them widens with the synthetic fraction, which is the
-    # cleanest available demonstration that the effect is caused by minimal
-    # pairs: the 0% point has none and is unaffected.
     cv = cv_block([SWEEP_ALIAS.get(s, s) for s in SWEEP_PCT])
     if cv.get("comps"):
         by_frac = {}
@@ -323,13 +285,6 @@ def sweep_block():
         out["cv"] = {"fractions": [p for p in SWEEP_PCT.values() if p in by_frac],
                      "rows": by_frac, "splits": cv["splits"]}
 
-    # The headline the sweep actually supports, computed per corpus rather than
-    # written into the prose: how much F1 each blend level costs against the
-    # all-real baseline, as a mean over models and as the single worst model.
-    #
-    # The mean is what a reader takes away ("half your data can be synthetic for
-    # about two points"); the worst model is the honest counterweight, because a
-    # mean of -0.02 hides SVM losing 0.10 at the same point. Both are shown.
     summary = {}
     for label, blk in out["tests"].items():
         rows = []
@@ -347,9 +302,6 @@ def sweep_block():
         summary[label] = rows
     out["summary"] = summary
 
-    # Where the sweep stops being safe: the first blend level whose worst model
-    # drops more than SAFE_AT below its own baseline. Derived, so if a rerun
-    # moves the cliff the page moves with it instead of keeping a stale claim.
     SAFE_DROP = 0.15
     cliffs = {}
     for label, rows in summary.items():
@@ -362,7 +314,6 @@ def sweep_block():
     out["cliff"] = cliffs
     out["safe_drop"] = SAFE_DROP
 
-    # Kept so anything still reading data.rq2.series keeps working.
     out["series"] = out["tests"].get("LIAR", {})
     return out
 
@@ -380,24 +331,6 @@ def style_block():
         reverse[r["model"]] = round(float(r["flip_rate"]), 4)
     original = {m: flips["Style-robust"][m] for m in MODELS}
 
-    # Which (recipe, model) cells are degenerate -- predicting essentially one
-    # class regardless of input.
-    #
-    # This matters for the flip-rate chart specifically. A flip rate of 0.000
-    # normally means "the tone rewrite fooled the model on nothing", i.e. it is
-    # the best possible score. But a model that already answers "fake" to
-    # everything also scores 0.000, because there is nothing it could be talked
-    # out of. Plotted side by side the two are indistinguishable, and the broken
-    # one looks like the winner.
-    #
-    # Measured from the confusion matrix as the share of inputs assigned to the
-    # majority predicted class, rather than inferred from F1: the two failure
-    # modes look completely different in F1 (SVM answers "real" to everything
-    # and scores 0.000; CNN answers "fake" to everything and scores 0.711) but
-    # identical in this figure. On Real + Synthetic it gives SVM 100.0% and CNN
-    # 98.2%, against 84.5% for BERT and 64.9% for LR -- so the threshold
-    # separates the two broken cells from the two working ones with room to
-    # spare, instead of being tuned to hit a wanted answer.
     DEGENERATE_AT = 0.95
     degenerate = {}
     for comp in ("real_real", "mixed", "real_syn", "style_robust"):
@@ -417,7 +350,6 @@ def style_block():
                       "degenerate": bool(share >= DEGENERATE_AT)}
         if row:
             degenerate[label] = row
-    # Baseline (unattacked) performance, style_robust vs real_real
     baseline = {}
     for comp in ("real_real", "style_robust"):
         baseline[RECIPE_LABEL[comp]] = {m: _metrics_json(m, comp) for m in MODELS}
@@ -501,7 +433,6 @@ def families_block(comps):
             "range": round(max(vals) - min(vals), 4),
             "std": round(st.pstdev(vals), 4) if len(vals) > 1 else 0.0,
         }
-    # seed spread, averaged over the conditions each model was re-run on
     p = EXTRA / "multiseed_results.csv"
     seed = {}
     if p.exists():
@@ -516,10 +447,6 @@ def families_block(comps):
         seed[m] = {"mean_std": 0.0, "max_std": 0.0, "deterministic": True}
     out["seedSpread"] = seed
 
-    # Roll the four models up into the three families the objective actually
-    # names, so the table answers the question as asked. LR and SVM belong
-    # together because determinism -- the thing that makes them interesting
-    # against BERT -- is a property of the family, not of either model alone.
     FAMILIES = [
         ("Traditional ML", ["LR", "SVM"]),
         ("Deep learning", ["CNN"]),
@@ -650,12 +577,6 @@ def editsym_block():
     if len(clean) == len(comps):
         out["tests"]["WELFake (ISOT removed)"] = clean
 
-    # The measured edit gap each side of the fix, read from what
-    # `evaluate.py edit-distance` already computed rather than recomputed here.
-    # difflib on 2,000 article-length documents is quadratic and took longer
-    # than the entire rest of the build; build_report.py runs after every
-    # experiment, so it has no business redoing a measurement that has its own
-    # command and its own output file -- same arrangement as leakage_report.csv.
     p = EXTRA / "edit_distance.csv"
     if p.exists():
         df = pd.read_csv(p).set_index("file")["similarity_mean"].to_dict()
@@ -669,9 +590,6 @@ def editsym_block():
                 "real_before": round(r_before, 4),
                 "fake_before": round(f_before, 4),
                 "fake_after": round(f_after, 4),
-                # Each gap is between the pair that was actually TRAINED on:
-                # C3 used the original real against the original fake, C3' uses
-                # the two symmetric corpora.
                 "gap_before": round(abs(r_before - f_before) * 100, 1),
                 "gap_after": round(abs(r_after - f_after) * 100, 1)}
     return out
@@ -727,9 +645,6 @@ def cv_block(comps):
             out["comps"].append(comp)
             out["rows"][comp] = block
 
-    # Largest gap between the two splits, computed rather than quoted -- this is
-    # the size of the near-duplicate effect and the reason the grouped split is
-    # the one to report.
     gaps = []
     for comp, block in out["rows"].items():
         for model, per in block.items():
@@ -764,10 +679,6 @@ def significance_block():
     out["n_tests"] = len(out["rows"])
     out["n_sig"] = sum(1 for r in out["rows"] if r["sig"])
     out["n_sig_holm"] = sum(1 for r in out["rows"] if r["sig_holm"])
-    # The comparisons that came back NOT significant are the informative ones:
-    # everything else is "a big gap is a big gap". With ~10,000 paired rows even
-    # a fraction of a percent reaches significance, so a null result here means
-    # the two systems really are hard to tell apart.
     out["null_results"] = [r for r in out["rows"] if not r["sig"]]
     return out
 
@@ -781,8 +692,6 @@ def leakage_block():
     dups = df[df.check == "within_corpus_duplicates"][["test", "pct_of_test"]]
     tt = df[(df.check == "train_test_overlap") &
             (~df.get("by_design_full_pool", False).astype(bool))]
-    # How much of each test set a word-counter alone could solve. Stored under
-    # pct_of_test by the leakage command, but it is an AUC, not a percentage.
     ln = df[df.check == "length_shortcut"][["test", "pct_of_test"]]
     return {
         "corpus": [{"name": r["test"], "pct": r["pct_of_test"]} for _, r in corpus.iterrows()],
@@ -809,7 +718,6 @@ def lengthcontrol_block():
     if not _metrics_json("LR", "real_syn_mixedlen"):
         return {}
     out = {"models": MODELS, "recipes": pair, "tests": {}}
-    # LIAR comes from the per-run metrics files train.py writes.
     out["tests"]["LIAR"] = {c: {m: _metrics_json(m, c) for m in MODELS} for c in pair}
     for label, fname in (("WELFake (as shipped)", "crossdomain2_results.csv"),
                          ("WELFake (ISOT removed)", "crosstarget_welfake_clean_results.csv")):
@@ -824,7 +732,7 @@ def lengthcontrol_block():
                 continue
             block[c] = {r["model"]: {k: round(float(r[k]), 4) for k in METRICS if k in r}
                         for _, r in g.iterrows()}
-        if len(block) == len(pair):     # only show the comparison if both sides ran
+        if len(block) == len(pair):
             out["tests"][label] = block
     return out
 
@@ -862,10 +770,6 @@ def demo_examples():
 def collect():
     rq1_comps = ["real_real", "mixed", "real_syn",
                  "c2_synreal_realfake", "c3_synreal_synfake"]
-    # The length-controlled twin of real_syn sits beside it rather than
-    # replacing it: the two differ in exactly one variable, so the pair is what
-    # carries the finding. Appended only if it has actually been trained, so a
-    # checkout without that run still builds a complete report.
     if _metrics_json("LR", "real_syn_mixedlen"):
         rq1_comps.append("real_syn_mixedlen")
     rq3_comps = rq1_comps + ["real_syn_multisource"]
@@ -873,29 +777,17 @@ def collect():
         "models": MODELS,
         "labels": RECIPE_LABEL,
         "roles": RECIPE_ROLE,
-        # Keyed by the compact label as well as the composition name, because
-        # seed_block/seed_runs_block key their output by label rather than comp.
         "plain": dict(RECIPE_PLAIN,
                       **{RECIPE_LABEL[c]: p for c, p in RECIPE_PLAIN.items()
                          if c in RECIPE_LABEL}),
         "metrics": METRICS,
-        # Both test sets, for the same reason RQ2 now shows both: a score on
-        # LIAR alone can't distinguish "detected the fake" from "noticed it was
-        # short". Cleaned WELFake covers every recipe here and is length-neutral.
         "rq1": {"comps": rq1_comps, "liar": liar_block(rq1_comps),
                 "welfake": welfake_block(rq1_comps),
                 "tests": {"LIAR": liar_block(rq1_comps),
                           "WELFake (ISOT removed)": welfake_clean_block(rq1_comps)},
-                # No "cv" key: the 5-fold section was removed from RQ1 as
-                # methodology detail that stalls an executive read. RQ2 keeps
-                # its own CV chart, which builds from sweep_block, so the
-                # measurement is still reported -- just not twice.
                 "significance": significance_block(),
                 "editsym": editsym_block()},
         "rq2": sweep_block(),
-        # RQ3 is the model-family comparison; the LIAR-vs-WELFake material it
-        # used to hold is the cross-domain protocol common to all four
-        # questions, so it lives under "framework" instead of being one RQ.
         "rq3": {"families": families_block(rq3_comps), "seeds": seed_block(),
                 "seedRuns": seed_runs_block()},
         "rq4": style_block(),
@@ -913,10 +805,6 @@ def main():
     tpl = (cfg.ROOT / "src" / "report_template.html").read_text(encoding="utf-8")
     html = tpl.replace("/*__DATA__*/null", json.dumps(data, indent=None))
 
-    # Inline the detector rather than linking it. The page has to work when
-    # opened straight off disk, where fetch() is blocked by CORS and an
-    # external <script src> is not reliably executed -- and the report's whole
-    # point is being one file you can send someone. Costs ~1.5 MB.
     model = cfg.ROOT / "detector_model.js"
     scorer = cfg.ROOT / "src" / "detector.js"
     if model.exists() and scorer.exists():
@@ -924,8 +812,6 @@ def main():
         html = html.replace("/*__DETECTOR__*/", blob)
         det = f"inlined ({len(blob)/1024/1024:.2f} MB)"
     else:
-        # Leave the placeholder empty; the tab detects the missing model and
-        # says so instead of throwing.
         html = html.replace("/*__DETECTOR__*/", "")
         det = "MISSING -- run src/export_detector_model.py first"
 

@@ -67,9 +67,6 @@ def load_train(name):
     return pd.read_csv(path)
 
 
-# ----------------------------------------------------------------------
-# LR + SVM (TF-IDF)
-# ----------------------------------------------------------------------
 def train_lr_svm(train, test, comp):
     train_c = train.copy(); train_c["clean"] = clean_series(train_c["text"])
     test_c = test.copy(); test_c["clean"] = clean_series(test_c["text"])
@@ -78,24 +75,12 @@ def train_lr_svm(train, test, comp):
     X = vec.fit_transform(train_c["clean"]); y = train_c["label"].values
     Xt = vec.transform(test_c["clean"]); yt = test_c["label"].values
 
-    # class_weight="balanced" -- a no-op on the balanced 500:500 compositions
-    # (real_real/mixed/real_syn/style_robust/real_syn_multisource), but is
-    # what recovers LR on imbalanced ones like train_augmented (handled by
-    # run_lr_svm_extra_experiments.py, not here) -- left on unconditionally so
-    # every composition trained through this function behaves consistently.
     lr = LogisticRegression(solver=cfg.LR_SOLVER, max_iter=1000, class_weight="balanced").fit(X, y)
     lr_pred, lr_prob = lr.predict(Xt), lr.predict_proba(Xt)[:, 1]
     lr_m = compute_metrics(yt, lr_pred, lr_prob)
     save_metrics(lr_m, "LR", comp)
     print_metrics(lr_m, f"\n[LR | {comp}]")
 
-    # method="isotonic", NOT the default "sigmoid" (Platt scaling). Platt
-    # scaling fits a 1D logistic regression on the decision scores, which
-    # degenerates when those scores are close to perfectly separable --
-    # common for high-dim TF-IDF text. Verified on train_mixed: sigmoid
-    # calibration inverted the ranking (raw decision_function AUC=0.986,
-    # sigmoid-calibrated AUC=0.014, almost exactly 1 - 0.986); isotonic
-    # gives AUC=0.966, consistent with the raw decision function.
     svm = CalibratedClassifierCV(LinearSVC(), cv=3, method="isotonic").fit(X, y)
     svm_pred, svm_prob = svm.predict(Xt), svm.predict_proba(Xt)[:, 1]
     svm_m = compute_metrics(yt, svm_pred, svm_prob)
@@ -127,7 +112,6 @@ def _pair_groups(train):
     is skipped rather than faked.
     """
     key = lambda s: str(s)[:200]
-    # Any generated corpus that recorded what it was derived from.
     src_of = {}
     for p in sorted(cfg.SYNTHETIC_DIR.glob("*.csv")):
         try:
@@ -147,7 +131,7 @@ def _pair_groups(train):
         if k in src_of:
             groups.append(src_of[k]); matched += 1
         else:
-            groups.append(k)          # a real article groups with itself
+            groups.append(k)
     if matched == 0:
         return None
     return pd.factorize(pd.Series(groups))[0], matched
@@ -183,11 +167,6 @@ def cross_validate_lr_svm(train, comp, n_splits=5):
     texts = clean_series(train["text"]).values
     y = train["label"].values
 
-    # Two splits, because the difference between them is itself a result.
-    #   stratified -- ordinary k-fold, what the task asked for.
-    #   grouped    -- keeps each synthetic fake with its source article, which
-    #                 is the only one of the two that measures the model rather
-    #                 than the near-duplicate structure of the data.
     splits = [("stratified",
                StratifiedKFold(n_splits=n_splits, shuffle=True,
                                random_state=cfg.SEED), None)]
@@ -213,10 +192,8 @@ def cross_validate_lr_svm(train, comp, n_splits=5):
             Xv = vec.transform(texts[te_idx])
             ytr, yte = y[tr_idx], y[te_idx]
             if len(set(yte)) < 2:
-                continue      # a fold with one class has no defined AUC
+                continue
 
-            # Same estimator settings as train_lr_svm, so the CV spread
-            # describes the model that was shipped rather than a nearby one.
             lr = LogisticRegression(solver=cfg.LR_SOLVER, max_iter=1000,
                                     class_weight="balanced").fit(X, ytr)
             m = compute_metrics(yte, lr.predict(Xv), lr.predict_proba(Xv)[:, 1])
@@ -257,9 +234,6 @@ def cross_validate_lr_svm(train, comp, n_splits=5):
     print(f"  saved to {out}")
 
 
-# ----------------------------------------------------------------------
-# CNN (GloVe embeddings)
-# ----------------------------------------------------------------------
 class Vocab:
     def __init__(self, texts, max_size):
         counter = Counter()
@@ -323,23 +297,6 @@ _CNN_VOCAB_CACHE = {}
 
 
 def get_cnn_vocab_and_embed():
-    # Always built from train_real_real, and cached for the life of one
-    # `python train.py` run -- GloVe loading is the slow part, and every
-    # composition needs the SAME starting vocab/embeddings for CNN results
-    # to be comparable (see README "Evaluation setup note").
-    #
-    # Returns a FRESH .clone() of the embedding matrix on every call, not the
-    # cached tensor itself. nn.Embedding.from_pretrained(..., freeze=False)
-    # (in TextCNN below) does NOT copy the tensor you hand it -- it shares
-    # the same underlying memory (verified: emb.weight.data_ptr() ==
-    # base.data_ptr() is True right after construction). Since the CNN then
-    # fine-tunes that embedding during training, reusing the cached tensor
-    # directly across multiple compositions in one run would let the FIRST
-    # composition's fine-tuning leak into every later composition's "fresh"
-    # starting point -- real_real would get clean GloVe, mixed would
-    # actually start from real_real's already-adjusted vectors, real_syn
-    # from mixed's, etc. Call this once per composition/model you train (not
-    # once for a whole run) and you always get an independent copy.
     if "vocab" not in _CNN_VOCAB_CACHE:
         base_text = clean_series(pd.read_csv(cfg.PROCESSED_DIR / "train_real_real.csv")["text"])
         vocab = Vocab(base_text, cfg.CNN_VOCAB_SIZE)
@@ -389,9 +346,6 @@ def train_cnn(train, test, comp):
     torch.save(model.state_dict(), cfg.MODELS_DIR / f"cnn_{comp}.pt")
 
 
-# ----------------------------------------------------------------------
-# BERT
-# ----------------------------------------------------------------------
 class BertDataset(Dataset):
     def __init__(self, texts, labels, tokenizer, max_len):
         self.enc = tokenizer(list(texts), truncation=True, padding="max_length",
@@ -420,15 +374,11 @@ def get_bert_tokenizer():
 def train_bert(train, test, comp, grad_accum=1, seed=None):
     from transformers import AutoModelForSequenceClassification, get_linear_schedule_with_warmup
 
-    # Reseed before EACH composition -- without this, a composition's
-    # starting RNG state depends on how many random draws every composition
-    # trained before it in this run consumed, so results would silently
-    # shift if --dataset order changed.
     seed = cfg.SEED if seed is None else seed
     repro.set_determinism(seed)
 
     tokenizer = get_bert_tokenizer()
-    train_c = clean_series(train["text"], aggressive=False)   # BERT: minimal cleaning only
+    train_c = clean_series(train["text"], aggressive=False)
     test_c = clean_series(test["text"], aggressive=False)
     gen = torch.Generator().manual_seed(seed)
     train_dl = DataLoader(BertDataset(train_c, train["label"], tokenizer, cfg.BERT_MAX_LEN),
@@ -440,12 +390,7 @@ def train_bert(train, test, comp, grad_accum=1, seed=None):
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.BERT_LR)
     scaler = torch.cuda.amp.GradScaler(enabled=(DEVICE == "cuda"))
 
-    # Linear warmup (10% of steps) + linear decay, plus gradient clipping.
-    # Fine-tuning a pretrained transformer with a randomly-initialized
-    # classification head at a flat LR from step 1 is a known source of
-    # early-training instability -- large gradients through the head can
-    # disrupt the pretrained weights before they've had a chance to adapt.
-    steps_per_epoch = -(-len(train_dl) // grad_accum)  # ceil div
+    steps_per_epoch = -(-len(train_dl) // grad_accum)
     total_steps = steps_per_epoch * cfg.BERT_EPOCHS
     warmup_steps = max(1, int(0.1 * total_steps))
     scheduler = get_linear_schedule_with_warmup(optimizer, warmup_steps, total_steps)
@@ -483,15 +428,12 @@ def train_bert(train, test, comp, grad_accum=1, seed=None):
             ys.extend(y.numpy())
 
     m = compute_metrics(np.array(ys), np.array(preds), np.array(probs))
-    # Non-default seeds get their own label so repeat runs don't overwrite
-    # the primary result -- lets you report mean +/- std across seeds.
     label = comp if seed == cfg.SEED else f"{comp}_seed{seed}"
     save_metrics(m, "BERT", label)
     print_metrics(m, f"\n[BERT | {label}]")
     model.save_pretrained(cfg.MODELS_DIR / f"bert_{label}")
 
 
-# ----------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -554,15 +496,12 @@ def main():
         train = load_train(comp)
         if args.max_words:
             train = _truncate(train)
-            comp = label  # keeps checkpoints/metrics separate from the full-text runs
+            comp = label
         if "lr_svm" in models:
             train_lr_svm(train, test, comp)
             if args.cv:
                 cross_validate_lr_svm(train, comp, n_splits=args.cv)
         elif args.cv:
-            # Guard, not an oversight: --cv is scoped to the traditional models
-            # by design. Silently doing nothing here would look like the flag
-            # ran and found nothing to report.
             print("\n(--cv ignored: cross-validation is implemented for LR/SVM "
                   "only. CNN and BERT use their existing training loop and the "
                   "3-seed robustness runs -- see run_multiseed_robustness.py.)")

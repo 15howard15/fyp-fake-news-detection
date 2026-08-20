@@ -59,7 +59,7 @@ def load_pair(pair="forward"):
 def eval_traditional(orig, attacked, rows):
     o_clean = clean_series(orig["text"])
     a_clean = clean_series(attacked["text"])
-    y = orig["label"].values  # same labels in both, by construction
+    y = orig["label"].values
     for comp in COMPS:
         vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
         Xo = vec.transform(o_clean)
@@ -79,15 +79,6 @@ def eval_traditional(orig, attacked, rows):
             print(f"  [{mname:4s}|{comp:10s}] F1 {mo['f1']:.3f}->{ma['f1']:.3f}  flip_rate={flip_rate:.3f}")
 
 
-# Vocab/CNNDataset shared with train.py (identical code). TextCNN below stays
-# LOCAL and separate from train.py's -- this one builds an empty, randomly-
-# initialized embedding shell sized (vocab_size, embed_dim) whose weights get
-# fully overwritten by load_state_dict() right after construction (this
-# script only evaluates already-trained checkpoints, it never trains). train.
-# py's TextCNN instead requires an actual pretrained embedding matrix up
-# front (nn.Embedding.from_pretrained(embed_matrix, ...)) for training from
-# scratch. Different constructor signature, different purpose -- not
-# duplication to remove, just two TextCNNs for two different jobs.
 class TextCNN(nn.Module):
     def __init__(self, embed_dim, num_filters, filter_sizes, dropout, vocab_size):
         super().__init__()
@@ -103,9 +94,6 @@ class TextCNN(nn.Module):
 
 
 def eval_cnn(orig, attacked, rows):
-    # Vocab is deterministic given the same seed + source text, matching how
-    # train.py's get_cnn_vocab_and_embed() built it (from train_real_real,
-    # shared across comps).
     base_txt = clean_series(pd.read_csv(cfg.PROCESSED_DIR / "train_real_real.csv")["text"])
     vocab = Vocab(base_txt, cfg.CNN_VOCAB_SIZE)
     o_clean = clean_series(orig["text"])

@@ -32,22 +32,6 @@ STRATEGY_INSTRUCTIONS = {
     ),
 }
 
-# ----------------------------------------------------------------------
-# Length control (--lengths)
-# ----------------------------------------------------------------------
-# The default generator preserves the source article's length, because it
-# applies one edit and leaves the rest of the wording alone. That is the right
-# design for "is this fact false?", but it hands the classifier a shortcut:
-# synthetic fakes have a median of 376 words against 369 for ISOT real, while
-# LIAR statements have a median of 16. A detector can therefore separate the
-# training classes on length-correlated cues and still look like it learned
-# something about truth -- and the RQ3 length sweep already showed this project
-# is exposed to exactly that confound.
-#
-# Generating the same fact-manipulation at three very different lengths breaks
-# the correlation between length and label without changing what makes the text
-# false, so a model trained on the mixed-length corpus cannot use length as a
-# proxy for the label.
 LENGTH_SPECS = {
     "short":  (25,  "a single short social-media-style snippet of about 25 words -- "
                     "one or two sentences, no headline, no byline"),
@@ -83,9 +67,6 @@ SYSTEM_PROMPT = (
     "Respond ONLY with valid JSON, no markdown, no commentary."
 )
 
-# --symmetric: same paraphrase depth as generate_synthetic_real.py, so the two
-# classes differ only in whether a fact was altered. See the note in
-# gen_common.py for the measured asymmetry this exists to remove.
 SYMMETRIC_SYSTEM_PROMPT = (
     SYMMETRIC_SYSTEM_BASE +
     " In addition to rewriting, you introduce exactly ONE targeted factual "
@@ -115,11 +96,6 @@ Return JSON with exactly these keys:
 }}"""
 
 
-# The default system prompt demands the rest of the wording stay near-identical
-# to the source, which is unsatisfiable when the target is 25 words from a
-# 400-word article. Length mode keeps the part that matters -- exactly one
-# altered fact, everything else faithful -- and drops the verbatim-wording
-# requirement, which is a means to that end rather than the end itself.
 LENGTH_SYSTEM_PROMPT = (
     "You are a data-generation tool for academic fake-news-detection research. "
     "You retell a real news article at a requested length, introducing exactly "
@@ -154,13 +130,6 @@ def generate_one(client, article: str, strategy: str, length: str = None,
     CLI rejects the combination rather than silently picking one.
     """
     if symmetric:
-        # Length target computed from the WINDOW the model is shown, not the
-        # full article -- it cannot reproduce length it never saw. Without an
-        # explicit target the rewrite compresses badly: the first 500-article
-        # run came back at a median of 206 words against synthetic-real's 367,
-        # which fixed the edit-distance confound and installed a length one in
-        # its place (a word-counter alone separated those two classes at AUC
-        # 0.28). Removing one shortcut by adding another is not a fix.
         window = truncate_article(article)
         prompt = SYMMETRIC_TEMPLATE.format(
             article=window,
@@ -221,17 +190,6 @@ def main():
     from openai import OpenAI
     client = OpenAI()
 
-    # IMPORTANT: only draw source articles from the TRAIN split, using the
-    # exact same train_test_split call every other script uses (04_build_
-    # datasets.py, 04b, 04c, 03b). The previous version used
-    # `isot_real.sample(frac=1.0, random_state=SEED)`, a DIFFERENT shuffle
-    # algorithm than sklearn's train_test_split with the same seed -- so it
-    # did not line up with real_train/real_test at all. Verified: 475/475 of
-    # the previously-generated synthetic_fake.csv articles were sourced from
-    # real_test (the held-out set), not real_train -- meaning every fake-class
-    # training example was a near-duplicate of a real-class TEST example.
-    # That's data leakage, and it silently violates the "no train/test
-    # overlap" claim in Section 3.2.5 of the thesis. Do not remove this split.
     from sklearn.model_selection import train_test_split
     isot_real = pd.read_csv(cfg.PROCESSED_DIR / "isot_real.csv")
     real_train, _test = train_test_split(
@@ -239,17 +197,6 @@ def main():
     )
     real = real_train.reset_index(drop=True)
 
-    # Which length bucket each generated row is asked for. In default mode the
-    # whole run is one unlabelled bucket, which keeps the loop below identical
-    # for both modes.
-    #
-    # Buckets get DISJOINT slices of the source pool rather than all three
-    # lengths of the same article. Three retellings of one story share their
-    # names, numbers and phrasing, so putting them in one corpus would seed it
-    # with near-duplicates -- and if a train/test split later separated them,
-    # the test set would contain paraphrases of training rows. Disjoint thirds
-    # cost nothing here (there are far more source articles than we need) and
-    # keep the corpus safe to split.
     if args.lengths:
         buckets = list(args.lengths)
         per = args.n // len(buckets)
@@ -260,7 +207,6 @@ def main():
     else:
         plan = [None] * args.n
 
-    # Resume support: don't regenerate what we already have.
     default_name = ("synthetic_fake_mixedlen.csv" if args.lengths
                     else "synthetic_fake_sym.csv" if args.symmetric
                     else "synthetic_fake.csv")
@@ -273,16 +219,12 @@ def main():
         done = len(existing_df)
         print(f"Resuming: {done} already generated.")
 
-    # Cursor into the source pool, per bucket. Default mode has one cursor over
-    # the whole pool starting at `done`, which is exactly what this loop did
-    # before length mode existed. Length mode gives each bucket a contiguous,
-    # non-overlapping region so no source article is retold at two lengths.
     if args.lengths:
         region = len(real) // len(buckets)
         cursors = {b: i * region for i, b in enumerate(buckets)}
         limits = {b: (i + 1) * region if i < len(buckets) - 1 else len(real)
                   for i, b in enumerate(buckets)}
-        for row in existing:                     # resume where each bucket stopped
+        for row in existing:
             b = row.get("length")
             if b in cursors:
                 cursors[b] += 1
@@ -291,30 +233,20 @@ def main():
 
     results = list(existing)
     pbar = tqdm(total=args.n, initial=done, desc="Generating")
-    # Indexed by how many rows we HAVE, not by how many attempts we've made, so
-    # a rejected generation retries that bucket against the next source article
-    # instead of costing the corpus a row -- the same "keep going until we have
-    # n" behaviour the single-length version had.
     while len(results) < len(plan):
         bucket = plan[len(results)]
         if cursors[bucket] >= limits[bucket]:
-            # No source articles left for this bucket. Drop its unfilled slots
-            # and carry on with the others rather than spinning forever; the
-            # run ends short of --n, which the final count makes visible.
             print(f"\n(source pool exhausted for bucket {bucket!r} -- "
                   f"dropping its remaining slots)")
             plan = plan[:len(results)] + [p for p in plan[len(results):] if p != bucket]
             continue
         article = str(real.iloc[cursors[bucket]]["text"])
         cursors[bucket] += 1
-        if len(article.split()) < 30:   # too short to manipulate meaningfully
+        if len(article.split()) < 30:
             continue
 
         target = LENGTH_SPECS[bucket][0] if bucket else None
         if args.symmetric:
-            # Enforce the length target rather than trusting the prompt, and
-            # enforce it asymmetrically: matching the real class's length IS the
-            # control here, and the model only ever errs short.
             target = len(truncate_article(article).split())
         strategy = random.choice(cfg.TRANSFORMATIONS)
         data = None
@@ -337,35 +269,13 @@ def main():
             "modified_fact": data.get("modified_fact", ""),
             "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP),
         }
-        # Only present in length mode, so the default file keeps its exact
-        # existing schema and nothing downstream has to learn a new column.
         if bucket:
             row["length"] = bucket
         if args.symmetric:
-            # The altered fact restated in the rewritten article's own wording.
-            #
-            # WHAT THIS IS NOT: a verbatim pointer into the article. The prompt
-            # asks for the sentence word for word, and the model does not comply
-            # -- measured on a 30-article pilot, the returned string is an exact
-            # substring of the article 10% of the time, 17% after normalising
-            # punctuation, and matches some sentence at 80% token overlap only
-            # 33% of the time. It writes a plausible restatement instead of
-            # copying. Do not use it to locate the edit in the text.
-            #
-            # WHAT IT IS FOR: a second, differently-worded record of the change,
-            # which makes the audit less dependent on lexical luck. Verifying an
-            # edit by matching modified_fact against this field succeeds 86.7%
-            # of the time against 73.3% matching it against the whole article.
-            # That is a real improvement but not a fix -- heavy paraphrase
-            # rewords the altered fact itself, so some loss of traceability is
-            # the price of removing the edit-distance asymmetry, and the honest
-            # figure to quote is the ~99.5% of the lightly-edited corpus falling
-            # to roughly 87% here.
             row["modified_fact_as_written"] = data.get("modified_fact_as_written", "")
         results.append(row)
         pbar.update(1)
 
-        # checkpoint every 25 so a crash doesn't lose everything
         if len(results) % 25 == 0:
             pd.DataFrame(results).to_csv(out_path, index=False)
 
@@ -373,13 +283,10 @@ def main():
     pd.DataFrame(results).to_csv(out_path, index=False)
     print(f"\nSaved {len(results)} synthetic articles to {out_path}")
 
-    # transformation breakdown for your report
     df = pd.DataFrame(results)
     print("\nTransformation distribution:")
     print(df["transformation"].value_counts().to_string())
     if "length" in df.columns:
-        # The point of the run is the length distribution, so report whether it
-        # actually landed where it was aimed rather than assuming the LLM obeyed.
         w = df["text"].astype(str).str.split().str.len()
         print("\nLength bucket   n   target   median words")
         for b in df["length"].dropna().unique():

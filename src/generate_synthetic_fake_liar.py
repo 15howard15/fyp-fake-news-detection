@@ -54,8 +54,6 @@ SYSTEM_PROMPT = (
     "Respond ONLY with valid JSON, no markdown, no commentary."
 )
 
-# Same 3-step structure as generate_synthetic_fake.py, worded for short
-# statements rather than multi-paragraph articles.
 USER_TEMPLATE = """Source statement:
 \"\"\"{article}\"\"\"
 
@@ -96,10 +94,6 @@ def main():
     from openai import OpenAI
     client = OpenAI()
 
-    # Same discipline as generate_synthetic_fake.py: only draw source statements
-    # from the TRAIN split (same seed/test_size as every other script), even
-    # though liar_real is not currently used in any test set. This keeps the
-    # door open for future work without silently creating a leakage risk.
     from sklearn.model_selection import train_test_split
     liar_real = pd.read_csv(cfg.PROCESSED_DIR / "liar_real.csv")
     real_train, _test = train_test_split(
@@ -107,7 +101,6 @@ def main():
     )
     real = real_train.reset_index(drop=True)
 
-    # Resume support: don't regenerate what we already have.
     out_path = cfg.SYNTHETIC_DIR / "synthetic_fake_liar.csv"
     done = 0
     existing = []
@@ -147,7 +140,6 @@ def main():
         })
         pbar.update(1)
 
-        # checkpoint every 25 so a crash doesn't lose everything
         if len(results) % 25 == 0:
             pd.DataFrame(results).to_csv(out_path, index=False)
 
@@ -160,7 +152,6 @@ def main():
               f"(>= {args.min_words} words) before reaching --n={args.n}. "
               f"Generated {len(results)} instead.")
 
-    # transformation breakdown for your report
     df = pd.DataFrame(results)
     print("\nTransformation distribution:")
     print(df["transformation"].value_counts().to_string())

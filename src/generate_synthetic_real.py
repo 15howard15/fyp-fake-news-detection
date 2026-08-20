@@ -41,11 +41,6 @@ import config as cfg
 from gen_common import (truncate_article, quality_ok, call_llm,
                         SYMMETRIC_PARAPHRASE_INSTRUCTION, SYMMETRIC_SYSTEM_BASE)
 
-# --symmetric: the fact-preserving half of the matched pair. Identical system
-# base and identical paraphrase instruction to generate_synthetic_fake.py
-# --symmetric; the ONLY difference is that no fact is altered. Sharing the
-# wording rather than writing two prompts that merely sound alike is what makes
-# "the classes differ in one thing" a property of the code instead of a claim.
 SYMMETRIC_SYSTEM_PROMPT = (
     SYMMETRIC_SYSTEM_BASE +
     " You change no facts at all: every name, date, number, location, quote and "
@@ -130,13 +125,6 @@ def main():
 
     isot_real = pd.read_csv(cfg.PROCESSED_DIR / "isot_real.csv")
 
-    # IMPORTANT: only draw from the TRAIN split, using the exact same
-    # train_test_split call as build_datasets.py core / build_test_sets.py.
-    # If we instead
-    # re-shuffled isot_real independently here, we could accidentally
-    # paraphrase articles that are held out in real_test / test_indomain /
-    # test_crossdomain -- leaking their semantic content into training even
-    # though the exact text differs.
     real_train, _test = train_test_split(
         isot_real, test_size=cfg.TEST_SIZE, random_state=cfg.SEED, shuffle=True
     )

@@ -120,8 +120,6 @@ def _run_pass(client, pool, template, tag, label, n, results, pbar, out_path,
         styled = generate_one(client, article, template)
         if styled is None or not quality_ok(article, styled, ratio_range=(0.4, 2.5)):
             continue
-        # Key order matches the pre-merge scripts' output so the CSVs stay
-        # column-for-column identical, not merely equivalent.
         if track_orig_id:
             row = {"orig_id": orig_id, "text": styled, "label": label,
                    "source_text": truncate_article(article, cfg.FULL_SOURCE_CAP),
@@ -189,8 +187,6 @@ def cmd_attack(args, reverse=False):
         orig_path = cfg.SYNTHETIC_DIR / "style_attack_originals.csv"
         desc, noun = "Style attacks", "style-attacked articles"
 
-    # Reverse only: exclude every article the forward attack consumed, so the
-    # two attack sets never share one.
     used_real, used_fake = set(), set()
     if reverse:
         fwd = cfg.SYNTHETIC_DIR / "style_attack_originals.csv"
