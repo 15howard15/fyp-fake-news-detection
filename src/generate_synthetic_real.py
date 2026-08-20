@@ -1,35 +1,4 @@
-"""
-generate_synthetic_real.py -- generate SYNTHETIC REAL news (paraphrase-only,
-fact-preserving rewrites of authentic ISOT real articles).
-
-WHY THIS EXISTS
-----------------
-Your fake-class synthetic data (generate_synthetic_fake.py) is LLM-generated, but
-your real-class training data is always human-written (ISOT). That means a
-classifier trained on real_real / mixed / real_syn could, in principle, be
-learning "is this text LLM-authored?" instead of "is this text fake?" -- the
-same shortcut-learning risk your Chapter 2 lit review raises (Section 3.3.3)
-but never actually tests.
-
-This script generates the control condition: real news, paraphrased by the
-SAME LLM family, with every fact/name/date/number kept identical. Pairing this
-with real fake vs. synthetic fake gives you two new training compositions:
-
-    C2 = synthetic-real + real-fake       (isolates: does swapping the REAL
-                                            side to LLM-authored text alone
-                                            change performance?)
-    C3 = synthetic-real + synthetic-fake  (both classes LLM-authored -- if a
-                                            model can still discriminate here,
-                                            it's using content, not authorship)
-
-USAGE
------
-    python src/generate_synthetic_real.py --n 1000
-
-Costs API calls just like generate_synthetic_fake.py -- run it yourself with
-your own OPENAI_API_KEY. Supports the same resume/checkpoint behaviour.
-After it finishes, run build_synthetic_real_datasets.py to assemble C2/C3.
-"""
+"""Generate synthetic real news: fact-preserving paraphrases of ISOT articles."""
 import argparse
 import os
 
@@ -88,8 +57,6 @@ Return JSON with exactly this key:
 
 
 def generate_one(client, article: str, symmetric: bool = False):
-    """symmetric=False reproduces the existing synthetic_real.csv prompts byte
-    for byte, so that corpus stays regenerable from this file."""
     if symmetric:
         window = truncate_article(article)
         prompt = SYMMETRIC_TEMPLATE.format(

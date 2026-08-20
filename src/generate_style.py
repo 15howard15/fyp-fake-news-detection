@@ -1,44 +1,4 @@
-"""
-generate_style.py -- all three LLM tone-rewriting passes for Objective 4.
-
-Merged from generate_style_attack.py, generate_style_attack_reverse.py and
-generate_counter_style_training.py, which were three near-identical scripts:
-the same generate_one(), the same resume-from-CSV logic, and the same
-two-loop real-pool/fake-pool structure, differing only in which prompt each
-class gets, where the source articles come from, and where the output goes.
-
-Three subcommands:
-
-  attack           TEST-side, forward direction. Real -> sensationalized,
-                   fake -> neutralized. This is the direction that matches the
-                   intuitive "fake news sounds dramatic" shortcut, so it is
-                   also the easiest direction to defend against by design --
-                   which is why `attack-reverse` exists.
-
-  attack-reverse   TEST-side, opposite direction. Real -> neutralized,
-                   fake -> sensationalized. Checks that the style_robust fix
-                   generalises to a tone shift it was not built against rather
-                   than memorising one attack pattern. Draws from the same
-                   held-out pools but explicitly excludes every article the
-                   forward attack already used, read back from
-                   style_attack_originals.csv rather than assumed from an index
-                   offset, since quality-filter retries mean the forward run's
-                   stopping index is not fixed.
-
-  counter-training TRAINING-side fix. Paired counter-style twins of articles
-                   ALREADY in train_real_real.csv, each keeping its original
-                   label, so the model sees the same content in both tones
-                   under the same label. Decorrelates tone from truth during
-                   training rather than testing for the correlation.
-
-All three reuse gen_common's STYLE_TRANSFER_SYSTEM_PROMPT, so training-time and
-test-time style shifts are drawn from the same distribution.
-
-Usage:
-    python src/generate_style.py attack --n_per_class 100
-    python src/generate_style.py attack-reverse --n_per_class 100
-    python src/generate_style.py counter-training --n_per_class 100
-"""
+"""generate_style.py -- all three LLM tone-rewriting passes for Objective 4."""
 import argparse
 import os
 
@@ -96,16 +56,7 @@ def _open_client():
 def _run_pass(client, pool, template, tag, label, n, results, pbar, out_path,
               *, start_idx, track_orig_id, kind, skip_idx=frozenset(),
               done_ids=frozenset()):
-    """One class's rewriting loop, shared by all three subcommands.
-
-    start_idx is the caller's resume position, and it is deliberately NOT
-    unified across subcommands: `attack` and `counter-training` resume by
-    offset (start at the count already done), while `attack-reverse` restarts
-    at 0 and skips by ID instead, because it must also skip whatever the
-    forward attack consumed. Collapsing these into one scheme would silently
-    re-generate or skip articles -- both of which cost API credit and change
-    the corpus a published result was computed from.
-    """
+    """One class's rewriting loop, shared by all three subcommands."""
     idx = start_idx
     made = len([r for r in results if r["attack_type"] == tag])
     while made < n and idx < len(pool):
@@ -217,11 +168,7 @@ def cmd_attack(args, reverse=False):
 
 
 def cmd_counter_training(args):
-    """TRAINING-side fix: counter-style twins of train_real_real rows.
-
-    Source pool is the training set, NOT the held-out test pool the attack
-    sets use, so the fix cannot be credited to having seen the test articles.
-    """
+    """TRAINING-side fix: counter-style twins of train_real_real rows."""
     client = _open_client()
     train = pd.read_csv(cfg.PROCESSED_DIR / "train_real_real.csv")
     real_pool = train[train.label == cfg.LABEL_REAL].reset_index(drop=True)

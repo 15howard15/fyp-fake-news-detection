@@ -1,28 +1,4 @@
-"""
-evaluate.py -- unified evaluation entry point.
-
-Merges 08_evaluate.py and 11_error_analysis.py (deleted after this file was
-verified to reproduce their output exactly) into one script with
-subcommands. Unlike train.py's merge, these two didn't share
-much actual CODE -- 08 just aggregates already-saved metrics_*.json files,
-while 11 runs its own fresh predictions to capture confusion matrices -- so
-this is a file-count consolidation, not a duplication removal.
-eval_style_robustness.py stays separate: it's a structurally different
-analysis (paired attack-vs-original evaluation of already-trained models),
-not metric aggregation, so folding it in here wouldn't actually simplify
-anything.
-
-Examples:
-    python evaluate.py master                     # aggregate metrics_*.json -> master_results.csv + f1_heatmap.png
-    python evaluate.py error-analysis              # LR+SVM confusion/prediction-distribution + vocab overlap (seconds)
-    python evaluate.py error-analysis --deep       # + CNN + BERT (needs GPU)
-    python evaluate.py error-analysis --deep --models cnn   # pick which deep models
-    python evaluate.py cross-target --dataset welfake      # evaluate real_real/mixed/real_syn on test_crossdomain2 (WELFake)
-    python evaluate.py cross-target --dataset welfake --comp c2_synreal_realfake c3_synreal_synfake
-    python evaluate.py seed-summary                # mean +/- std across seeds, from multiseed_results.csv
-    python evaluate.py case-studies                       # concrete style-attack flip examples, BERT, mixed vs style_robust
-    python evaluate.py case-studies --model lr --comp real_syn --n 5
-"""
+"""evaluate.py -- unified evaluation entry point."""
 import argparse
 import json
 import sys
@@ -151,8 +127,6 @@ def run_traditional(test_df):
 
 
 def run_deep(test_df, models):
-    """CNN/BERT inference scoped to ERROR_ANALYSIS_COMPS, capturing the
-    confusion matrix + prediction distribution."""
     import torch
     from torch.utils.data import DataLoader
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -333,14 +307,6 @@ CROSS_TARGET_ALIASES = {
 
 
 def cmd_cross_target(args):
-    """Evaluate the already-trained real_real/mixed/real_syn checkpoints
-    (no retraining -- a model's weights don't depend on which test set you
-    later evaluate on) against a cross-domain test set OTHER than the
-    default test_crossdomain.csv (LIAR-based). Point this at
-    test_crossdomain2.csv (WELFake-based, built by 04c_build_indomain_
-    test.py) to compare generalization across two different cross-domain
-    targets instead of relying on just one, which conflates domain shift
-    with LIAR's genre/length shift (see README)."""
     test_name = CROSS_TARGET_ALIASES.get(args.dataset, args.dataset)
     test_path = cfg.PROCESSED_DIR / f"{test_name}.csv"
     if not test_path.exists():
@@ -434,20 +400,7 @@ def cmd_cross_target(args):
 
 
 def predict_labels(comp, model, test):
-    """Predicted labels for one (composition, model) pair on a test frame.
-
-    Inference only -- loads the saved checkpoint, never trains. McNemar's test
-    needs the per-row correct/incorrect vector rather than an aggregate, which
-    is the one thing the metrics_*.json files don't store, so the predictions
-    have to be recomputed. They are cached by the caller so each checkpoint is
-    loaded once no matter how many pairwise comparisons use it.
-
-    (cmd_cross_target and cmd_hard_examples still carry their own copies of this
-    loading logic. They are left alone deliberately: both produce committed
-    result files, and rewriting them would mean re-running every one of those
-    results to prove the refactor changed nothing. Worth doing as its own
-    change, not folded into this one.)
-    """
+    """Predicted labels for one (composition, model) pair on a test frame."""
     y = test["label"].values
     if model in ("LR", "SVM"):
         vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
@@ -496,30 +449,7 @@ def predict_labels(comp, model, test):
 
 
 def cmd_edit_distance(args):
-    """How heavily was each synthetic corpus rewritten from its source?
-
-    The C3 authorship shortcut comes from the two classes being edited by
-    different amounts. If synthetic FAKE keeps most of the source wording while
-    synthetic REAL is rewritten throughout, then "close to the source wording"
-    predicts "fake" without any reference to the facts, and a model will use it.
-    Measuring the asymmetry is what turns that from a suspicion into a number.
-
-    Two details that change the answer:
-
-    - Compared against the first --window characters of the source, not the whole
-      stored source. gen_common.truncate_article caps the PROMPT at 4,000
-      characters, so the generator never saw the rest; scoring against the full
-      article would count text the model was never given as though it had
-      deleted it.
-    - difflib.SequenceMatcher with autojunk disabled. Its heuristic treats
-      characters appearing in more than 1% of a long string as junk, which for
-      article-length text means spaces and common letters, and that silently
-      shifts the ratio.
-
-    The reported number is SIMILARITY (1.0 = identical to source, 0.0 = shares
-    nothing). Edit distance is 1 - similarity; both are printed so neither has
-    to be inferred.
-    """
+    """How heavily was each synthetic corpus rewritten from its source?"""
     import difflib
 
     rows = []
@@ -581,36 +511,7 @@ def cmd_edit_distance(args):
 
 
 def cmd_significance(args):
-    """McNemar's test on pairs of already-trained models. No retraining.
-
-    Every comparison in this project so far has been "0.885 is higher than
-    0.673", with nothing said about whether a gap that size could have arisen by
-    chance. McNemar's test answers that for two classifiers scored on the SAME
-    rows, which is exactly the situation here: one test set, many checkpoints.
-
-    It works on the DISCORDANT pairs only -- the rows where one model is right
-    and the other is wrong (b and c below). Rows both get right, or both get
-    wrong, carry no information about which is better and are excluded by
-    construction:
-
-                          B correct   B wrong
-        A correct            a           b
-        A wrong              c           d
-
-    The null hypothesis is b == c. Two comparison axes are available, because
-    the interesting questions come in both shapes: does the training RECIPE
-    change a given model's predictions (real_real vs style_robust for BERT), and
-    do two MODELS differ on a given recipe (BERT vs CNN on real_real).
-
-    exact=True is used when there are few discordant pairs, where the chi-square
-    approximation is unreliable; statsmodels' binomial exact test is correct at
-    any count, so the threshold only trades runtime, not validity.
-
-    Note on multiple comparisons: this runs many tests at once, so a raw p < 0.05
-    will show up by chance somewhere. significant_at_0.05 is the raw result the
-    task asked for; p_value_holm / significant_holm apply Holm-Bonferroni across
-    every test in the run, and that is the column to quote in the thesis.
-    """
+    """McNemar's test on pairs of already-trained models."""
     from statsmodels.stats.contingency_tables import mcnemar
 
     test_name = CROSS_TARGET_ALIASES.get(args.dataset, args.dataset)
@@ -718,15 +619,6 @@ def cmd_significance(args):
 
 
 def cmd_hard_examples(args):
-    """Find the most confidently-WRONG predictions for an already-trained
-    checkpoint on a plain test set (test_crossdomain.csv / test_crossdomain2.csv)
-    -- the concrete misclassified examples behind an aggregate F1/AUC number.
-    No retraining: loads the saved checkpoint and runs inference only, same
-    loading pattern as cmd_cross_target. 'Confidently wrong' = sorted by the
-    probability the model assigned to its own (incorrect) prediction, so the
-    first examples shown are the ones the model was most sure about and most
-    wrong on -- the most informative cases for explaining a failure, not just
-    any wrong prediction."""
     test_name = CROSS_TARGET_ALIASES.get(args.dataset, args.dataset)
     test_path = cfg.PROCESSED_DIR / f"{test_name}.csv"
     if not test_path.exists():
@@ -817,20 +709,7 @@ def cmd_hard_examples(args):
 
 
 def cmd_length_sweep(args):
-    """Separate the LENGTH confound from the DOMAIN confound in RQ3.
-
-    Every cross-domain result compares ISOT-trained models against LIAR, but
-    LIAR differs from ISOT in two ways at once: different source/topics AND
-    radically different length (~11-17 words per statement vs 250-380 words
-    per article). A drop on LIAR could be either.
-
-    This holds the domain fixed and varies only length: the full-length
-    WELFake test set is progressively truncated to the first N words and
-    re-evaluated with the SAME checkpoints (inference only, no retraining).
-    Whatever performance is lost is attributable to length alone, since
-    nothing else about the test set changed. Comparing that loss against the
-    actual LIAR gap shows how much of the LIAR drop length can account for.
-    """
+    """Separate the LENGTH confound from the DOMAIN confound in RQ3."""
     test_path = cfg.PROCESSED_DIR / "test_crossdomain2.csv"
     if not test_path.exists():
         print(f"{test_path} not found -- run build_test_sets.py with WELFake available.")
@@ -889,29 +768,6 @@ def cmd_length_sweep(args):
 
 
 def cmd_leakage(args):
-    """Verify no training text appears in any test set, and measure how much
-    each cross-domain test corpus actually overlaps ISOT.
-
-    Two separate things get checked here, because they fail for different
-    reasons and matter for different claims:
-
-    1. TRAIN/TEST CONTAMINATION -- exact-text overlap between every
-       train_*.csv and every test_*.csv. A non-zero count here does NOT
-       automatically mean the split logic is broken: ISOT ships with genuine
-       duplicate articles (~1% of real, ~24% of fake are exact repeats), and
-       the split is done on rows, so a duplicated article can legitimately
-       land on both sides. That is why this fails on a THRESHOLD rather than
-       on any overlap at all -- a sudden jump above the documented baseline
-       is what would indicate a real regression in the splitting code.
-
-    2. CORPUS INDEPENDENCE -- how much of each cross-domain test corpus
-       exists anywhere in ISOT. This is the number that justifies (or
-       undermines) calling a test set "independent". LIAR is genuinely
-       disjoint from ISOT; WELFake is not, because WELFake is a merged
-       corpus that includes the same Kaggle fake-news data ISOT derives
-       from. Any claim that a result "holds on an independent dataset"
-       depends on this figure, so it is measured rather than assumed.
-    """
     tests = {}
     for stem in ("test_indomain", "test_crossdomain", "test_crossdomain2",
                  "test_crossdomain2_clean"):
@@ -1030,10 +886,6 @@ def cmd_leakage(args):
 
 
 def cmd_seed_summary(args):
-    """Collapse results/extra/multiseed_results.csv (3 seeds x 5 compositions,
-    CNN + BERT) into a mean +/- std table -- so the thesis can cite seed-
-    averaged numbers for the two non-deterministic models instead of single-
-    run point estimates."""
     path = EXTRA_DIR / "multiseed_results.csv"
     if not path.exists():
         print(f"{path} not found. Run run_multiseed_robustness.py first.")
@@ -1067,13 +919,6 @@ def cmd_seed_summary(args):
 
 
 def cmd_case_studies(args):
-    """Find concrete articles where the style attack flipped a prediction --
-    the actual text behind style_robustness_results.csv's flip_rate numbers.
-    No retraining: loads the already-saved LR/SVM/CNN/BERT checkpoints for
-    each composition and re-runs inference on the paired original/attacked
-    style-attack set (data/synthetic/style_attack_originals.csv + _attack.csv),
-    same as eval_style_robustness.py's approach but keeping only the
-    specific examples where a correct prediction became wrong."""
     orig = pd.read_csv(cfg.SYNTHETIC_DIR / "style_attack_originals.csv").sort_values("orig_id").reset_index(drop=True)
     attacked = pd.read_csv(cfg.SYNTHETIC_DIR / "style_attack.csv").sort_values("orig_id").reset_index(drop=True)
     assert (orig["orig_id"].values == attacked["orig_id"].values).all(), "misaligned pairs"

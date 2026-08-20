@@ -1,45 +1,4 @@
-"""
-check_synthetic_quality.py -- evidence that the generated text is actually
-usable, not just the right length.
-
-Until now the only gate on generated text was gen_common.quality_ok(), a
-length-ratio filter that rejects refusals and truncations. That is enough to
-catch a broken API response, but it supports no claim about whether the
-synthetic fake news reads plausibly or whether the intended factual change
-actually happened. Every result in this project rests on that data being
-reasonable, so this script measures it directly.
-
-Three checks, in increasing cost:
-
-1. DIVERSITY (free) -- distinct-n and type-token ratio show whether the
-   generator produced 500 varied articles or 500 rewordings of the same few
-   templates. Mean pairwise TF-IDF cosine similarity is reported alongside as
-   a self-similarity proxy (cheaper than Self-BLEU, same purpose): a corpus
-   that is internally near-identical would score high here.
-
-2. FACT-CHANGE VERIFICATION (free) -- generate_synthetic_fake.py records a
-   `modified_fact` string of the form "original -> altered" for every article.
-   That makes the intended edit checkable after the fact: the original side
-   should appear in the source article, the altered side should appear in the
-   generated article, and the altered side should NOT already be in the
-   source. Anything failing those tests is an article whose "fake" label may
-   not correspond to a real factual change.
-
-3. LLM-AS-JUDGE (costs money, opt-in via --judge N) -- asks the model to rate
-   a random sample for plausibility as a news article. Off by default because
-   it spends OPENAI_API_KEY budget; everything above runs offline.
-
-   IMPORTANT CAVEAT: the judge is cfg.OPENAI_MODEL, the same model that
-   generated the text being rated. Models are known to favour their own
-   output, so a high score here is weaker evidence than the same score from
-   an independent judge or a human sample would be. The real ISOT fake news
-   is rated alongside as a reference point, which is what makes the
-   comparison interpretable at all -- but the absolute numbers should be
-   reported with the shared-model-family caveat attached, not as a neutral
-   quality measurement.
-
-Writes results/extra/synthetic_quality.csv.
-"""
+"""Measure diversity and fact-change verification on the generated corpora."""
 import argparse
 import random
 import re
@@ -59,8 +18,7 @@ EXTRA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def distinct_n(texts, n):
-    """Fraction of n-grams that are unique. 1.0 = every n-gram appears once
-    (maximally varied); values near 0 mean the corpus repeats itself."""
+    """Fraction of n-grams that are unique."""
     grams = set()
     total = 0
     for t in texts:
@@ -72,8 +30,7 @@ def distinct_n(texts, n):
 
 
 def mean_pairwise_similarity(texts, sample=300, seed=cfg.SEED):
-    """Mean off-diagonal TF-IDF cosine similarity over a random sample.
-    Self-BLEU proxy -- high values mean the articles resemble each other."""
+    """Mean off-diagonal TF-IDF cosine similarity over a random sample."""
     rng = random.Random(seed)
     pool = list(texts)
     if len(pool) > sample:
@@ -115,9 +72,6 @@ def check_diversity(rows):
 
 
 def _norm(s):
-    """Loose match -- lowercase, collapse whitespace, drop punctuation that the
-    model commonly re-styles (quotes, commas) so a genuine match isn't missed
-    on formatting alone."""
     s = str(s).lower()
     s = re.sub(r"[‘’“”\"',]", "", s)
     return re.sub(r"\s+", " ", s).strip()
@@ -132,15 +86,7 @@ def _content_words(s):
 
 
 def _fuzzy_in(needle, haystack, threshold=0.6):
-    """Does `needle` appear in `haystack` in substance, if not verbatim?
-
-    Exact substring matching badly understates the ISOT-sourced set: the model
-    reports the original fact in its own words rather than quoting the article
-    verbatim, so a real, correctly-recorded edit still fails a strict test.
-    This asks the weaker question actually of interest -- are most of the
-    content words of the fact present -- and is reported ALONGSIDE the strict
-    figure rather than replacing it, since it is the looser evidence of the
-    two."""
+    """Does `needle` appear in `haystack` in substance, if not verbatim?"""
     nw = _content_words(needle)
     if not nw:
         return False

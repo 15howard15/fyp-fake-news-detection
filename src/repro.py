@@ -1,3 +1,5 @@
+"""Seed every RNG and force deterministic kernels, for reproducible runs."""
+
 import os
 import random
  
@@ -6,11 +8,7 @@ import torch
  
  
 def set_determinism(seed: int, warn_only: bool = True) -> None:
-    """Make everything downstream of this call reproducible for a given seed.
- 
-    Call it FIRST -- before building the model, the optimizer, or the
-    DataLoader -- because it fixes the RNG state those objects draw from.
-    """
+    """Make everything downstream of this call reproducible for a given seed."""
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     os.environ["PYTHONHASHSEED"] = str(seed)
  
@@ -26,11 +24,7 @@ def set_determinism(seed: int, warn_only: bool = True) -> None:
  
  
 def seed_worker(worker_id: int) -> None:
-    """DataLoader worker_init_fn for reproducible multi-worker loading.
- 
-    Only needed when num_workers > 0. Derives each worker's seed from the
-    torch base seed so the whole pipeline stays deterministic.
-    """
+    """DataLoader worker_init_fn for reproducible multi-worker loading."""
     worker_seed = torch.initial_seed() % 2**32
     np.random.seed(worker_seed)
     random.seed(worker_seed)

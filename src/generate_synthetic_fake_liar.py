@@ -1,18 +1,4 @@
-"""
-generate_synthetic_fake_liar.py -- Objective 1 fix: generates synthetic
-fake news from a SECOND real-news source (LIAR true/mostly-true/half-true
-statements), so the training corpus's synthetic fake news is no longer
-derived from a single source (ISOT) only. Reuses the exact same four
-transformation strategies and the same quality filter as
-generate_synthetic_fake.py, so results stay comparable.
-
-LIAR statements are short political claims (median 17 words vs ISOT's much
-longer articles), so the minimum source length is lowered to 10 words here
--- these are still single factual claims, just shorter ones than news
-articles. Output is tagged source="synthetic_liar" and kept in a separate
-file (synthetic_fake_liar.csv) so downstream dataset-builders can choose to
-combine it with the ISOT-sourced synthetic_fake.csv or analyse it alone.
-"""
+"""Generate synthetic fake news from LIAR statements, as a second source."""
 import argparse
 import os
 import random
@@ -71,7 +57,7 @@ Return JSON with exactly these keys:
 
 
 def generate_one(client, article: str, strategy: str):
-    """Call the API once. Returns dict or None on failure."""
+    """Call the API once."""
     prompt = USER_TEMPLATE.format(
         article=truncate_article(article),
         strategy_desc=STRATEGY_INSTRUCTIONS[strategy],

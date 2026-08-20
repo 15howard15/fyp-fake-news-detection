@@ -1,4 +1,6 @@
 
+"""Load the raw ISOT, LIAR and WELFake corpora and normalise their labels."""
+
 import pandas as pd
 import config as cfg
 
@@ -33,10 +35,7 @@ def load_isot():
 
 
 def load_liar():
-    """
-    LIAR is TSV with no header. Column 1 (index 1) is the truth label,
-    column 2 (index 2) is the statement. We map 6 labels -> binary.
-    """
+    """LIAR is TSV with no header."""
     cols = [
         "id", "label", "statement", "subject", "speaker", "job",
         "state", "party", "barely_true", "false", "half_true",
@@ -69,20 +68,6 @@ def load_liar():
 
 
 def load_welfake():
-    """
-    WELFake: 72,134 articles merged from 4 existing fake-news datasets
-    (Kaggle, McIntire, Reuters, BuzzFeed). Single CSV: title, text, label.
-
-    Label convention verified directly against the downloaded file, NOT
-    trusted from third-party documentation (which claims 0=fake/1=real --
-    the opposite of what's actually in the file). Confirmed by matching
-    label counts to WELFake's documented 35,028 real / 37,106 fake totals:
-    label==0 has 35,028 rows (-> real), label==1 has 37,106 rows (-> fake).
-    That happens to already match this project's own LABEL_REAL=0/
-    LABEL_FAKE=1 convention, so no inversion is needed -- but map it
-    explicitly rather than passing the raw column through silently, so a
-    differently-labeled mirror doesn't silently corrupt everything downstream.
-    """
     path = cfg.RAW_DIR / "WELFake_Dataset.csv"
     if not path.exists():
         raise FileNotFoundError(

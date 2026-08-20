@@ -1,3 +1,5 @@
+"""Generate synthetic fake news by altering one fact in a real ISOT article."""
+
 import argparse
 import os
 import random
@@ -122,13 +124,7 @@ Return JSON with exactly these keys:
 
 def generate_one(client, article: str, strategy: str, length: str = None,
                  symmetric: bool = False):
-    """Call the API once. Returns dict or None on failure.
-
-    length=None and symmetric=False keep the original behaviour exactly (same
-    prompt, same system message), so existing synthetic_fake.csv rows stay
-    reproducible from this file. The two modes are mutually exclusive and the
-    CLI rejects the combination rather than silently picking one.
-    """
+    """Call the API once."""
     if symmetric:
         window = truncate_article(article)
         prompt = SYMMETRIC_TEMPLATE.format(

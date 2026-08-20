@@ -1,28 +1,4 @@
-"""
-build_report.py -- regenerate results_report.html from the results files.
-
-The report used to be hand-written HTML with every number typed into a
-JavaScript literal. That works until a number changes: the tables and the
-underlying results/*.json drift apart silently, and the only way to catch it
-is to re-check every figure by hand (which is how several mismatches were
-found). This script removes that failure mode -- every value in the report is
-read from results/ at build time, so the report cannot disagree with the data
-it claims to summarise.
-
-Run it after any experiment that changes results/:
-
-    python src/build_report.py
-
-Layout: one tab per research question, an evaluation-framework tab for the
-cross-domain protocol shared by all four, and a try-it tab running the LR model
-client-side. Each chart carries a metric selector so accuracy / precision /
-recall / F1 / AUC-ROC are all reachable rather than F1 alone.
-
-matched_block() is retained but no longer emitted -- the matched-length
-comparison was dropped from the report. The experiment itself still works
-(`train.py --max-words 300`) and its metrics_*_max300.json files remain, so
-re-adding the section is a one-line change to collect().
-"""
+"""build_report.py -- regenerate results_report.html from the results files."""
 import json
 
 import pandas as pd
@@ -126,21 +102,7 @@ def welfake_clean_block(comps):
 
 
 def contamination_block(comps):
-    """WELFake scored twice: as shipped, and with every ISOT article removed.
-
-    63.8% of the fake class in test_crossdomain2 is verbatim ISOT text, because
-    WELFake is a merged corpus that absorbed the same Kaggle data ISOT derives
-    from. That makes every "generalises to an independent long-form corpus"
-    number on that set partly a re-test on training material. Rather than drop
-    the contaminated set and quietly restate the numbers, both are reported:
-    the gap between them is the measurement of how much the contamination was
-    actually worth, and it is the only way a reader can check that the
-    conclusions were not artifacts of it.
-
-    Same checkpoints, same real class, same sample size -- only the fake-class
-    pool differs, so the delta is attributable to the filtering and nothing
-    else.
-    """
+    """WELFake scored twice: as shipped, and with every ISOT article removed."""
     p = EXTRA / "crosstarget_welfake_clean_results.csv"
     q = EXTRA / "crossdomain2_results.csv"
     if not (p.exists() and q.exists()):
@@ -200,24 +162,7 @@ SWEEP_METRICS = ["f1", "auc_roc", "precision", "recall"]
 
 
 def sweep_block():
-    """RQ2 synthetic-fraction sweep, on every test set it has been scored against.
-
-    Previously this kept only the cross-domain (LIAR) rows and discarded the
-    rest. That mattered more than it looks: LIAR is separable at AUC 0.9999 by
-    document length alone, so a sweep drawn only on LIAR cannot show whether its
-    shape survives where word-counting doesn't help. The in-domain rows were
-    already being computed and thrown away, and they are exactly that control.
-
-    Three test sets, in increasing order of independence:
-      - LIAR: the headline set, and the length-compromised one.
-      - In-domain (ISOT): length-neutral (AUC 0.474 from length alone), but
-        same-domain.
-      - WELFake, ISOT removed: length-neutral AND a genuinely unseen corpus.
-        Only partly available -- run_swap_sweep_experiment.py persists
-        checkpoints for CNN at the 25%/75% points but not for LR/SVM/BERT, so
-        those two columns are CNN-only. Missing cells stay null and render as
-        gaps rather than being interpolated over.
-    """
+    """RQ2 synthetic-fraction sweep, on every test set it has been scored against."""
     df = pd.read_csv(EXTRA / "swap_sweep_results.csv")
     order = list(SWEEP_PCT.values())
     out = {"fractions": order, "tests": {}, "series": {}}
@@ -379,16 +324,7 @@ def length_block():
 
 
 def matched_block(cap=300):
-    """Full-text vs. matched-length results, read straight from the per-run
-    metrics files.
-
-    This deliberately does NOT read an intermediate CSV. The experiment is
-    produced by `train.py --dataset <comps> --max-words 300`, which writes
-    metrics_<MODEL>_<comp>_max<N>.json exactly like any other run, and those
-    files are committed. Pairing them here means the whole chain -- command,
-    per-run outputs, report -- is in the repository, with no hand-assembled
-    file in between that nobody can regenerate.
-    """
+    """Full-text vs."""
     out = {}
     for comp in ("real_real", "mixed", "real_syn"):
         row = {}
@@ -404,18 +340,7 @@ def matched_block(cap=300):
 
 
 def families_block(comps):
-    """RQ3 -- model-family consistency, which has two independent halves.
-
-    "Consistent" can mean two different things and the models rank differently
-    on each, so both are computed rather than collapsing them into one score:
-      - spread ACROSS COMPOSITIONS: how much a family's score swings depending
-        on what it was trained on (small = robust to the data recipe);
-      - spread ACROSS SEEDS: how much the SAME setup moves between runs
-        (small = a single reported number can be trusted). LR and SVM are
-        deterministic given fixed data, so their seed spread is exactly zero
-        by construction rather than by measurement -- which is itself part of
-        the answer.
-    """
+    """RQ3 -- model-family consistency, which has two independent halves."""
     import statistics as st
     out = {"comps": comps, "byModel": {}}
     for m in MODELS:
@@ -476,14 +401,7 @@ def families_block(comps):
 
 
 def seed_runs_block():
-    """The individual per-seed F1 scores, not just their summary.
-
-    mean +/- SD over three runs is a spread, not an interval: reconstructing
-    endpoints from it produces numbers that were never observed (for BERT under
-    full replacement it suggests roughly 0.06-0.83, where the actual runs were
-    0.002, 0.662 and 0.676). Carrying the raw runs through to the report means
-    the observed range can always be shown next to the SD.
-    """
+    """The individual per-seed F1 scores, not just their summary."""
     p = EXTRA / "multiseed_results.csv"
     if not p.exists():
         return {}
@@ -546,21 +464,6 @@ def quality_block():
 
 
 def editsym_block():
-    """The authorship-shortcut controls before and after the edit asymmetry was
-    removed.
-
-    C2/C3 pair synthetic-real against real-fake and synthetic-fake. Their fake
-    class was edited far more lightly than their real class -- measured at 65.9%
-    of the source retained against 44.0% -- so "close to the source wording"
-    predicted "fake" without reference to any fact. C2'/C3' are the same
-    controls built from a fake class rewritten to the same depth as the real
-    class, and nothing else changed: same real rows, same manipulation
-    strategies, same counts.
-
-    Reported as a pair rather than a replacement. C3's below-chance AUC is a
-    finding in its own right; what makes it interpretable is what happens to it
-    when the asymmetry is removed.
-    """
     pairs = [("c2_synreal_realfake", "c2_sym"), ("c3_synreal_synfake", "c3_sym")]
     if not _metrics_json("LR", "c3_sym"):
         return {}
@@ -596,22 +499,7 @@ def editsym_block():
 
 
 def cv_block(comps):
-    """5-fold CV for LR/SVM, under both an ordinary and a pair-aware split.
-
-    Two things have to be said about these numbers or they will be misread:
-
-    1. They are IN-DISTRIBUTION. Each fold trains on 80% of a composition and
-       scores the held-out 20% of the same composition, where every other score
-       in this report is cross-domain. A CV AUC of 0.99 next to a cross-domain
-       AUC of 0.55 is not a contradiction, it is the gap between "separates data
-       like its own" and "transfers".
-    2. The ordinary split is not trustworthy on the synthetic recipes, and the
-       grouped one is. The synthetic compositions are minimal pairs -- an article
-       and its one-fact-altered twin -- so an ordinary split puts one half of a
-       pair in train and the other in validation. The model memorises the
-       article as real and calls its fake twin real too, which drives AUC below
-       0.5 rather than merely lowering it. Keeping pairs whole removes that.
-    """
+    """5-fold CV for LR/SVM, under both an ordinary and a pair-aware split."""
     p = EXTRA / "cv_results.csv"
     if not p.exists():
         return {}
@@ -702,18 +590,7 @@ def leakage_block():
 
 
 def lengthcontrol_block():
-    """real_syn against its length-controlled twin, on every test set available.
-
-    The pair exists to answer one question: how much of what real_syn scores was
-    ever about the FACTS, and how much was about the fake class being a
-    different length from the real class at test time. Reporting it on LIAR
-    alone would not settle that -- LIAR is separable at AUC 0.9999 by word count
-    alone, so a drop there could equally mean "the model got worse". The WELFake
-    columns are the control: length is uninformative there (AUC ~0.44), so if
-    the length-controlled model holds up on WELFake while collapsing on LIAR,
-    the LIAR drop is specifically the loss of the length cue and not a weaker
-    model.
-    """
+    """real_syn against its length-controlled twin, on every test set available."""
     pair = ["real_syn", "real_syn_mixedlen"]
     if not _metrics_json("LR", "real_syn_mixedlen"):
         return {}
@@ -738,13 +615,6 @@ def lengthcontrol_block():
 
 
 def demo_examples():
-    """Two ready-made inputs for the try-it box, so it is usable without the
-    visitor having to find an article first.
-
-    Taken from the project's own data: a genuine held-out ISOT article and one
-    of the synthetic fakes, which makes the demo show the actual thing this
-    thesis is about rather than arbitrary text.
-    """
     out = []
     p = cfg.PROCESSED_DIR / "test_crossdomain.csv"
     if p.exists():

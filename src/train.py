@@ -1,30 +1,4 @@
-"""
-train.py -- unified training entry point for LR/SVM, CNN, and BERT.
-
-Merges the old 05_train_traditional.py, 06_train_cnn.py, 07_train_bert.py,
-18_train_style_robust.py and 19_train_multisource.py (deleted after this
-file was verified to reproduce their output exactly) into one script
-controlled by --model / --dataset. Those five scripts were the same
-train-one-composition-and-evaluate-on-test_crossdomain loop, copy-pasted per
-(model, dataset) combination -- most visibly, 18 and 19 were identical
-except for one string constant. --model/--dataset picks the combination
-instead of picking a file.
-
-Examples:
-    python train.py --model all                          # LR/SVM/CNN/BERT x real_real/mixed/real_syn
-    python train.py --model bert                          # BERT only, x real_real/mixed/real_syn
-    python train.py --model bert --dataset multisource     # BERT on real_syn_multisource
-    python train.py --model cnn --dataset style_robust
-    python train.py --model lr_svm --dataset real_real mixed real_syn style_robust real_syn_multisource
-    python train.py --model bert --dataset real_real --seed 123 --grad_accum 2
-
-Every --dataset value is a composition name: data/processed/train_<name>.csv
-must already exist (build it with `build_datasets.py core`, or the matching
-`style-robust` / `multisource` subcommand first). "multisource" is
-accepted as a short alias for real_syn_multisource. All datasets are always
-evaluated on test_crossdomain.csv, matching every one of the five merged
-scripts.
-"""
+"""train.py -- unified training entry point for LR/SVM, CNN, and BERT."""
 import argparse
 from collections import Counter
 
@@ -93,24 +67,6 @@ def train_lr_svm(train, test, comp):
 
 
 def _pair_groups(train):
-    """Group id per training row, so a synthetic fake and the real article it
-    was generated from never land in different CV folds.
-
-    This matters more than it sounds. The synthetic compositions are built as
-    minimal PAIRS: article X labelled real, and X-with-one-fact-changed labelled
-    fake, differing by a single edit and otherwise near-identical. Ordinary
-    k-fold puts one half of a pair in train and the other in validation, so the
-    model memorises "this article text is real" and then confidently calls its
-    fake twin real too. It is wrong on essentially every such row, which shows up
-    as an AUC far BELOW 0.5 rather than as poor accuracy.
-
-    Measured on real_syn: 499 of the 500 rows pair up, ordinary 5-fold gives LR
-    an AUC of 0.027, and keeping each pair whole gives 0.568. The first number is
-    a measurement of the split, not of the model.
-
-    Returns None when no pairing can be derived, in which case the grouped split
-    is skipped rather than faked.
-    """
     key = lambda s: str(s)[:200]
     src_of = {}
     for p in sorted(cfg.SYNTHETIC_DIR.glob("*.csv")):
@@ -138,32 +94,7 @@ def _pair_groups(train):
 
 
 def cross_validate_lr_svm(train, comp, n_splits=5):
-    """Stratified k-fold CV for LR and SVM only. No GPU, no neural training.
-
-    LR and SVM are deterministic given fixed data, so the 3-seed robustness runs
-    that quantify CNN/BERT's variance report exactly zero spread for them -- by
-    construction, not by measurement. That leaves the traditional models with no
-    variance estimate at all. Cross-validation supplies one from the only source
-    of variation they actually have: which rows they were fitted on.
-
-    CNN and BERT are deliberately excluded. Five folds would mean five more
-    neural training runs per composition, and their run-to-run variance is
-    already measured by the existing multi-seed experiment, which answers the
-    same question at a fifth of the GPU cost.
-
-    WHAT THIS DOES AND DOESN'T MEASURE -- the numbers below are in-distribution:
-    each fold trains on 80% of a composition and scores the held-out 20% of the
-    SAME composition. That is a different quantity from every other score in this
-    project, which is cross-domain (train on ISOT, test on LIAR or WELFake). A CV
-    F1 of 0.99 alongside a cross-domain F1 of 0.55 is not a contradiction; it is
-    the gap between "can it separate data like its own" and "does it transfer".
-    They must never be put in the same table without that label.
-
-    The vectorizer is refitted INSIDE each fold. Fitting it once on the whole
-    composition before splitting would let every fold's held-out rows contribute
-    to the vocabulary and the IDF weights -- a quiet leak that inflates CV scores
-    and is the most common way this measurement gets done wrong.
-    """
+    """Stratified k-fold CV for LR and SVM only."""
     texts = clean_series(train["text"]).values
     y = train["label"].values
 

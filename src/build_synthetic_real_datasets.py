@@ -1,40 +1,5 @@
 
-"""
-build_synthetic_real_datasets.py -- build the C2/C3/C6 control compositions
-using synthetic-REAL news (from generate_synthetic_real.py).
-
-Together with train_real_real (C0) and train_real_syn (C1, from build_core_
-datasets.py), this completes the 2x2 "replacement" matrix from your notes:
-
-              real-fake (RF)     synthetic-fake (SF)
-    real-real (RR)   C0              C1
-    synth-real (SR)  C2              C3
-
-C0 (train_real_real) and C1 (train_real_syn) already exist. This script adds:
-    C2 = synthetic_real + real_fake      -> train_c2_synreal_realfake.csv
-    C3 = synthetic_real + synthetic_fake -> train_c3_synreal_synfake.csv
-
-Reading C2 vs C0 isolates the effect of paraphrasing the REAL side only.
-Reading C3 vs C1 isolates the same thing when the fake side is ALSO synthetic.
-If C3's F1 collapses even though its fake-class content is exactly the same
-distortions as C1, but C2 (same real side as C3, real fake-class) does NOT
-collapse, that's evidence the model is reacting to something about having
-BOTH classes machine-authored (an authorship-detection shortcut) rather than
-genuine content-based fakeness detection.
-
-This script also adds C6, the "augment both sides" condition from your notes
-("real real + synthetic real + real fake + synthetic fake" -- resolved to
-include real-fake, since without it the fake class would be 100% synthetic,
-which isn't augmentation in the "add on top of a fixed baseline" sense):
-    C6 = (real_real + synthetic_real) + (real_fake + synthetic_fake)
-       -> train_c6_full_augmented.csv
-Built at the SAME 1,000/1,000 scale as train_lowres_real / train_lowres_aug,
-so the chain lowres_real -> lowres_aug -> C6 isolates one change at a time:
-first add synthetic fake news, then ALSO diversify the real side with
-synthetic-real.
-
-Run AFTER generate_synthetic_real.py has produced data/synthetic/synthetic_real.csv.
-"""
+"""Build the C2/C3 authorship-control compositions from synthetic-real news."""
 import argparse
 import difflib
 
@@ -49,14 +14,7 @@ def load(name):
 
 
 def mean_similarity(df, window=4000):
-    """Mean difflib similarity between each row and its source article.
-
-    Compared against the first `window` characters only, because that is all the
-    generator's prompt ever saw (gen_common.truncate_article). Scoring against
-    the full stored source would count text the model was never shown as though
-    it had deleted it. autojunk is off: on article-length strings difflib's
-    heuristic treats spaces and common letters as junk and shifts the ratio.
-    """
+    """Mean difflib similarity between each row and its source article."""
     sims = [difflib.SequenceMatcher(None, str(s)[:window], str(t),
                                     autojunk=False).ratio()
             for s, t in zip(df["source_text"], df["text"])]
@@ -64,19 +22,7 @@ def mean_similarity(df, window=4000):
 
 
 def check_symmetry(real_df, fake_df, tolerance_pp, fail):
-    """Gate the SYMMETRIC pair on the two classes having been edited equally.
-
-    This lives here, not in build_datasets.py core, for two reasons. That script
-    builds real_real/mixed/real_syn and never touches synthetic-real at all, so
-    the check would have nothing to compare; and it is the script everyone runs
-    to rebuild the core RQ1 datasets, so a hard assert there would stop RQ1 and
-    RQ2 being rebuildable at all -- the ORIGINAL corpora fail this check by
-    21.8 points by construction, which is the very thing the symmetric pair
-    exists to fix.
-
-    Scoped to the *_sym corpora, and --strict decides whether a breach stops the
-    build or is reported and carried on with.
-    """
+    """Gate the SYMMETRIC pair on the two classes having been edited equally."""
     r, f = mean_similarity(real_df), mean_similarity(fake_df)
     gap = abs(r - f) * 100
     print(f"\n--- edit-distance symmetry check ---")

@@ -1,4 +1,6 @@
 
+"""Build the in-domain, LIAR and WELFake test sets, with ISOT overlap removed."""
+
 import re
 
 import pandas as pd
@@ -12,10 +14,7 @@ def load(name):
 
 
 def _norm(s):
-    """Whitespace/case-insensitive key for corpus-overlap matching. Exact string
-    equality already catches 63.3% of WELFake-fake as verbatim ISOT text; this
-    normalisation is what makes the *absence* of further matches a measurement
-    rather than an assumption."""
+    """Whitespace/case-insensitive key for corpus-overlap matching."""
     return re.sub(r"\s+", " ", str(s)).strip().lower()
 
 

@@ -1,9 +1,4 @@
-"""
-metrics.py — Shared evaluation (Section 3.6). All five metrics in one place.
-
-Every training script calls compute_metrics() so the numbers are computed
-identically across LR/SVM/CNN/BERT.
-"""
+"""metrics.py — Shared evaluation (Section 3.6)."""
 import json
 import numpy as np
 from sklearn.metrics import (
@@ -15,11 +10,6 @@ import config as cfg
 
 
 def compute_metrics(y_true, y_pred, y_prob=None):
-    """
-    y_true : array of 0/1
-    y_pred : array of 0/1 (hard predictions)
-    y_prob : array of P(fake) in [0,1] for AUC-ROC. If None, AUC is skipped.
-    """
     m = {
         "accuracy": accuracy_score(y_true, y_pred),
         "precision": precision_score(y_true, y_pred, zero_division=0),

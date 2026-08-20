@@ -1,4 +1,6 @@
 
+"""Exploratory analysis of the raw corpora."""
+
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")

@@ -1,35 +1,4 @@
-"""
-build_datasets.py -- assembles every training composition from the raw pools.
-
-Merged from build_core_datasets.py, build_swap_sweep_datasets.py,
-build_style_robust_dataset.py and build_multisource_dataset.py.
-
-The merge is not only about file count. Three of those scripts independently
-re-derived the ISOT train/test split with their own copy of the same
-train_test_split call, and the sweep's validity depends on every composition
-drawing from the EXACT same 500 real rows -- build_swap_sweep_datasets.py's
-docstring asserted that as a convention maintained by copy-paste. isot_pools()
-below makes it structural: there is now one split, and every subcommand takes
-its pools from it, so the compositions cannot silently drift apart.
-
-Subcommands, in pipeline order:
-
-  core          real_real / mixed / real_syn, the shared test set, and (if the
-                mixed-length corpus exists) real_syn_mixedlen
-  sweep         swap_025 / swap_075, the two synthetic-fraction points that
-                aren't already covered by core's three
-  style-robust  train_real_real + counter-style twins  (run after
-                `generate_style.py counter-training`)
-  multisource   real_syn with half its fake class re-sourced from LIAR
-                (run after `generate_synthetic_fake_liar.py`)
-
-Usage:
-    python src/build_datasets.py core
-    python src/build_datasets.py sweep
-    python src/build_datasets.py style-robust
-    python src/build_datasets.py multisource
-    python src/build_datasets.py all        # core -> sweep, the two that pair
-"""
+"""build_datasets.py -- assembles every training composition from the raw pools."""
 import argparse
 import re
 
@@ -43,15 +12,7 @@ FRACTIONS = [0.25, 0.75]
 
 
 def isot_pools():
-    """The one canonical ISOT split, shared by every composition.
-
-    Every caller needs the same 80/20 real split and the same shuffled fake
-    pool; if two callers derived these separately and one changed, the
-    compositions would stop being comparable while still looking fine. The
-    fake pool is deliberately NOT reset_index'd -- .head(n) slices
-    positionally either way, and leaving it matches the ordering the existing
-    datasets were built with.
-    """
+    """The one canonical ISOT split, shared by every composition."""
     isot_real = pd.read_csv(cfg.PROCESSED_DIR / "isot_real.csv")
     isot_fake = pd.read_csv(cfg.PROCESSED_DIR / "isot_fake.csv")
     real_train, real_test = train_test_split(
@@ -73,26 +34,7 @@ def _write(df, name):
 
 
 def truncate_to_sentences(text: str, target: int) -> str:
-    """Cut a real article down to about `target` words, keeping whole sentences.
-
-    Two constraints, and a naive implementation cannot satisfy both:
-
-    - Sentences must stay intact. Word-count truncation leaves the real class as
-      mid-sentence fragments while the synthetic fakes are complete, well-formed
-      snippets, which hands the classifier "is this a fragment?" as a brand-new
-      shortcut -- the opposite of what a length control is for.
-    - The result must actually land near the target. Taking sentences from the
-      start until the target is reached systematically OVERSHOOTS at short
-      targets, because newswire ledes are long: the first sentence alone is
-      routinely 45+ words against a 25-word target. That leaves real text
-      reliably longer than fake text in the short bucket and rebuilds the
-      length shortcut this composition exists to remove.
-
-    So: pick the run of consecutive sentences whose total length is closest to
-    the target, rather than always starting at sentence one. Any window of an
-    ISOT article is still genuine unaltered ISOT text, so nothing about the
-    label changes -- only which part of the article is kept.
-    """
+    """Cut a real article down to about `target` words, keeping whole sentences."""
     sents = [s for s in re.split(r"(?<=[.!?])\s+", str(text).strip()) if s]
     if not sents:
         return ""
@@ -158,31 +100,7 @@ def cmd_core(args):
 
 
 def _core_mixedlen():
-    """real_syn_mixedlen: the same recipe with the length confound removed.
-
-    This is an ADDITIONAL composition, not a replacement for real_syn. The two
-    differ in exactly one variable -- the length distribution of both classes --
-    so the gap between them measures how much of real_syn's cross-domain
-    collapse was ever about length. Swapping it in would destroy that
-    comparison and every result already derived from real_syn.
-
-    Two properties are deliberately preserved from real_syn so length really is
-    the only thing that moved:
-
-      1. The pairing. In real_syn, 499 of the 500 real rows are the very
-         articles the synthetic fakes were generated from -- the set is 500
-         minimal pairs, article X labelled real against X-with-one-fact-changed
-         labelled fake. That is a strong property (the only systematic
-         difference within a pair is the altered fact) and it is kept here.
-      2. The class balance and count.
-
-    What changes: each pair now lives at ~25, ~100 or ~400 words instead of
-    both sides sitting at the source article's full length. Because BOTH sides
-    of every pair are cut to the same target, length carries no information
-    about the label at all -- where naively swapping in mixed-length fakes
-    against full-length reals would have made "short => fake" a free win on
-    two thirds of the fake class.
-    """
+    """real_syn_mixedlen: the same recipe with the length confound removed."""
     ml_path = cfg.SYNTHETIC_DIR / "synthetic_fake_mixedlen.csv"
     if not ml_path.exists():
         print(f"\n(skipping real_syn_mixedlen -- {ml_path.name} not found; "
@@ -209,31 +127,7 @@ def _core_mixedlen():
 
 
 def cmd_sweep(args):
-    """The balance-CONTROLLED synthetic-fraction sweep.
-
-    This replaced an earlier "augmentation" design that ADDED synthetic fake on
-    top of a fixed real-fake baseline, growing the fake class without growing
-    the real class -- 500 real vs 1,000 fake, a 1:2 imbalance. Confusion
-    matrices showed LR/SVM/BERT collapsing to ~100% recall / ~57% precision
-    cross-domain under that design, almost exactly what a trivial "always
-    predict fake" classifier would score: the same majority-class-collapse
-    mechanism already fixed on the replacement axis, re-introduced in the
-    opposite direction. That design was dropped and its scripts removed.
-
-    Here the TOTAL fake count stays fixed at 500 (matching the 500 real rows)
-    and only the synthetic FRACTION of it varies, which isolates "does
-    synthetic content help" from "does adding synthetic unbalance the classes":
-
-        swap_000 (  0% synthetic) = train_real_real   (built by `core`)
-        swap_025 ( 25% synthetic) = 375 real-fake + 125 synthetic-fake
-        swap_050 ( 50% synthetic) = train_mixed       (built by `core`)
-        swap_075 ( 75% synthetic) = 125 real-fake + 375 synthetic-fake
-        swap_100 (100% synthetic) = train_real_syn    (built by `core`)
-
-    Only 025 and 075 are built here; the other three are re-used by name in
-    run_swap_sweep_experiment.py. All five draw from the same isot_pools(),
-    so they differ by ONLY the real-fake/synthetic-fake split.
-    """
+    """The balance-CONTROLLED synthetic-fraction sweep."""
     synthetic = pd.read_csv(cfg.SYNTHETIC_DIR / "synthetic_fake.csv")[
         ["text", "label", "source"]]
     real_train, _test, isot_fake_pool = isot_pools()
@@ -259,23 +153,7 @@ def cmd_sweep(args):
 
 
 def cmd_style_robust(args):
-    """train_style_robust: the actual test of Objective 4's hypothesis.
-
-    Unlike `mixed` (which adds generic synthetic fake news, not built for
-    style-robustness), this adds PAIRED counter-style twins of articles already
-    in train_real_real -- the same content in both tones, same true label -- so
-    the model can no longer use tone as a shortcut between the classes.
-
-        train_style_robust = train_real_real (500 real / 500 fake)
-                           + counter_style_training.csv (100 sensationalized-
-                             real + 100 neutralized-fake, twins of articles
-                             already in train_real_real)
-                           = 600 real / 600 fake -- still balanced, so this
-                             isn't confounded by the imbalance issue found
-                             earlier in the project.
-
-    Run AFTER `generate_style.py counter-training`.
-    """
+    """train_style_robust: the actual test of Objective 4's hypothesis."""
     cols = ["text", "label", "source"]
     real_real = pd.read_csv(cfg.PROCESSED_DIR / "train_real_real.csv")[cols]
     counter = pd.read_csv(cfg.SYNTHETIC_DIR / "counter_style_training.csv")[cols]
@@ -284,14 +162,7 @@ def cmd_style_robust(args):
 
 
 def cmd_multisource(args):
-    """real_syn with half its synthetic fake class re-sourced from LIAR.
-
-    Everything else -- the real class, and the TOTAL fake count -- is kept
-    identical to train_real_syn.csv, so this is a direct, single-variable
-    ablation: same size, same real class, only the source mix of the synthetic
-    fake class changes. Compare against train_real_syn.csv to test whether
-    "diverse sources" (Objective 1) actually changes detection performance.
-    """
+    """real_syn with half its synthetic fake class re-sourced from LIAR."""
     real_syn_path = cfg.PROCESSED_DIR / "train_real_syn.csv"
     if not real_syn_path.exists():
         raise FileNotFoundError("Run `build_datasets.py core` first.")

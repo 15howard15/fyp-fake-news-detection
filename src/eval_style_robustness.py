@@ -1,18 +1,5 @@
 
-"""
-eval_style_robustness.py -- Objective 4 evaluation: for each already-
-trained model/composition, compare performance on the ORIGINAL held-out
-articles vs. the STYLE-ATTACKED versions of the SAME articles (see
-generate_style.py attack). A robust model's accuracy should barely move;
-a model relying on tone/sentiment shortcuts will degrade sharply.
-
-Also reports FLIP RATE: of the articles the model got right originally,
-what fraction does it get WRONG after the style attack. This is a more
-direct robustness signal than aggregate F1, since it's paired per-article.
-
-No retraining -- reuses the already-saved LR/SVM/CNN/BERT checkpoints for
-real_real / mixed / real_syn, so this is cheap to run.
-"""
+"""Objective 4 evaluation: flip rate of trained models under a tone-only attack."""
 import argparse
 
 import joblib
@@ -34,14 +21,7 @@ COMPS = ["real_real", "mixed", "real_syn", "style_robust"]
 
 
 def load_pair(pair="forward"):
-    """Load the paired (original, attacked) evaluation sets, aligned by orig_id.
-    pair="forward" (default): real->sensationalized, fake->neutralized -- the
-    original Q4 attack (generate_style.py attack), the direction that
-    matches the "fake news sounds dramatic" shortcut a model might be using.
-    pair="reverse": real->neutralized, fake->sensationalized (generate_
-    style_attack_reverse.py) -- the OPPOSITE direction, to check whether a
-    fix like style_robust generalizes to any tone shift or only protects
-    against the direction it was built against."""
+    """Load the paired (original, attacked) evaluation sets, aligned by orig_id."""
     if pair == "reverse":
         orig_path = cfg.SYNTHETIC_DIR / "style_attack_reverse_originals.csv"
         attacked_path = cfg.SYNTHETIC_DIR / "style_attack_reverse.csv"

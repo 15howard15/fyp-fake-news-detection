@@ -1,17 +1,5 @@
 
-"""Shared helpers and prompts for the OpenAI-based data-generation scripts
-(generate_synthetic_fake.py, generate_synthetic_real.py,
-generate_synthetic_fake_liar.py, generate_style.py).
-
-truncate_article/quality_ok/the generate_one API-call-and-retry pattern were
-copy-pasted near-identically across all of them -- the same class of
-duplication that justified train.py/evaluate.py, extracted here instead. The
-three tone-rewriting passes additionally shared a verbatim system prompt and
-two shared both tone-transfer templates, which is why those prompts live here
-and why the passes themselves were later merged into generate_style.py's three
-subcommands. Each script keeps its own remaining prompts and CLI entry point;
-only genuinely shared content lives here.
-"""
+"""Shared helpers and prompts for the OpenAI-based generation scripts."""
 import json
 import time
 
@@ -19,42 +7,13 @@ import config as cfg
 
 
 def truncate_article(text: str, max_chars: int = 4000) -> str:
-    """Keep prompt size (and cost) bounded. 4000 chars ~ 1000 tokens."""
+    """Keep prompt size (and cost) bounded."""
     return text[:max_chars]
 
 
 def quality_ok(source: str, generated: str, min_words: int = 20,
                ratio_range: tuple = (0.4, 2.0),
                target_words: int = None, target_tol: float = 0.6) -> bool:
-    """Length sanity filter: reject rewrites whose length says the model
-    hallucinated, refused, or truncated.
-
-    Two modes, because the two generation designs mean different things by
-    "wrong length":
-
-    - Default (target_words=None): judge the rewrite RELATIVE TO ITS SOURCE.
-      The single-edit design keeps the rest of the wording near-identical, so a
-      rewrite far from the source length is a failed generation.
-
-    - Length-controlled (target_words set): judge against the length we ASKED
-      for. Condensing a 400-word article into a 20-word snippet is a ratio of
-      0.05 and the default band would reject every one of them -- the filter
-      would silently throw away exactly the short data the experiment exists to
-      produce. Here the source ratio carries no information, so it is not used.
-      target_tol is the accepted band around the target. A float means a
-      symmetric fraction either side (0.6 = accept 40%-160% of the requested
-      length), wide enough that the LLM's habitual imprecision about word counts
-      doesn't cost most of the batch. A (lo, hi) pair gives an ASYMMETRIC band as
-      fractions OF the target (0.85, 1.6 = accept 85%-160%).
-
-      The asymmetric form exists because the error is not symmetric in practice:
-      asked to match a source's length, the model reliably undershoots and
-      almost never overshoots. A symmetric +/-35% band around a 369-word target
-      accepts 240 words, and the run duly came back at a median of 275 against
-      the real class's 367 -- close enough to pass the filter, far enough to let
-      a word-counter separate the classes at AUC 0.42. Rejecting compression
-      harder than expansion is what actually holds the two classes level.
-    """
     s_words = len(source.split())
     g_words = len(generated.split())
 
@@ -74,10 +33,6 @@ def quality_ok(source: str, generated: str, min_words: int = 20,
 
 
 def call_llm(client, system_prompt: str, prompt: str, response_key: str):
-    """Call the chat completion API once, expecting a JSON object containing
-    `response_key`. Returns the full parsed dict (callers that need extra
-    keys, e.g. 03's fact_table/modified_fact, can still read them) or None on
-    failure/refusal/rate-limit."""
     try:
         resp = client.chat.completions.create(
             model=cfg.OPENAI_MODEL,
