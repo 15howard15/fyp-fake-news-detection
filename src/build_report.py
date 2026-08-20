@@ -683,7 +683,7 @@ def main():
         det = f"inlined ({len(blob)/1024/1024:.2f} MB)"
     else:
         html = html.replace("/*__DETECTOR__*/", "")
-        det = "MISSING -- run src/export_detector_model.py first"
+        det = "MISSING -- run src/detector.py export first"
 
     out = cfg.ROOT / "results_report.html"
     out.write_text(html, encoding="utf-8")

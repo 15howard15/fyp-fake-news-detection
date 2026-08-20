@@ -249,7 +249,8 @@ python src/build_datasets.py multisource             # combines with ISOT-source
 python src/train.py --model all --dataset multisource      # trains all 4 models on it, evaluates on test_crossdomain
 
 # --- Build the report (run after ANY experiment that changes results/) ---
-python src/export_detector_model.py   # dump the real_real LR weights for the browser demo
+python src/detector.py export         # dump the real_real LR weights for the browser demo
+python src/detector.py verify         # check the JS scorer matches sklearn (needs node)
 python src/build_report.py            # regenerate results_report.html from results/ + the template
 # results_report.html is GENERATED -- edit src/report_template.html, not the output.
 
