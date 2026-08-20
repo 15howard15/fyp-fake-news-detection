@@ -2,15 +2,15 @@
 """
 build_swap_sweep_datasets.py -- balance-CONTROLLED synthetic-fraction sweep.
 
-The existing "augmentation" experiment (train_augmented / train_lowres_aug /
-train_c6, see build_augmented_datasets.py) ADDS synthetic fake on top of a fixed real-fake baseline,
-which grows the fake class without growing the real class -- e.g.
-train_augmented is 500 real vs 1,000 fake, a 1:2 imbalance. Confusion-matrix
-evidence (see evaluate.py error-analysis output from the last run) showed LR/SVM/
-BERT collapsing to ~100% recall / ~57% precision on train_augmented cross-
-domain -- almost exactly what a trivial "always predict fake" classifier
-would score, i.e. the SAME majority-class-collapse mechanism that was fixed
-on the replacement axis, just re-introduced here in the opposite direction.
+This replaces an earlier "augmentation" design that ADDED synthetic fake on top
+of a fixed real-fake baseline, growing the fake class without growing the real
+class -- 500 real vs 1,000 fake, a 1:2 imbalance. Confusion matrices showed
+LR/SVM/BERT collapsing to ~100% recall / ~57% precision cross-domain under that
+design, almost exactly what a trivial "always predict fake" classifier would
+score: the same majority-class-collapse mechanism already fixed on the
+replacement axis, re-introduced in the opposite direction. That design was
+dropped and its scripts removed; the balance-controlled sweep below is what
+replaced it.
 
 This script instead builds a sweep that keeps the TOTAL fake count fixed at
 500 (matching the 500 real news rows) and only varies what FRACTION of that

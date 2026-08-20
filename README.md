@@ -6,17 +6,16 @@ generalization (train on ISOT, test on LIAR).
 
 ## Pipeline structure
 
-`src/` has 32 Python files, but they're grouped into 6 sequential stages plus a
-shared foundation, not scattered:
+`src/` groups its Python files into 6 sequential stages plus a shared
+foundation, not scattered:
 
 ![Pipeline structure](results/pipeline_structure.svg)
 
 Every filename is prefixed by its job (`build_*`, `generate_*`, `run_*`,
 `eval*`) so this grouping is visible directly in a file listing, without
 needing the diagram. Each file does exactly one thing — one dataset variant,
-one generation strategy, one experiment — which is why there are many of
-them rather than a few large multi-purpose scripts; see "so many files in `src/`
-— why not fewer?" in `DEFENSE_PREP.md` for the full reasoning.
+one generation strategy, one experiment — which is why there are several of
+them rather than a few large multi-purpose scripts.
 
 ## Research question map
 
@@ -26,7 +25,7 @@ objective it answers), plus one addition that isn't one of the four:
 
 | Proposal objective | Answered by | How |
 |---|---|---|
-| 1. Generate synthetic fake news from diverse real-world sources, and evaluate whether it can serve as a primary training resource when real fake news is limited | **"Objective 1 · Diverse sources"**, **"Objective 1 · Full replacement"**, **"Objective 1 · Partial augmentation"** (three sections, one objective) | Diverse sources: `generate_synthetic_fake_liar.py` + `build_multisource_dataset.py` add a second, LIAR-sourced batch, since the original generation was ISOT-only. Full replacement: removes real fake news from training entirely. Partial augmentation: keeps real fake news and adds synthetic on top instead. |
+| 1. Generate synthetic fake news from diverse real-world sources, and evaluate whether it can serve as a primary training resource when real fake news is limited | **"Objective 1 · Diverse sources"**, **"Objective 1 · Full replacement"**, and the synthetic-fraction sweep | Diverse sources: `generate_synthetic_fake_liar.py` + `build_multisource_dataset.py` add a second, LIAR-sourced batch, since the original generation was ISOT-only. Full replacement: removes real fake news from training entirely. The sweep (`build_swap_sweep_datasets.py`) varies the synthetic share of the fake class from 0% to 100% while holding the class total fixed at 500, so composition is the only variable. |
 | 2. Examine cross-domain generalization performance of synthetic data across multiple datasets | **"Objective 2 · Cross-domain generalization"**, and threaded through every other section | Every composition is evaluated train-ISOT / test-LIAR (`test_crossdomain.csv`) *and* test-WELFake (`test_crossdomain2.csv`) as a second, independent dataset, to confirm results aren't one dataset's quirk |
 | 3. Compare robustness across model families (traditional ML, deep learning, transformers) | Not a separate section -- how every section is run | LR/SVM/CNN/BERT are trained and evaluated identically for every composition, via `metrics.py`'s shared `compute_metrics()`, so the comparison is built into every chart rather than living in one place |
 | 4. Analyze whether style-diverse synthetic fake news enhances resistance to stylistic manipulation and sentiment-based attacks | **"Objective 4 · Style robustness"** | Style-attack test set (`generate_style_attack.py`) + the `style_robust` training fix (`generate_counter_style_training.py`/`build_style_robust_dataset.py`) |
@@ -77,14 +76,11 @@ python src/eda.py              # exploratory analysis -> results/eda/
 python src/generate_synthetic_fake.py --n 500     # OpenAI: synthetic FAKE (ISOT-sourced) -> data/synthetic/
 python src/generate_synthetic_real.py --n 1000    # OpenAI: synthetic REAL (paraphrase-only control, optional)
 python src/build_core_datasets.py       # assemble real_real/mixed/real_syn (Objective 1: full replacement)
-python src/build_augmented_datasets.py  # augmented / lowres_real / lowres_aug (Objective 1: partial augmentation)
 python src/build_test_sets.py           # test_indomain vs test_crossdomain (separated!)
 python src/evaluate.py leakage          # VERIFY: no train text in any test set + how independent each test corpus really is
 python src/build_synthetic_real_datasets.py  # C2/C3 (needs generate_synthetic_real.py run first, optional -- validity check)
 python src/train.py --model all   # LR+SVM+CNN+BERT (replacement, on test_crossdomain)
 python src/evaluate.py master     # gather train.py's metrics into master_results.csv
-python src/run_train_extra_experiments.py   # LR/SVM on augmented/lowres, test_indomain + test_crossdomain
-python src/run_deep_extra_experiments.py --models cnn bert  # CNN/BERT on augmented/lowres, both test sets
 
 # --- Contamination control: WELFake is not the independent corpus it looks like ---
 # 63.3% of WELFake's fake class is verbatim ISOT text, because WELFake is a merged
@@ -223,8 +219,8 @@ python src/build_report.py            # regenerate results_report.html from resu
 
 `generate_synthetic_real.py` and `build_synthetic_real_datasets.py` are optional
 controls for the validity check (see below) — everything else through
-`run_deep_extra_experiments.py` is required for the core replacement + augmentation
-experiments. The scripts after that (the swap-sweep, multiseed, and
+`evaluate.py master` is required for the core replacement experiments. The
+scripts after that (the swap-sweep, multiseed, and
 style-attack/reverse-attack scripts) are later additions that close out
 Objectives 4 and 1 respectively — see below for what each answers.
 
@@ -460,15 +456,4 @@ research questions) — see `results/extra/multiseed_results.csv` for the
 full per-seed data, and write this up as a Limitations-section point rather
 than adding a report section for it.
 
-# --- Optional: pipeline walkthrough notebook (read-only, no training) ---
-# Regenerate with: python src/build_walkthrough.py
-# Refresh CODE_WALKTHROUGH.md's line numbers: python src/build_code_map.py
-# Open pipeline_walkthrough.ipynb in VS Code or Jupyter -- runs in ~15s, retrains nothing.
-#
-# IMPORTANT: select the venv as the kernel, not the system Python. The system
-# interpreter has none of the dependencies, so VS Code's prompt to install
-# ipykernel there only moves the failure to the next cell. Register the venv
-# once with:
-#     venv\Scripts\python -m ipykernel install --user --name fyp-fakenews #         --display-name "Python (fyp_fakenews venv)"
-# then pick "Python (fyp_fakenews venv)" from the kernel picker. The notebook's
-# first cell checks this and stops with a clear message if it is wrong.
+

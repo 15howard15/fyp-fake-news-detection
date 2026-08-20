@@ -193,9 +193,8 @@ def run_traditional(test_df):
 
 
 def run_deep(test_df, models):
-    """Mirrors run_deep_extra_experiments.py's run_cnn/run_bert but scoped to
-    ERROR_ANALYSIS_COMPS and capturing the confusion matrix + prediction
-    distribution."""
+    """CNN/BERT inference scoped to ERROR_ANALYSIS_COMPS, capturing the
+    confusion matrix + prediction distribution."""
     import torch
     from torch.utils.data import DataLoader
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
