@@ -3,7 +3,7 @@
 eval_style_robustness.py -- Objective 4 evaluation: for each already-
 trained model/composition, compare performance on the ORIGINAL held-out
 articles vs. the STYLE-ATTACKED versions of the SAME articles (see
-generate_style_attack.py). A robust model's accuracy should barely move;
+generate_style.py attack). A robust model's accuracy should barely move;
 a model relying on tone/sentiment shortcuts will degrade sharply.
 
 Also reports FLIP RATE: of the articles the model got right originally,
@@ -36,7 +36,7 @@ COMPS = ["real_real", "mixed", "real_syn", "style_robust"]
 def load_pair(pair="forward"):
     """Load the paired (original, attacked) evaluation sets, aligned by orig_id.
     pair="forward" (default): real->sensationalized, fake->neutralized -- the
-    original Q4 attack (generate_style_attack.py), the direction that
+    original Q4 attack (generate_style.py attack), the direction that
     matches the "fake news sounds dramatic" shortcut a model might be using.
     pair="reverse": real->neutralized, fake->sensationalized (generate_
     style_attack_reverse.py) -- the OPPOSITE direction, to check whether a
@@ -188,7 +188,7 @@ def main():
                      default=["lr_svm", "cnn", "bert"])
     ap.add_argument("--pair", choices=["forward", "reverse"], default="forward",
                      help="'forward' = real->sensationalized/fake->neutralized (original); "
-                          "'reverse' = real->neutralized/fake->sensationalized (generate_style_attack_reverse.py)")
+                          "'reverse' = real->neutralized/fake->sensationalized (generate_style.py attack-reverse)")
     args = ap.parse_args()
 
     orig, attacked = load_pair(args.pair)

@@ -1,15 +1,16 @@
 
 """Shared helpers and prompts for the OpenAI-based data-generation scripts
 (generate_synthetic_fake.py, generate_synthetic_real.py,
-generate_synthetic_fake_liar.py, generate_style_attack.py,
-generate_counter_style_training.py, generate_style_attack_reverse.py).
+generate_synthetic_fake_liar.py, generate_style.py).
+
 truncate_article/quality_ok/the generate_one API-call-and-retry pattern were
-copy-pasted near-identically into all six scripts, and the three style-attack
-scripts additionally shared a verbatim system prompt (two of them also shared
-both tone-transfer templates verbatim) -- same class of duplication that
-justified train.py/evaluate.py, extracted here instead. Each script keeps its
-own remaining prompts/templates and CLI entry point; only genuinely shared
-content lives here.
+copy-pasted near-identically across all of them -- the same class of
+duplication that justified train.py/evaluate.py, extracted here instead. The
+three tone-rewriting passes additionally shared a verbatim system prompt and
+two shared both tone-transfer templates, which is why those prompts live here
+and why the passes themselves were later merged into generate_style.py's three
+subcommands. Each script keeps its own remaining prompts and CLI entry point;
+only genuinely shared content lives here.
 """
 import json
 import time
@@ -147,10 +148,10 @@ SYMMETRIC_SYSTEM_BASE = (
 )
 
 
-# Shared by generate_style_attack.py, generate_counter_style_training.py, and
-# generate_style_attack_reverse.py -- all three were found to have this exact
+# Shared by generate_style.py attack, generate_style.py counter-training, and
+# generate_style.py attack-reverse -- all three were found to have this exact
 # system prompt copy-pasted verbatim; the two forward-direction scripts also
-# shared both tone-transfer templates verbatim. generate_style_attack_reverse.py
+# shared both tone-transfer templates verbatim. generate_style.py attack-reverse
 # keeps its own two templates (genuinely different wording -- opposite tone
 # direction) but reuses this system prompt.
 STYLE_TRANSFER_SYSTEM_PROMPT = (

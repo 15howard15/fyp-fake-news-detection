@@ -18,12 +18,12 @@ All of it was produced with **GPT-4o-mini** (`config.OPENAI_MODEL`).
 | `synthetic_fake_sym.csv` | 500 | The same single-fact manipulations, rewritten to the **same depth and length** as `synthetic_real_sym.csv`, so neither rewrite depth nor word count can stand in for the label. Measured: 3.9pp edit gap, length-alone AUC 0.496. `synthetic_fake.csv` is untouched | `generate_synthetic_fake.py --symmetric` |
 | `synthetic_fake_liar.csv` | 200 | The same idea sourced from LIAR statements instead of ISOT, for the diverse-sourcing recipe | `generate_synthetic_fake_liar.py` |
 | `synthetic_real.csv` | 1000 | ISOT real articles paraphrased with every fact preserved — the "synthetic real" control behind the authorship-shortcut check | `generate_synthetic_real.py` |
-| `style_attack.csv` | 200 | Tone-only rewrites of 200 held-out articles: real made sensational, fake made neutral. Labels unchanged | `generate_style_attack.py` |
-| `style_attack_originals.csv` | 200 | The untouched versions of those same 200 articles, for the paired before/after comparison | `generate_style_attack.py` |
-| `style_attack_reverse.csv` | 200 | The opposite attack — real made neutral, fake made sensational — used to test whether the fix generalizes | `generate_style_attack_reverse.py` |
-| `style_attack_reverse_originals.csv` | 200 | Paired originals for the reverse attack | `generate_style_attack_reverse.py` |
-| `style_attack_rulebased.csv` | 200 | A non-LLM rule-based tone attack, as a comparison point for the LLM-generated one | `generate_style_attack.py` |
-| `counter_style_training.csv` | 200 | Paired tone-shifted twins added to training so tone stops predicting the label — the style-robust fix | `generate_counter_style_training.py` |
+| `style_attack.csv` | 200 | Tone-only rewrites of 200 held-out articles: real made sensational, fake made neutral. Labels unchanged | `generate_style.py attack` |
+| `style_attack_originals.csv` | 200 | The untouched versions of those same 200 articles, for the paired before/after comparison | `generate_style.py attack` |
+| `style_attack_reverse.csv` | 200 | The opposite attack — real made neutral, fake made sensational — used to test whether the fix generalizes | `generate_style.py attack-reverse` |
+| `style_attack_reverse_originals.csv` | 200 | Paired originals for the reverse attack | `generate_style.py attack-reverse` |
+| `style_attack_rulebased.csv` | 200 | A non-LLM rule-based tone attack, as a comparison point for the LLM-generated one | `generate_style.py attack` |
+| `counter_style_training.csv` | 200 | Paired tone-shifted twins added to training so tone stops predicting the label — the style-robust fix | `generate_style.py counter-training` |
 
 ## Columns
 

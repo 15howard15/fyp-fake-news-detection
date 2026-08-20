@@ -15,7 +15,7 @@ use tone as a shortcut between the classes.
                           isn't confounded by the imbalance issue found
                           earlier in the project.
 
-Run AFTER generate_counter_style_training.py.
+Run AFTER generate_style.py counter-training.
 """
 import pandas as pd
 

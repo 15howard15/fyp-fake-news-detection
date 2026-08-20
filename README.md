@@ -28,7 +28,7 @@ objective it answers), plus one addition that isn't one of the four:
 | 1. Generate synthetic fake news from diverse real-world sources, and evaluate whether it can serve as a primary training resource when real fake news is limited | **"Objective 1 · Diverse sources"**, **"Objective 1 · Full replacement"**, and the synthetic-fraction sweep | Diverse sources: `generate_synthetic_fake_liar.py` + `build_multisource_dataset.py` add a second, LIAR-sourced batch, since the original generation was ISOT-only. Full replacement: removes real fake news from training entirely. The sweep (`build_swap_sweep_datasets.py`) varies the synthetic share of the fake class from 0% to 100% while holding the class total fixed at 500, so composition is the only variable. |
 | 2. Examine cross-domain generalization performance of synthetic data across multiple datasets | **"Objective 2 · Cross-domain generalization"**, and threaded through every other section | Every composition is evaluated train-ISOT / test-LIAR (`test_crossdomain.csv`) *and* test-WELFake (`test_crossdomain2.csv`) as a second, independent dataset, to confirm results aren't one dataset's quirk |
 | 3. Compare robustness across model families (traditional ML, deep learning, transformers) | Not a separate section -- how every section is run | LR/SVM/CNN/BERT are trained and evaluated identically for every composition, via `metrics.py`'s shared `compute_metrics()`, so the comparison is built into every chart rather than living in one place |
-| 4. Analyze whether style-diverse synthetic fake news enhances resistance to stylistic manipulation and sentiment-based attacks | **"Objective 4 · Style robustness"** | Style-attack test set (`generate_style_attack.py`) + the `style_robust` training fix (`generate_counter_style_training.py`/`build_style_robust_dataset.py`) |
+| 4. Analyze whether style-diverse synthetic fake news enhances resistance to stylistic manipulation and sentiment-based attacks | **"Objective 4 · Style robustness"** | Style-attack test set (`generate_style.py attack`) + the `style_robust` training fix (`generate_style.py counter-training`/`build_style_robust_dataset.py`) |
 | *(not one of the 4)* | **"Beyond the proposal · Validity check"** (the authorship-shortcut section) | Rules out "the model just detects AI-authorship" as an alternative explanation for Objective 1's results, via synthetic-*real* news controls (C0-C3) |
 
 The validity check is the one addition beyond the four objectives -- worth
@@ -196,11 +196,13 @@ python src/run_multiseed_robustness.py    # 3 seeds x 5 compositions, CNN + BERT
                                           # (LR/SVM are deterministic given fixed data)
 
 # --- Objective 4: style/sentiment robustness ---
-python src/generate_style_attack.py --n 200           # TEST-side attack: 100 real->sensationalized, 100 fake->neutralized
+python src/generate_style.py attack                    # TEST-side attack: 100 real->sensationalized, 100 fake->neutralized (--n_per_class, default 100)
 python src/eval_style_robustness.py                    # evaluate already-trained models, no retraining
-python src/generate_counter_style_training.py          # TRAINING-side fix: 100+100 paired counter-style twins
+python src/generate_style.py counter-training          # TRAINING-side fix: 100+100 paired counter-style twins
 python src/build_style_robust_dataset.py               # train_real_real + those pairs = train_style_robust (600/600)
 python src/train.py --model all --dataset style_robust  # trains all 4 models on it, evaluates on test_crossdomain
+python src/generate_style.py attack-reverse            # opposite direction: real->neutral, fake->sensational (excludes the forward attack's articles)
+python src/eval_style_robustness.py --pair reverse     # does the fix generalize, or only resist the one attack it was built against?
 # then re-run eval_style_robustness.py -- it includes style_robust in its COMPS list
 
 # --- Objective 1 fix: synthetic fake news from a SECOND source, not ISOT alone ---
@@ -229,7 +231,7 @@ Objectives 4 and 1 respectively — see below for what each answers.
 This project's 4 objectives, plus one addition, get asked here; keep them
 separate when writing up — they use different training-set pairs (the style
 objective's evaluation also uses a dedicated style-attacked test set, built by
-`generate_style_attack.py`, rather than `test_crossdomain`/`test_indomain`).
+`generate_style.py attack`, rather than `test_crossdomain`/`test_indomain`).
 Labeling matches `results_report.html`'s section eyebrows directly (each names
 its objective number). Objectives 1 and 2's sections are all evaluated on
 `test_crossdomain.csv` unless stated otherwise; see "Evaluation setup note"
@@ -368,7 +370,7 @@ differ in how much they alter the source wording. See
 **Objective 4 — Style/sentiment robustness**: does style-diverse synthetic training
 resist stylistic manipulation? Answered in two stages:
 
-1. `generate_style_attack.py` builds a paired TEST set — 200 held-out ISOT
+1. `generate_style.py attack` builds a paired TEST set — 200 held-out ISOT
    articles rewritten by an LLM, tone ONLY, true label unchanged (real ->
    sensationalized, fake -> neutralized). `eval_style_robustness.py`
    evaluates the already-trained `real_real`/`mixed`/`real_syn` models
@@ -379,7 +381,7 @@ resist stylistic manipulation? Answered in two stages:
    opposite of the hypothesis, because only 1 of `generate_synthetic_fake.py`'s
    4 transformation strategies (`tone_adjustment`) even touches tone, applied
    to a random subset, in one direction only (real article -> sensationalized fake).
-2. `generate_counter_style_training.py` builds the actual fix: 100 REAL
+2. `generate_style.py counter-training` builds the actual fix: 100 REAL
    articles already in `train_real_real` get a sensationalized twin (still
    labeled real), and 100 FAKE articles get a neutralized twin (still
    labeled fake) — verified (via textual similarity) to be genuine 1:1
@@ -393,8 +395,8 @@ resist stylistic manipulation? Answered in two stages:
 3. **Does the fix generalize to the opposite attack direction?** Stage 1 only
    ever tested real->sensationalized and fake->neutralized — the direction
    that matches the "dramatic tone = fake" shortcut, and so also the easiest
-   direction to defend against by construction. `generate_style_attack_
-   reverse.py` builds the REVERSE pairing (real->neutralized,
+   direction to defend against by construction. `generate_style.py
+   attack-reverse` builds the REVERSE pairing (real->neutralized,
    fake->sensationalized) and `eval_style_robustness.py --pair reverse`
    re-evaluates the same already-trained models against it. Result:
    `style_robust`'s flip rate rises on every model (BERT 0.000->0.015, CNN
