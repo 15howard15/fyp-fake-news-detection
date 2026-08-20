@@ -193,7 +193,7 @@ def cmd_counter_training(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
+    ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="command", required=True)
     for name, helptext in [
         ("attack", "TEST-side forward attack: real->sensational, fake->neutral"),

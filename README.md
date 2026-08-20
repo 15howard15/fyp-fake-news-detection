@@ -114,15 +114,15 @@ python src/eda.py              # exploratory analysis -> results/eda/
 python src/generate_synthetic_fake.py --n 500     # OpenAI: synthetic FAKE (ISOT-sourced) -> data/synthetic/
 python src/generate_synthetic_real.py --n 1000    # OpenAI: synthetic REAL (paraphrase-only control, optional)
 python src/build_datasets.py core       # assemble real_real/mixed/real_syn (Objective 1: full replacement)
-python src/build_test_sets.py           # test_indomain vs test_crossdomain (separated!)
+python src/build_datasets.py test-sets           # test_indomain vs test_crossdomain (separated!)
 python src/evaluate.py leakage          # VERIFY: no train text in any test set + how independent each test corpus really is
-python src/build_synthetic_real_datasets.py  # C2/C3 (needs generate_synthetic_real.py run first, optional -- validity check)
+python src/build_datasets.py controls  # C2/C3 (needs generate_synthetic_real.py run first, optional -- validity check)
 python src/train.py --model all   # LR+SVM+CNN+BERT (replacement, on test_crossdomain)
 python src/evaluate.py master     # gather train.py's metrics into master_results.csv
 
 # --- Contamination control: WELFake is not the independent corpus it looks like ---
 # 63.3% of WELFake's fake class is verbatim ISOT text, because WELFake is a merged
-# corpus that absorbed the same Kaggle data ISOT derives from. build_test_sets.py
+# corpus that absorbed the same Kaggle data ISOT derives from. `build_datasets.py test-sets`
 # therefore also writes test_crossdomain2_clean.csv, which drops every ISOT article
 # (and WELFake's own internal duplicates) before sampling -- verified 0.0% overlap.
 # Both sets are kept and scored: the gap between them measures what the
@@ -162,7 +162,7 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp real_syn real
 python src/evaluate.py edit-distance          # measure the gap before changing anything
 python src/generate_synthetic_real.py --n 500 --symmetric --max_retries 4
 python src/generate_synthetic_fake.py --n 500 --symmetric --max_retries 4
-python src/build_synthetic_real_datasets.py   # adds train_c2_sym / train_c3_sym
+python src/build_datasets.py controls   # adds train_c2_sym / train_c3_sym
 python src/train.py --model all --dataset c2_sym c3_sym
 python src/evaluate.py cross-target --dataset welfake_clean --comp c3_synreal_synfake c3_sym
 # BOTH sides are regenerated, and two controls have to hold at once:
@@ -182,7 +182,7 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp c3_synreal_sy
 # level was never the mechanism. Prompt symmetry alone does NOT give outcome
 # symmetry -- identical instructions leave a gap that WIDENS as the instruction
 # gets stronger (6.0 -> 8.0 -> 14.8pp), so it is enforced by measuring, and
-# build_synthetic_real_datasets.py --strict gates the build on it.
+# `build_datasets.py controls --strict` gates the build on it.
 # c2_sym/c3_sym are ADDITIONS. C2/C3 are two of RQ1's six recipe series, they
 # are the whole of RQ1's authorship validity chart, and C3 sets the lower bound
 # of CNN's RQ3 robustness spread -- overwriting them would delete those results
@@ -257,7 +257,7 @@ python src/build_report.py            # regenerate results_report.html from resu
 # open results_report.html in a browser -- static report, all numbers are baked in, no data files needed to view it
 ```
 
-`generate_synthetic_real.py` and `build_synthetic_real_datasets.py` are optional
+`generate_synthetic_real.py` and `build_datasets.py controls` are optional
 controls for the validity check (see below) — everything else through
 `evaluate.py master` is required for the core replacement experiments. The
 scripts after that (the swap-sweep, multiseed, and
@@ -276,7 +276,7 @@ its objective number). Objectives 1 and 2's sections are all evaluated on
 below for how that compares against `test_indomain.csv`.
 
 **Evaluation setup note — in-domain vs cross-domain test sets** (built by
-`build_test_sets.py`): `test_indomain` = ISOT real (held-out) + ISOT
+`build_datasets.py test-sets`): `test_indomain` = ISOT real (held-out) + ISOT
 fake (held-out) — everything same-source as training. `test_crossdomain` =
 ISOT real (held-out) + LIAR fake — fake-class source changed, real-class
 source unchanged. "Domain" here is defined by the FAKE-class source only; the
@@ -324,18 +324,17 @@ absence of signal. See `results/extra/hard_examples.csv` for the saved examples.
 **Objective 1 — Partial augmentation**: does ADDING synthetic fake news on top of a FIXED
 real-fake baseline help, hurt, or do nothing?
 
-| Pair | What it isolates |
-|------|-------------------|
-| `train_real_real` vs `train_augmented` | small-scale (fake count = synthetic supply, ~475): adds synthetic on top without changing real-fake count |
-| `train_lowres_real` vs `train_lowres_aug` | same idea at a fixed 1,000 real-fake baseline |
-| `train_augmented_full` | NOT a controlled pair — full ISOT real-fake pool + synthetic on top. Report separately; do not compare its F1 directly to `train_real_real`. |
+An earlier additive design answered this by adding synthetic fake news on top of
+a fixed real-fake baseline (`train_augmented`, `train_lowres_*`,
+`train_c6_full_augmented`). It was dropped, and its scripts and datasets removed,
+because every one of those pairs let the fake class outgrow the real class —
+which collapses LR/SVM/BERT to an "always predict fake" pattern under
+cross-domain shift (see `evaluate.py error-analysis`), reintroducing on the
+additive axis the same majority-class failure already fixed on the replacement
+axis.
 
-Report the two controlled pairs (`real_real`/`augmented` and
-`lowres_real`/`lowres_aug`) as the answer to this angle — but the **recommended**
-read is the balance-controlled sweep (`build_datasets.py sweep`/`run_swap_sweep_experiment.py`): both additive pairs above
-still let the fake class outgrow the real class, which collapses LR/SVM/BERT
-to an "always predict fake" pattern under cross-domain shift (see
-`evaluate.py error-analysis`). The sweep instead holds the fake class fixed at 500
+The answer to this angle is therefore the balance-controlled sweep
+(`build_datasets.py sweep` / `run_swap_sweep_experiment.py`), which holds the fake class fixed at 500
 throughout and only varies what FRACTION of it is synthetic (0/25/50/75/
 100%), isolating "does synthetic content help" from "does the added
 imbalance hurt." Once that confound is removed, a moderate blend (~25-50%)
@@ -371,7 +370,7 @@ LLM-authored" rather than "is this fake":
 If C3 (both classes machine-authored) collapses to near-chance while C2 (only
 the real side is machine-authored) does not, that's evidence of an
 authorship-detection shortcut rather than genuine content-based detection.
-Requires running `generate_synthetic_real.py` (costs OpenAI API calls) then `build_synthetic_real_datasets.py`.
+Requires running `generate_synthetic_real.py` (costs OpenAI API calls) then `build_datasets.py controls`.
 
 **C3 doesn't collapse to chance — it's actively INVERTED, and now explained.**
 C3's AUC-ROC isn't ~0.5 (no signal); it's consistently far below 0.5 across

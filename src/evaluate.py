@@ -310,7 +310,7 @@ def cmd_cross_target(args):
     test_name = CROSS_TARGET_ALIASES.get(args.dataset, args.dataset)
     test_path = cfg.PROCESSED_DIR / f"{test_name}.csv"
     if not test_path.exists():
-        raise FileNotFoundError(f"{test_path} not found. Run build_test_sets.py first.")
+        raise FileNotFoundError(f"{test_path} not found. Run `build_datasets.py test-sets` first.")
     test = pd.read_csv(test_path)
     y = test["label"].values
 
@@ -517,7 +517,7 @@ def cmd_significance(args):
     test_name = CROSS_TARGET_ALIASES.get(args.dataset, args.dataset)
     test_path = cfg.PROCESSED_DIR / f"{test_name}.csv"
     if not test_path.exists():
-        raise FileNotFoundError(f"{test_path} not found. Run build_test_sets.py first.")
+        raise FileNotFoundError(f"{test_path} not found. Run `build_datasets.py test-sets` first.")
     test = pd.read_csv(test_path).reset_index(drop=True)
     y = test["label"].values
     print(f"Test set: {test_name} ({len(test):,} rows)")
@@ -622,7 +622,7 @@ def cmd_hard_examples(args):
     test_name = CROSS_TARGET_ALIASES.get(args.dataset, args.dataset)
     test_path = cfg.PROCESSED_DIR / f"{test_name}.csv"
     if not test_path.exists():
-        raise FileNotFoundError(f"{test_path} not found. Run build_test_sets.py first.")
+        raise FileNotFoundError(f"{test_path} not found. Run `build_datasets.py test-sets` first.")
     test = pd.read_csv(test_path).reset_index(drop=True)
     y = test["label"].values
 
@@ -712,7 +712,7 @@ def cmd_length_sweep(args):
     """Separate the LENGTH confound from the DOMAIN confound in RQ3."""
     test_path = cfg.PROCESSED_DIR / "test_crossdomain2.csv"
     if not test_path.exists():
-        print(f"{test_path} not found -- run build_test_sets.py with WELFake available.")
+        print(f"{test_path} not found -- run `build_datasets.py test-sets` with WELFake available.")
         return
     base = pd.read_csv(test_path)
 
@@ -775,20 +775,15 @@ def cmd_leakage(args):
         if p.exists():
             tests[stem] = pd.read_csv(p)
     if not tests:
-        print("No test sets found. Run build_test_sets.py first.")
+        print("No test sets found. Run `build_datasets.py test-sets` first.")
         return
 
     train_paths = sorted(cfg.PROCESSED_DIR.glob("train_*.csv"))
     if not train_paths:
-        print("No train_*.csv found. Run the build_*_datasets.py scripts first.")
+        print("No train_*.csv found. Run build_datasets.py first.")
         return
 
-    FULL_POOL_COMPS = {
-        "train_augmented_full",
-        "train_c6_full_augmented",
-        "train_lowres_real",
-        "train_lowres_aug",
-    }
+    FULL_POOL_COMPS = set()
 
     test_texts = {k: set(v["text"].astype(str)) for k, v in tests.items()}
 
@@ -878,7 +873,7 @@ def cmd_leakage(args):
             f"({worst_name}), above the --max-pct {args.max_pct}% threshold.\n"
             f"Expected baseline is well under 2% and comes from ISOT's own duplicate "
             f"articles. A figure above the threshold means the split logic changed -- "
-            f"check build_test_sets.py and the build_*_datasets.py scripts."
+            f"check build_datasets.py."
         )
     print(f"PASS: worst train/test overlap among threshold-checked compositions is "
           f"{worst_pct:.2f}% ({worst_name}), within the {args.max_pct}% threshold "

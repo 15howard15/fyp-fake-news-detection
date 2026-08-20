@@ -1,5 +1,6 @@
 """build_datasets.py -- assembles every training composition from the raw pools."""
 import argparse
+import difflib
 import re
 
 import pandas as pd
@@ -199,17 +200,191 @@ def cmd_multisource(args):
     print(f"      ({n_isot} ISOT-sourced synthetic + {n_liar} LIAR-sourced)")
 
 
+def _norm(s):
+    """Whitespace/case-insensitive key for corpus-overlap matching."""
+    return re.sub(r"\s+", " ", str(s)).strip().lower()
+
+
+def cmd_test_sets(args):
+    """Build the in-domain, LIAR and WELFake test sets, with ISOT overlap removed."""
+    isot_real = pd.read_csv(cfg.PROCESSED_DIR / "isot_real.csv")
+    isot_fake = pd.read_csv(cfg.PROCESSED_DIR / "isot_fake.csv")
+    liar_fake = pd.read_csv(cfg.PROCESSED_DIR / "liar_fake.csv")
+
+    _, real_test, isot_fake_pool = isot_pools()
+    isot_fake_pool = isot_fake_pool.reset_index(drop=True)
+    n_fake_train = min(len(isot_real) - len(real_test), len(isot_fake_pool))
+    isot_fake_heldout = isot_fake_pool.iloc[n_fake_train:]
+
+    if len(isot_fake_heldout) == 0:
+        _, isot_fake_heldout = train_test_split(
+            isot_fake, test_size=cfg.TEST_SIZE, random_state=cfg.SEED, shuffle=True)
+        print("Note: reused a fresh 20% ISOT-fake slice for the in-domain test.")
+
+    cols = ["text", "label", "source"]
+
+    indomain = _shuffled(pd.concat([real_test[cols], isot_fake_heldout[cols]],
+                                   ignore_index=True))
+    indomain.to_csv(cfg.PROCESSED_DIR / "test_indomain.csv", index=False)
+    print(f"test_indomain:    {len(indomain):,} "
+          f"({(indomain.label==0).sum()} real / {(indomain.label==1).sum()} fake)")
+
+    cross = _shuffled(pd.concat([real_test[cols], liar_fake[cols]], ignore_index=True))
+    cross.to_csv(cfg.PROCESSED_DIR / "test_crossdomain.csv", index=False)
+    print(f"test_crossdomain: {len(cross):,} "
+          f"({(cross.label==0).sum()} real / {(cross.label==1).sum()} fake)")
+
+    welfake_path = cfg.PROCESSED_DIR / "welfake_fake.csv"
+    if not welfake_path.exists():
+        print(f"  (skipping test_crossdomain2 -- {welfake_path} not found, "
+              f"run load_data.py with WELFake_Dataset.csv in data/raw/ first)")
+        return
+
+    welfake_fake = pd.read_csv(welfake_path)
+    n = len(liar_fake)
+    welfake_fake_sample = welfake_fake.sample(n=n, random_state=cfg.SEED)
+    cross2 = _shuffled(pd.concat([real_test[cols], welfake_fake_sample[cols]],
+                                 ignore_index=True))
+    cross2.to_csv(cfg.PROCESSED_DIR / "test_crossdomain2.csv", index=False)
+    print(f"test_crossdomain2 (WELFake): {len(cross2):,} "
+          f"({(cross2.label==0).sum()} real / {(cross2.label==1).sum()} fake)")
+
+    isot_keys = set(isot_real["text"].map(_norm)) | set(isot_fake["text"].map(_norm))
+    wf = welfake_fake.copy()
+    wf["_key"] = wf["text"].map(_norm)
+    clean_pool = (wf[~wf["_key"].isin(isot_keys)]
+                  .drop_duplicates(subset="_key")
+                  .drop(columns="_key"))
+    removed = len(welfake_fake) - len(clean_pool)
+    print(f"  WELFake fake pool: {len(welfake_fake):,} -> {len(clean_pool):,} clean "
+          f"({removed:,} removed = {100*removed/len(welfake_fake):.1f}%: "
+          f"ISOT-overlapping or internally duplicated)")
+
+    if len(clean_pool) >= n:
+        clean_sample = clean_pool.sample(n=n, random_state=cfg.SEED)
+    else:
+        clean_sample = clean_pool
+        print(f"  (clean pool smaller than {n:,}; using all {len(clean_pool):,})")
+    cross3 = _shuffled(pd.concat([real_test[cols], clean_sample[cols]],
+                                 ignore_index=True))
+    cross3.to_csv(cfg.PROCESSED_DIR / "test_crossdomain2_clean.csv", index=False)
+    print(f"test_crossdomain2_clean:     {len(cross3):,} "
+          f"({(cross3.label==0).sum()} real / {(cross3.label==1).sum()} fake)")
+
+
+def _mean_similarity(df, window=4000):
+    """Mean difflib similarity between each row and its source article."""
+    sims = [difflib.SequenceMatcher(None, str(s)[:window], str(t),
+                                    autojunk=False).ratio()
+            for s, t in zip(df["source_text"], df["text"])]
+    return sum(sims) / max(len(sims), 1)
+
+
+def _check_symmetry(real_df, fake_df, tolerance_pp, fail):
+    """Gate the symmetric pair on the two classes having been edited equally."""
+    r, f = _mean_similarity(real_df), _mean_similarity(fake_df)
+    gap = abs(r - f) * 100
+    print("\n--- edit-distance symmetry check ---")
+    print(f"  synthetic-real similarity to source: {r:.4f}")
+    print(f"  synthetic-fake similarity to source: {f:.4f}")
+    print(f"  gap: {gap:.1f} percentage points (tolerance {tolerance_pp})")
+    if gap > tolerance_pp:
+        msg = (f"Edit-distance asymmetry is {gap:.1f}pp, above the {tolerance_pp}pp "
+               f"tolerance. The two classes were rewritten by different amounts, so "
+               f"a model can use rewrite depth as a proxy for the label -- which is "
+               f"the authorship shortcut these compositions exist to remove. "
+               f"Regenerate with generate_synthetic_fake.py --symmetric.")
+        if fail:
+            raise SystemExit(f"\nFAIL: {msg}")
+        print(f"  WARNING: {msg}")
+    else:
+        print("  OK -- within tolerance.")
+    return {"real": r, "fake": f, "gap_pp": gap}
+
+
+def cmd_controls(args):
+    """Build the C2/C3 authorship-control compositions from synthetic-real news."""
+    syn_real_path = cfg.SYNTHETIC_DIR / "synthetic_real.csv"
+    if not syn_real_path.exists():
+        raise FileNotFoundError(
+            "Run generate_synthetic_real.py first (need data/synthetic/synthetic_real.csv).")
+    syn_real = pd.read_csv(syn_real_path)[["text", "label", "source"]]
+    print(f"Loaded {len(syn_real):,} synthetic-real articles.")
+
+    syn_fake_path = cfg.SYNTHETIC_DIR / "synthetic_fake.csv"
+    if not syn_fake_path.exists():
+        raise FileNotFoundError("Run generate_synthetic_fake.py first (need synthetic_fake.csv).")
+    syn_fake = pd.read_csv(syn_fake_path)[["text", "label", "source"]]
+
+    _real_train, _test, isot_fake_pool = isot_pools()
+    isot_fake_pool = isot_fake_pool.reset_index(drop=True)
+
+    print("\n--- C2: synthetic-real + real-fake ---")
+    n_c2 = min(len(syn_real), len(isot_fake_pool), len(syn_fake))
+    c2 = pd.concat([syn_real.head(n_c2),
+                    isot_fake_pool.head(n_c2)[["text", "label", "source"]]],
+                   ignore_index=True)
+    _write(_shuffled(c2), "train_c2_synreal_realfake")
+    print(f"  (n={n_c2:,}/{n_c2:,} -- matched scale to train_real_real / "
+          "train_mixed / train_real_syn / C3 for a fair 5-way comparison.)")
+
+    print("\n--- C3: synthetic-real + synthetic-fake ---")
+    n_c3 = min(len(syn_real), len(syn_fake))
+    c3 = pd.concat([syn_real.head(n_c3), syn_fake.head(n_c3)], ignore_index=True)
+    _write(_shuffled(c3), "train_c3_synreal_synfake")
+    print(f"  (compare vs train_real_syn at matched scale n={n_c3:,})")
+
+    sym_fake_path = cfg.SYNTHETIC_DIR / "synthetic_fake_sym.csv"
+    sym_real_path = cfg.SYNTHETIC_DIR / "synthetic_real_sym.csv"
+    missing = [p.name for p in (sym_fake_path, sym_real_path) if not p.exists()]
+    if missing:
+        print(f"\n(skipping C2'/C3' -- {', '.join(missing)} not found; run "
+              f"generate_synthetic_fake.py --symmetric and "
+              f"generate_synthetic_real.py --symmetric first)")
+        return
+
+    sym_fake_full = pd.read_csv(sym_fake_path)
+    sym_real_full = pd.read_csv(sym_real_path)
+    _check_symmetry(sym_real_full, sym_fake_full, args.tolerance, args.strict)
+    sym_fake = sym_fake_full[["text", "label", "source"]]
+    sym_real = sym_real_full[["text", "label", "source"]]
+
+    print("\n--- C2': symmetric synthetic-real + real-fake ---")
+    n = min(len(sym_real), len(isot_fake_pool), len(sym_fake))
+    c2s = pd.concat([sym_real.head(n),
+                     isot_fake_pool.head(n)[["text", "label", "source"]]],
+                    ignore_index=True)
+    _write(_shuffled(c2s), "train_c2_sym")
+
+    print("\n--- C3': symmetric synthetic-real + symmetric synthetic-fake ---")
+    n3 = min(len(sym_real), len(sym_fake))
+    c3s = pd.concat([sym_real.head(n3), sym_fake.head(n3)], ignore_index=True)
+    _write(_shuffled(c3s), "train_c3_sym")
+    print(f"  (compare against train_c3_synreal_synfake at matched scale "
+          f"n={n3:,} -- same real class, same manipulation strategies, "
+          f"differing only in how heavily the fake class was rewritten)")
+
+
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[1])
+    ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="command", required=True)
     for name, helptext in [
         ("core", "real_real / mixed / real_syn + shared test set (+ mixedlen)"),
         ("sweep", "swap_025 / swap_075, the synthetic-fraction sweep points"),
         ("style-robust", "train_real_real + counter-style twins"),
         ("multisource", "real_syn with half the fake class re-sourced from LIAR"),
+        ("test-sets", "in-domain / LIAR / WELFake test sets, ISOT overlap removed"),
+        ("controls", "C2/C3 and their edit-matched twins, the authorship controls"),
         ("all", "core then sweep, the two that must stay in step"),
     ]:
-        sub.add_parser(name, help=helptext)
+        p = sub.add_parser(name, help=helptext)
+        if name == "controls":
+            p.add_argument("--tolerance", type=float, default=5.0,
+                           help="percentage points of mean source-similarity the two "
+                                "classes of the symmetric pair may differ by")
+            p.add_argument("--strict", action="store_true",
+                           help="stop the build if the symmetry check breaches the "
+                                "tolerance, instead of warning and continuing")
 
     args = ap.parse_args()
     if args.command == "core":
@@ -220,6 +395,10 @@ def main():
         cmd_style_robust(args)
     elif args.command == "multisource":
         cmd_multisource(args)
+    elif args.command == "test-sets":
+        cmd_test_sets(args)
+    elif args.command == "controls":
+        cmd_controls(args)
     else:
         cmd_core(args)
         print()
