@@ -27,13 +27,13 @@
 <g>
 <rect x="40" y="120" width="380" height="56" rx="4" fill="#eeedfe" stroke="#7f77dd" stroke-width="0.5"/>
 <text x="230" y="143" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="500" fill="#26215c">Generate synthetic text (LLM)</text>
-<text x="230" y="162" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#534ab7">6 files, one prompt strategy each</text>
+<text x="230" y="162" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#534ab7">4 files, one prompt strategy each</text>
 </g>
 
 <g>
 <rect x="40" y="200" width="380" height="56" rx="4" fill="#eeedfe" stroke="#7f77dd" stroke-width="0.5"/>
 <text x="230" y="223" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="500" fill="#26215c">Assemble training and test sets</text>
-<text x="230" y="242" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#534ab7">7 files, one dataset variant each</text>
+<text x="230" y="242" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#534ab7">3 files, one per dataset family</text>
 </g>
 
 <g>
@@ -45,7 +45,7 @@
 <g>
 <rect x="40" y="360" width="180" height="56" rx="4" fill="#eeedfe" stroke="#7f77dd" stroke-width="0.5"/>
 <text x="130" y="386" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="500" fill="#26215c">Extra experiments</text>
-<text x="130" y="404" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#534ab7">4 files</text>
+<text x="130" y="404" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#534ab7">2 files</text>
 </g>
 
 <g>
