@@ -66,7 +66,7 @@ def mean_similarity(df, window=4000):
 def check_symmetry(real_df, fake_df, tolerance_pp, fail):
     """Gate the SYMMETRIC pair on the two classes having been edited equally.
 
-    This lives here, not in build_core_datasets.py, for two reasons. That script
+    This lives here, not in build_datasets.py core, for two reasons. That script
     builds real_real/mixed/real_syn and never touches synthetic-real at all, so
     the check would have nothing to compare; and it is the script everyone runs
     to rebuild the core RQ1 datasets, so a hard assert there would stop RQ1 and
@@ -145,7 +145,7 @@ def main():
     # lands at the SAME n as C0/C1/mixed/C3 (500/500, set by synthetic_fake
     # supply) instead of 1,000/1,000. Without this, the 5-way replacement
     # comparison had two conditions at a different scale AND balance than the
-    # other three -- see the comment in build_core_datasets.py for why that
+    # other three -- see the comment in build_datasets.py core for why that
     # confound mattered (it was producing a spurious "collapse" reading).
     n_c2 = min(len(syn_real), len(isot_fake_pool), len(syn_fake))
     real_fake_part = isot_fake_pool.head(n_c2)[["text", "label", "source"]]

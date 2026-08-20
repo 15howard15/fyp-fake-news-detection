@@ -19,8 +19,8 @@ Examples:
     python train.py --model bert --dataset real_real --seed 123 --grad_accum 2
 
 Every --dataset value is a composition name: data/processed/train_<name>.csv
-must already exist (build it with build_core_datasets.py / build_style_robust_
-dataset.py / build_multisource_dataset.py first). "multisource" is
+must already exist (build it with `build_datasets.py core`, or the matching
+`style-robust` / `multisource` subcommand first). "multisource" is
 accepted as a short alias for real_syn_multisource. All datasets are always
 evaluated on test_crossdomain.csv, matching every one of the five merged
 scripts.
@@ -49,8 +49,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 DATASET_ALIASES = {"multisource": "real_syn_multisource"}
 DATASET_REQUIRES = {
-    "real_syn_multisource": "build_multisource_dataset.py",
-    "style_robust": "build_style_robust_dataset.py",
+    "real_syn_multisource": "build_datasets.py multisource",
+    "style_robust": "build_datasets.py style-robust",
 }
 
 

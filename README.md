@@ -25,10 +25,10 @@ objective it answers), plus one addition that isn't one of the four:
 
 | Proposal objective | Answered by | How |
 |---|---|---|
-| 1. Generate synthetic fake news from diverse real-world sources, and evaluate whether it can serve as a primary training resource when real fake news is limited | **"Objective 1 · Diverse sources"**, **"Objective 1 · Full replacement"**, and the synthetic-fraction sweep | Diverse sources: `generate_synthetic_fake_liar.py` + `build_multisource_dataset.py` add a second, LIAR-sourced batch, since the original generation was ISOT-only. Full replacement: removes real fake news from training entirely. The sweep (`build_swap_sweep_datasets.py`) varies the synthetic share of the fake class from 0% to 100% while holding the class total fixed at 500, so composition is the only variable. |
+| 1. Generate synthetic fake news from diverse real-world sources, and evaluate whether it can serve as a primary training resource when real fake news is limited | **"Objective 1 · Diverse sources"**, **"Objective 1 · Full replacement"**, and the synthetic-fraction sweep | Diverse sources: `generate_synthetic_fake_liar.py` + `build_datasets.py multisource` add a second, LIAR-sourced batch, since the original generation was ISOT-only. Full replacement: removes real fake news from training entirely. The sweep (`build_datasets.py sweep`) varies the synthetic share of the fake class from 0% to 100% while holding the class total fixed at 500, so composition is the only variable. |
 | 2. Examine cross-domain generalization performance of synthetic data across multiple datasets | **"Objective 2 · Cross-domain generalization"**, and threaded through every other section | Every composition is evaluated train-ISOT / test-LIAR (`test_crossdomain.csv`) *and* test-WELFake (`test_crossdomain2.csv`) as a second, independent dataset, to confirm results aren't one dataset's quirk |
 | 3. Compare robustness across model families (traditional ML, deep learning, transformers) | Not a separate section -- how every section is run | LR/SVM/CNN/BERT are trained and evaluated identically for every composition, via `metrics.py`'s shared `compute_metrics()`, so the comparison is built into every chart rather than living in one place |
-| 4. Analyze whether style-diverse synthetic fake news enhances resistance to stylistic manipulation and sentiment-based attacks | **"Objective 4 · Style robustness"** | Style-attack test set (`generate_style.py attack`) + the `style_robust` training fix (`generate_style.py counter-training`/`build_style_robust_dataset.py`) |
+| 4. Analyze whether style-diverse synthetic fake news enhances resistance to stylistic manipulation and sentiment-based attacks | **"Objective 4 · Style robustness"** | Style-attack test set (`generate_style.py attack`) + the `style_robust` training fix (`generate_style.py counter-training`/`build_datasets.py style-robust`) |
 | *(not one of the 4)* | **"Beyond the proposal · Validity check"** (the authorship-shortcut section) | Rules out "the model just detects AI-authorship" as an alternative explanation for Objective 1's results, via synthetic-*real* news controls (C0-C3) |
 
 The validity check is the one addition beyond the four objectives -- worth
@@ -75,7 +75,7 @@ python src/load_data.py        # load + normalize labels -> data/processed/
 python src/eda.py              # exploratory analysis -> results/eda/
 python src/generate_synthetic_fake.py --n 500     # OpenAI: synthetic FAKE (ISOT-sourced) -> data/synthetic/
 python src/generate_synthetic_real.py --n 1000    # OpenAI: synthetic REAL (paraphrase-only control, optional)
-python src/build_core_datasets.py       # assemble real_real/mixed/real_syn (Objective 1: full replacement)
+python src/build_datasets.py core       # assemble real_real/mixed/real_syn (Objective 1: full replacement)
 python src/build_test_sets.py           # test_indomain vs test_crossdomain (separated!)
 python src/evaluate.py leakage          # VERIFY: no train text in any test set + how independent each test corpus really is
 python src/build_synthetic_real_datasets.py  # C2/C3 (needs generate_synthetic_real.py run first, optional -- validity check)
@@ -103,7 +103,7 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp real_real mix
 # changing what makes the text false. Writes a separate file; synthetic_fake.csv
 # and every result derived from it are left untouched.
 python src/generate_synthetic_fake.py --n 500 --lengths short medium long
-python src/build_core_datasets.py         # also writes train_real_syn_mixedlen.csv
+python src/build_datasets.py core         # also writes train_real_syn_mixedlen.csv
 python src/train.py --model all --dataset real_syn_mixedlen
 python src/evaluate.py cross-target --dataset welfake_clean --comp real_syn real_syn_mixedlen
 # The recipe is an ADDITION, not a replacement: real_syn and real_syn_mixedlen
@@ -178,7 +178,7 @@ python src/train.py --model lr_svm --cv 5 --dataset real_real mixed real_syn sty
 # are kept whole. The pair-aware (StratifiedGroupKFold) figure is the valid one.
 
 # --- Objective 1 follow-up: balance-controlled synthetic-fraction sweep (recommended read for the augmentation angle) ---
-python src/build_swap_sweep_datasets.py   # 0/25/50/75/100% synthetic, fake count fixed at 500
+python src/build_datasets.py sweep   # 0/25/50/75/100% synthetic, fake count fixed at 500
 python src/run_swap_sweep_experiment.py   # trains + evaluates all 4 models at each fraction
 
 # --- RQ3 fairness control: do the four models read the same amount of text? ---
@@ -199,7 +199,7 @@ python src/run_multiseed_robustness.py    # 3 seeds x 5 compositions, CNN + BERT
 python src/generate_style.py attack                    # TEST-side attack: 100 real->sensationalized, 100 fake->neutralized (--n_per_class, default 100)
 python src/eval_style_robustness.py                    # evaluate already-trained models, no retraining
 python src/generate_style.py counter-training          # TRAINING-side fix: 100+100 paired counter-style twins
-python src/build_style_robust_dataset.py               # train_real_real + those pairs = train_style_robust (600/600)
+python src/build_datasets.py style-robust               # train_real_real + those pairs = train_style_robust (600/600)
 python src/train.py --model all --dataset style_robust  # trains all 4 models on it, evaluates on test_crossdomain
 python src/generate_style.py attack-reverse            # opposite direction: real->neutral, fake->sensational (excludes the forward attack's articles)
 python src/eval_style_robustness.py --pair reverse     # does the fix generalize, or only resist the one attack it was built against?
@@ -207,7 +207,7 @@ python src/eval_style_robustness.py --pair reverse     # does the fix generalize
 
 # --- Objective 1 fix: synthetic fake news from a SECOND source, not ISOT alone ---
 python src/generate_synthetic_fake_liar.py --n 200  # OpenAI: synthetic FAKE sourced from LIAR-real statements
-python src/build_multisource_dataset.py             # combines with ISOT-sourced synthetic -> train_real_syn_multisource
+python src/build_datasets.py multisource             # combines with ISOT-sourced synthetic -> train_real_syn_multisource
 python src/train.py --model all --dataset multisource      # trains all 4 models on it, evaluates on test_crossdomain
 
 # --- Build the report (run after ANY experiment that changes results/) ---
@@ -267,7 +267,7 @@ calling `test_crossdomain` a clean topic-domain generalization test.
 | `mixed`          | ISOT real | 50% real-fake + 50% synthetic | same as above |
 | `real_syn` (C1)  | ISOT real | synthetic only     | same as above |
 
-All three are built with the SAME fake-class total (`build_core_datasets.py`
+All three are built with the SAME fake-class total (`build_datasets.py core`
 caps every composition at `min(real_train, isot_fake_pool, len(synthetic))` —
 previously `real_syn` silently got half the fake count of the other two; now
 fixed). Tested on `test_crossdomain.csv` (ISOT real held-out + LIAR fake).
@@ -294,7 +294,7 @@ real-fake baseline help, hurt, or do nothing?
 
 Report the two controlled pairs (`real_real`/`augmented` and
 `lowres_real`/`lowres_aug`) as the answer to this angle — but the **recommended**
-read is the balance-controlled sweep (`build_swap_sweep_datasets.py`/`run_swap_sweep_experiment.py`): both additive pairs above
+read is the balance-controlled sweep (`build_datasets.py sweep`/`run_swap_sweep_experiment.py`): both additive pairs above
 still let the fake class outgrow the real class, which collapses LR/SVM/BERT
 to an "always predict fake" pattern under cross-domain shift (see
 `evaluate.py error-analysis`). The sweep instead holds the fake class fixed at 500
@@ -386,7 +386,7 @@ resist stylistic manipulation? Answered in two stages:
    labeled real), and 100 FAKE articles get a neutralized twin (still
    labeled fake) — verified (via textual similarity) to be genuine 1:1
    rewrites of specific existing articles, not a loose unrelated pool.
-   `build_style_robust_dataset.py` combines these with `train_real_real`
+   `build_datasets.py style-robust` combines these with `train_real_real`
    into `train_style_robust` (600/600, still balanced). `train.py --model all
    --dataset style_robust` trains all 4 models on it. Because both classes
    now contain both tones,
@@ -413,7 +413,7 @@ original pipeline only ever generated synthetic fake news from ISOT
 "diverse real-world news sources." `generate_synthetic_fake_liar.py`
 generates a second batch sourced from LIAR real-labelled statements instead
 (a lower 10-word minimum is used since LIAR statements are much shorter than
-ISOT articles). `build_multisource_dataset.py` builds
+ISOT articles). `build_datasets.py multisource` builds
 `train_real_syn_multisource`: same size/balance as `real_syn` (500/500), but
 the fake class is 300 ISOT-sourced + 200 LIAR-sourced synthetic instead of
 100% ISOT-sourced. `train.py --model all --dataset multisource` trains all 4 models on it.

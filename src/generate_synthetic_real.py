@@ -131,7 +131,7 @@ def main():
     isot_real = pd.read_csv(cfg.PROCESSED_DIR / "isot_real.csv")
 
     # IMPORTANT: only draw from the TRAIN split, using the exact same
-    # train_test_split call as build_core_datasets.py / build_test_sets.py.
+    # train_test_split call as build_datasets.py core / build_test_sets.py.
     # If we instead
     # re-shuffled isot_real independently here, we could accidentally
     # paraphrase articles that are held out in real_test / test_indomain /

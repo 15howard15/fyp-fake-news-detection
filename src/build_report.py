@@ -216,7 +216,7 @@ def contamination_block(comps):
 
 SWEEP_PCT = {"swap_000": "0%", "swap_025": "25%", "swap_050": "50%",
              "swap_075": "75%", "swap_100": "100%"}
-# The 0/50/100% points ARE real_real/mixed/real_syn -- build_swap_sweep_datasets
+# The 0/50/100% points ARE real_real/mixed/real_syn -- build_datasets.py sweep
 # reuses them by name rather than rebuilding identical files -- so their
 # cross-target scores are stored under the composition name, not the sweep name.
 SWEEP_ALIAS = {"swap_000": "real_real", "swap_050": "mixed", "swap_100": "real_syn"}
