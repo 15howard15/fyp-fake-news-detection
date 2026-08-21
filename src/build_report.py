@@ -101,59 +101,6 @@ def welfake_clean_block(comps):
     return crosstarget_block(comps, "crosstarget_welfake_clean_results.csv")
 
 
-def contamination_block(comps):
-    """WELFake scored twice: as shipped, and with every ISOT article removed."""
-    p = EXTRA / "crosstarget_welfake_clean_results.csv"
-    q = EXTRA / "crossdomain2_results.csv"
-    if not (p.exists() and q.exists()):
-        return {}
-    clean, dirty = pd.read_csv(p), pd.read_csv(q)
-    out = {"comps": [], "rows": {}}
-    for comp in comps:
-        gc, gd = clean[clean.comp == comp], dirty[dirty.comp == comp]
-        if gc.empty or gd.empty:
-            continue
-        row = {}
-        for m in MODELS:
-            rc, rd = gc[gc.model == m], gd[gd.model == m]
-            if rc.empty or rd.empty:
-                continue
-            row[m] = {
-                "f1_dirty": round(float(rd.iloc[0]["f1"]), 4),
-                "f1_clean": round(float(rc.iloc[0]["f1"]), 4),
-                "auc_dirty": round(float(rd.iloc[0]["auc_roc"]), 4),
-                "auc_clean": round(float(rc.iloc[0]["auc_roc"]), 4),
-            }
-        if row:
-            out["comps"].append(comp)
-            out["rows"][comp] = row
-    pairs = [(v[a], v[b])
-             for r in out["rows"].values() for v in r.values()
-             for a, b in (("f1_clean", "f1_dirty"), ("auc_clean", "auc_dirty"))]
-    out["max_shift"] = round(max(abs(c - d) for c, d in pairs), 4) if pairs else None
-    out["n_scores"] = len(pairs)
-    out["n_down"] = sum(1 for c, d in pairs if c < d)
-    out["n_up"] = sum(1 for c, d in pairs if c > d)
-    bc = [(v["auc_clean"], v["auc_dirty"])
-          for r in out["rows"].values() for v in r.values() if v["auc_dirty"] < 0.5]
-    out["below_chance_total"] = len(bc)
-    out["below_chance_worse"] = sum(1 for c, d in bc if c < d)
-    wf = cfg.PROCESSED_DIR / "welfake_fake.csv"
-    if wf.exists():
-        import re
-        norm = lambda s: re.sub(r"\s+", " ", str(s)).strip().lower()
-        isot = set()
-        for stem in ("isot_real", "isot_fake"):
-            isot |= set(pd.read_csv(cfg.PROCESSED_DIR / f"{stem}.csv")["text"].map(norm))
-        keys = pd.read_csv(wf)["text"].map(norm)
-        kept = keys[~keys.isin(isot)].nunique()
-        out["pool_total"] = int(len(keys))
-        out["pool_clean"] = int(kept)
-        out["removed_pct"] = round(100.0 * (len(keys) - kept) / len(keys), 1)
-        out["overlap_pct"] = round(100.0 * keys.isin(isot).mean(), 1)
-    return out
-
-
 SWEEP_PCT = {"synthetic_0pct": "0%", "synthetic_25pct": "25%", "synthetic_50pct": "50%",
              "synthetic_75pct": "75%", "synthetic_100pct": "100%"}
 SWEEP_ALIAS = {"synthetic_0pct": "real_real", "synthetic_50pct": "half_synthetic", "synthetic_100pct": "full_synthetic"}
@@ -303,26 +250,6 @@ def style_block():
             "degenerate_at": DEGENERATE_AT}
 
 
-def length_block():
-    p = EXTRA / "length_sweep_results.csv"
-    if not p.exists():
-        return {}
-    df = pd.read_csv(p)
-    both = [t for t in ["full", "300w", "150w", "75w", "40w", "20w"]
-            if t in set(df.truncated_to)]
-    fake = [t for t in ["full", "300w/fake", "150w/fake", "75w/fake",
-                        "40w/fake", "20w/fake"] if t in set(df.truncated_to)]
-    def series(order):
-        out = {}
-        for (model, comp), g in df.groupby(["model", "comp"]):
-            by = dict(zip(g.truncated_to, g.f1))
-            key = f"{model} / {RECIPE_LABEL.get(comp, comp)}"
-            out[key] = [round(float(by[t]), 4) if t in by else None for t in order]
-        return out
-    return {"both_labels": both, "both": series(both),
-            "fake_labels": fake, "fake": series(fake)}
-
-
 def families_block(comps):
     """RQ3 -- model-family consistency, which has two independent halves."""
     import statistics as st
@@ -413,37 +340,6 @@ def seed_block():
             "max": round(float(g.f1.max()), 4),
             "n": int(len(g)),
         }
-    return out
-
-
-def quality_block():
-    p = EXTRA / "synthetic_quality.csv"
-    if not p.exists():
-        return {}
-    df = pd.read_csv(p)
-    out = {"diversity": [], "fact": [], "judge": [], "truncation": []}
-    for _, r in df.iterrows():
-        c = r["check"]
-        if c == "diversity":
-            out["diversity"].append({
-                "file": r["file"], "n": int(r["n"]),
-                "d1": r["distinct_1"], "d2": r["distinct_2"],
-                "d3": r["distinct_3"], "sim": r["mean_pairwise_sim"]})
-        elif c == "fact_change":
-            out["fact"].append({
-                "file": r["file"], "n": int(r["n"]),
-                "verified": r.get("edit_verified_pct"),
-                "new_in_gen": r.get("new_in_generated_fuzzy_pct"),
-                "novel": r.get("new_not_in_source_pct")})
-        elif c == "fact_change_truncation_split":
-            out["truncation"].append({
-                "file": r["file"],
-                "full": r.get("traceable_full_source_pct"),
-                "trunc": r.get("traceable_truncated_source_pct")})
-        elif c == "llm_judge":
-            out["judge"].append({
-                "file": r["file"], "n": int(r["n"]),
-                "mean": r["mean_plausibility"], "pct45": r["pct_4_or_5"]})
     return out
 
 
@@ -555,49 +451,6 @@ def significance_block():
     return out
 
 
-def leakage_block():
-    p = EXTRA / "leakage_report.csv"
-    if not p.exists():
-        return {}
-    df = pd.read_csv(p)
-    corpus = df[df.check == "corpus_overlap_with_isot"][["test", "pct_of_test"]]
-    dups = df[df.check == "within_corpus_duplicates"][["test", "pct_of_test"]]
-    tt = df[(df.check == "train_test_overlap") &
-            (~df.get("by_design_full_pool", False).astype(bool))]
-    ln = df[df.check == "length_shortcut"][["test", "pct_of_test"]]
-    return {
-        "corpus": [{"name": r["test"], "pct": r["pct_of_test"]} for _, r in corpus.iterrows()],
-        "dups": [{"name": r["test"], "pct": r["pct_of_test"]} for _, r in dups.iterrows()],
-        "worst_tt": round(float(tt.pct_of_test.max()), 3) if len(tt) else 0.0,
-        "length_auc": [{"name": r["test"], "auc": r["pct_of_test"]} for _, r in ln.iterrows()],
-    }
-
-
-def lengthcontrol_block():
-    """full_synthetic against its length-controlled twin, on every test set available."""
-    pair = ["full_synthetic", "synthetic_length_controlled"]
-    if not _metrics_json("LR", "synthetic_length_controlled"):
-        return {}
-    out = {"models": MODELS, "recipes": pair, "tests": {}}
-    out["tests"]["LIAR"] = {c: {m: _metrics_json(m, c) for m in MODELS} for c in pair}
-    for label, fname in (("WELFake (as shipped)", "crossdomain2_results.csv"),
-                         ("WELFake (ISOT removed)", "crosstarget_welfake_clean_results.csv")):
-        p = EXTRA / fname
-        if not p.exists():
-            continue
-        df = pd.read_csv(p)
-        block = {}
-        for c in pair:
-            g = df[df.comp == c]
-            if g.empty:
-                continue
-            block[c] = {r["model"]: {k: round(float(r[k]), 4) for k in METRICS if k in r}
-                        for _, r in g.iterrows()}
-        if len(block) == len(pair):
-            out["tests"][label] = block
-    return out
-
-
 def demo_examples():
     out = []
     p = cfg.PROCESSED_DIR / "test_crossdomain.csv"
@@ -645,11 +498,6 @@ def collect():
         "rq3": {"families": families_block(rq3_comps), "seeds": seed_block(),
                 "seedRuns": seed_runs_block()},
         "rq4": style_block(),
-        "framework": {"comps": rq3_comps, "liar": liar_block(rq3_comps),
-                      "welfake": welfake_block(rq3_comps), "length": length_block(),
-                      "quality": quality_block(), "leakage": leakage_block(),
-                      "contamination": contamination_block(rq1_comps),
-                      "lengthcontrol": lengthcontrol_block()},
         "demo": demo_examples(),
     }
 
@@ -679,7 +527,6 @@ def main():
     print(f"  RQ3 families   : {len(data['rq3']['families']['byModel'])}")
     print(f"  seed rows      : {len(data['rq3']['seeds'])}")
     print(f"  sweep points   : {len(data['rq2']['fractions'])}")
-    print(f"  framework rows : {len(data['framework']['liar'])}")
 
 
 if __name__ == "__main__":
