@@ -18,9 +18,9 @@ EXTRA_DIR = cfg.RESULTS_DIR / "extra"
 EXTRA_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-COMPS = ["real_real", "mixed", "real_syn", "swap_025", "swap_075",
-         "c2_synreal_realfake", "c3_synreal_synfake",
-         "style_robust", "real_syn_multisource"]
+COMPS = ["real_real", "half_synthetic", "full_synthetic", "synthetic_25pct", "synthetic_75pct",
+         "synthetic_real_only", "both_synthetic",
+         "style_robust", "synthetic_multisource"]
 SEEDS = [42, 1, 2]
 
 

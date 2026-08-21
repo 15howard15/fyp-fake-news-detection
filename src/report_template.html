@@ -1162,7 +1162,7 @@ const RQ1C_ALL=DATA.rq1.comps;
    framework tab; both are answers to different questions, and six series on
    four models is more than anyone reads at a glance. The table below still
    carries every recipe, so nothing is lost, only deferred. */
-const RQ1_CHART_SKIP=["mixed","real_syn_mixedlen"];
+const RQ1_CHART_SKIP=["half_synthetic","synthetic_length_controlled"];
 const RQ1C=RQ1C_ALL.filter(c=>RQ1_CHART_SKIP.indexOf(c)<0);
 /* Test sets the recipes have been scored on. LIAR first because it is the
    headline protocol, but the switch exists because LIAR is 99.99% separable by
@@ -1267,7 +1267,7 @@ table(document.getElementById("t-rq1"),
     const el=document.getElementById("meta-auth"); if(!el) return;
     const src=DATA.rq1.tests&&DATA.rq1.tests.LIAR; if(!src) return;
     const grab=c=>DATA.models.map(m=>src[c]&&src[c][m]&&src[c][m].auc_roc).filter(v=>v!=null);
-    const c2=grab("c2_synreal_realfake"), c3=grab("c3_synreal_synfake");
+    const c2=grab("synthetic_real_only"), c3=grab("both_synthetic");
     if(!c2.length||!c3.length) return;
     const rng=a=>num(Math.min.apply(null,a))+"–"+num(Math.max.apply(null,a));
     el.innerHTML="When only the real class is machine-written, the models are fine — AUC "+
@@ -1525,7 +1525,7 @@ table(document.getElementById("t-rq2"),
      conclusion, and nine rows of that is a slide people stop reading. Named by
      composition rather than by display string, so a relabelling cannot silently
      empty the chart. */
-  const SEED_FOCUS=["real_syn","real_real","style_robust"];
+  const SEED_FOCUS=["full_synthetic","real_real","style_robust"];
   const focusKeys=SEED_FOCUS.map(c=>L[c]||c).filter(k=>S[k]);
   /* Worst spread first. With this trio that also happens to read as the
      narrative -- failure, baseline, fix -- because the fix is the steadiest
@@ -1577,7 +1577,7 @@ table(document.getElementById("t-rq2"),
     allNames.flatMap(n=>["CNN","BERT"].map(m=>{
       const d=S[n]&&S[n][m], runs=(R[n]&&R[n][m])||[];
       /* Same plain names as the chart -- a reader who opens the table after
-         reading the chart should not have to re-map "swap_025" onto a row they
+         reading the chart should not have to re-map "synthetic_25pct" onto a row they
          just saw named in English. */
       const nm=PLAIN[n]||n;
       if(!d)return [nm,m,"—","—","—","—"];
@@ -1759,7 +1759,7 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
     wf.length?(wf.reduce((a,b)=>a+b.auc,0)/wf.length).toFixed(2):"0.45";
 })();
 
-/* --------- length control: real_syn vs its length-matched twin --------- */
+/* --------- length control: full_synthetic vs its length-matched twin --------- */
 (function(){
   const C=DATA.framework.lengthcontrol;
   if(!C||!C.tests||!Object.keys(C.tests).length){
@@ -1775,13 +1775,13 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
     dumbbell(document.getElementById("c-lc"),{categories:DATA.models,
       ref:M==="auc_roc"?0.5:null,refLabel:"random guessing",
       beforeName:"Real + Synthetic",afterName:"length-controlled",
-      beforeColor:ROLE("real_syn"),afterColor:ROLE("real_syn_mixedlen"),
-      before:DATA.models.map(m=>get("real_syn",m)),
-      after:DATA.models.map(m=>get("real_syn_mixedlen",m))});
+      beforeColor:ROLE("full_synthetic"),afterColor:ROLE("synthetic_length_controlled"),
+      before:DATA.models.map(m=>get("full_synthetic",m)),
+      after:DATA.models.map(m=>get("synthetic_length_controlled",m))});
     caution("warn-c-lc",M);
   }
-  legend(document.getElementById("l-lc"),[{name:"Real + Synthetic (original)",color:ROLE("real_syn")},
-    {name:"Real + Synthetic, length-controlled",color:ROLE("real_syn_mixedlen")}]);
+  legend(document.getElementById("l-lc"),[{name:"Real + Synthetic (original)",color:ROLE("full_synthetic")},
+    {name:"Real + Synthetic, length-controlled",color:ROLE("synthetic_length_controlled")}]);
   metricSeg(document.querySelector('[data-metric-for="c-lc"]'),v=>{M=v;draw();},["auc_roc","f1"]);
   seg(document.getElementById("seg-lc-test"),TESTS.map(t=>({label:t,value:t})),
       v=>{T=v;draw();},TESTS.indexOf(T));
@@ -1792,7 +1792,7 @@ table(document.getElementById("t-fw"),["Recipe","Model","Corpus","Accuracy","Pre
   const clean=TESTS.find(t=>/removed/.test(t));
   if(clean){
     const ds=DATA.models.map(m=>{
-      const a=C.tests[clean].real_syn[m],b=C.tests[clean].real_syn_mixedlen[m];
+      const a=C.tests[clean].full_synthetic[m],b=C.tests[clean].synthetic_length_controlled[m];
       return (a&&b)?b.auc_roc-a.auc_roc:null;}).filter(v=>v!=null);
     const mean=ds.reduce((a,b)=>a+b,0)/ds.length;
     document.getElementById("v-lcwf").textContent=(mean>=0?"+":"")+mean.toFixed(3)+" AUC";

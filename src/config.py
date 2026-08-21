@@ -63,4 +63,4 @@ TRANSFORMATIONS = [
     "selective_omission",
 ]
 
-COMPOSITIONS = ["real_real", "mixed", "real_syn"]
+COMPOSITIONS = ["real_real", "half_synthetic", "full_synthetic"]

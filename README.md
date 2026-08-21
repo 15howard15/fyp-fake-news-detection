@@ -7,14 +7,10 @@ generalization (train on ISOT, test on LIAR).
 ## Pipeline structure
 
 `src/` groups its Python files into 6 sequential stages plus a shared
-foundation, not scattered:
-
-![Pipeline structure](results/pipeline_structure.svg)
-
-Every filename is prefixed by its job (`build_*`, `generate_*`, `run_*`,
-`eval*`) so this grouping is visible directly in a file listing, without
-needing the diagram. Each file does exactly one thing — one dataset variant,
-one generation strategy, one experiment — which is why there are several of
+foundation, not scattered. Every filename is prefixed by its job (`build_*`,
+`generate_*`, `run_*`, `eval*`), so the grouping is visible directly in a
+file listing. Each file does exactly one thing — one dataset variant, one
+generation strategy, one experiment — which is why there are several of
 them rather than a few large multi-purpose scripts.
 
 ## Research question map
@@ -113,7 +109,7 @@ python src/load_data.py        # load + normalize labels -> data/processed/
 python src/eda.py              # exploratory analysis -> results/eda/
 python src/generate_synthetic_fake.py --n 500     # OpenAI: synthetic FAKE (ISOT-sourced) -> data/synthetic/
 python src/generate_synthetic_real.py --n 1000    # OpenAI: synthetic REAL (paraphrase-only control, optional)
-python src/build_datasets.py core       # assemble real_real/mixed/real_syn (Objective 1: full replacement)
+python src/build_datasets.py core       # assemble real_real/half_synthetic/full_synthetic (Objective 1: full replacement)
 python src/build_datasets.py test-sets           # test_indomain vs test_crossdomain (separated!)
 python src/evaluate.py leakage          # VERIFY: no train text in any test set + how independent each test corpus really is
 python src/build_datasets.py controls  # C2/C3 (needs generate_synthetic_real.py run first, optional -- validity check)
@@ -127,8 +123,8 @@ python src/evaluate.py master     # gather train.py's metrics into master_result
 # (and WELFake's own internal duplicates) before sampling -- verified 0.0% overlap.
 # Both sets are kept and scored: the gap between them measures what the
 # contamination was actually worth, instead of asserting that it didn't matter.
-python src/evaluate.py cross-target --dataset welfake --comp real_real mixed real_syn c2_synreal_realfake c3_synreal_synfake
-python src/evaluate.py cross-target --dataset welfake_clean --comp real_real mixed real_syn c2_synreal_realfake c3_synreal_synfake
+python src/evaluate.py cross-target --dataset welfake --comp real_real half_synthetic full_synthetic synthetic_real_only both_synthetic
+python src/evaluate.py cross-target --dataset welfake_clean --comp real_real half_synthetic full_synthetic synthetic_real_only both_synthetic
 # Inference only -- no retraining, since a model's weights don't depend on which
 # test set you later score it against.
 
@@ -141,10 +137,10 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp real_real mix
 # changing what makes the text false. Writes a separate file; synthetic_fake.csv
 # and every result derived from it are left untouched.
 python src/generate_synthetic_fake.py --n 500 --lengths short medium long
-python src/build_datasets.py core         # also writes train_real_syn_mixedlen.csv
-python src/train.py --model all --dataset real_syn_mixedlen
-python src/evaluate.py cross-target --dataset welfake_clean --comp real_syn real_syn_mixedlen
-# The recipe is an ADDITION, not a replacement: real_syn and real_syn_mixedlen
+python src/build_datasets.py core         # also writes train_synthetic_length_controlled.csv
+python src/train.py --model all --dataset synthetic_length_controlled
+python src/evaluate.py cross-target --dataset welfake_clean --comp full_synthetic synthetic_length_controlled
+# The recipe is an ADDITION, not a replacement: full_synthetic and synthetic_length_controlled
 # differ in exactly one variable, so the PAIR is what carries the finding.
 # Both classes are cut to the same targets -- swapping mixed-length fakes in
 # against full-length reals would make "short => fake" a free win on two thirds
@@ -162,9 +158,9 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp real_syn real
 python src/evaluate.py edit-distance          # measure the gap before changing anything
 python src/generate_synthetic_real.py --n 500 --symmetric --max_retries 4
 python src/generate_synthetic_fake.py --n 500 --symmetric --max_retries 4
-python src/build_datasets.py controls   # adds train_c2_sym / train_c3_sym
-python src/train.py --model all --dataset c2_sym c3_sym
-python src/evaluate.py cross-target --dataset welfake_clean --comp c3_synreal_synfake c3_sym
+python src/build_datasets.py controls   # adds train_synthetic_real_only_matched / train_both_synthetic_matched
+python src/train.py --model all --dataset synthetic_real_only_matched both_synthetic_matched
+python src/evaluate.py cross-target --dataset welfake_clean --comp both_synthetic both_synthetic_matched
 # BOTH sides are regenerated, and two controls have to hold at once:
 #   - edit-distance gap <= 5pp, else rewrite depth proxies for the label;
 #   - length-alone AUC ~ 0.5, else word count proxies for it instead.
@@ -183,7 +179,7 @@ python src/evaluate.py cross-target --dataset welfake_clean --comp c3_synreal_sy
 # symmetry -- identical instructions leave a gap that WIDENS as the instruction
 # gets stronger (6.0 -> 8.0 -> 14.8pp), so it is enforced by measuring, and
 # `build_datasets.py controls --strict` gates the build on it.
-# c2_sym/c3_sym are ADDITIONS. C2/C3 are two of RQ1's six recipe series, they
+# synthetic_real_only_matched/both_synthetic_matched are ADDITIONS. C2/C3 are two of RQ1's six recipe series, they
 # are the whole of RQ1's authorship validity chart, and C3 sets the lower bound
 # of CNN's RQ3 robustness spread -- overwriting them would delete those results
 # rather than update them. The before/after pair is the finding.
@@ -205,29 +201,19 @@ python src/evaluate.py significance --dataset welfake_clean
 # measured by run_multiseed_robustness.py at a fraction of the GPU cost. LR and
 # SVM are deterministic, so the seed runs report exactly zero spread for them --
 # CV is the only variance estimate they can have.
-python src/train.py --model lr_svm --cv 5 --dataset real_real mixed real_syn style_robust
+python src/train.py --model lr_svm --cv 5 --dataset real_real half_synthetic full_synthetic style_robust
 # IMPORTANT -- these scores are IN-DISTRIBUTION (80/20 within one composition),
 # not cross-domain. Do not put them in the same table as the LIAR/WELFake numbers.
 # Two splits are reported, and the difference between them is a finding: the
 # synthetic recipes are minimal PAIRS (an article, and its one-fact-altered
 # twin), so an ordinary k-fold puts one half of a pair in train and the other in
 # validation. The model memorises the article as real and calls its fake twin
-# real too -- LR on real_syn scores AUC 0.028 that way, against 0.568 when pairs
+# real too -- LR on full_synthetic scores AUC 0.028 that way, against 0.568 when pairs
 # are kept whole. The pair-aware (StratifiedGroupKFold) figure is the valid one.
 
 # --- Objective 1 follow-up: balance-controlled synthetic-fraction sweep (recommended read for the augmentation angle) ---
 python src/build_datasets.py sweep   # 0/25/50/75/100% synthetic, fake count fixed at 500
 python src/run_swap_sweep_experiment.py   # trains + evaluates all 4 models at each fraction
-
-# --- RQ3 fairness control: do the four models read the same amount of text? ---
-# TF-IDF has no length limit (LR/SVM read the whole article) while BERT stops at
-# 512 tokens and CNN at 300, and 64.5% of training articles exceed 300 words.
-# --max-words caps every train AND test document identically, writing results
-# under a separate '<comp>_max<N>' label so the full-text runs are untouched.
-python src/train.py --model lr_svm --dataset real_real mixed real_syn --max-words 300
-python src/train.py --model cnn bert --dataset real_real mixed real_syn --max-words 300
-# build_report.py pairs metrics_<MODEL>_<comp>.json with the _max300 counterpart
-# directly -- there is no intermediate file to regenerate.
 
 # --- Reliability check: is a single CNN/BERT run trustworthy? ---
 python src/run_multiseed_robustness.py    # 3 seeds x 5 compositions, CNN + BERT only
@@ -245,7 +231,7 @@ python src/eval_style_robustness.py --pair reverse     # does the fix generalize
 
 # --- Objective 1 fix: synthetic fake news from a SECOND source, not ISOT alone ---
 python src/generate_synthetic_fake_liar.py --n 200  # OpenAI: synthetic FAKE sourced from LIAR-real statements
-python src/build_datasets.py multisource             # combines with ISOT-sourced synthetic -> train_real_syn_multisource
+python src/build_datasets.py multisource             # combines with ISOT-sourced synthetic -> train_synthetic_multisource
 python src/train.py --model all --dataset multisource      # trains all 4 models on it, evaluates on test_crossdomain
 
 # --- Build the report (run after ANY experiment that changes results/) ---
@@ -303,23 +289,23 @@ calling `test_crossdomain` a clean topic-domain generalization test.
 | Name        | Real news | Fake news              | Fake count |
 |-------------|-----------|-------------------------|------------|
 | `real_real` (C0) | ISOT real | ISOT real-fake     | capped to match synthetic supply |
-| `mixed`          | ISOT real | 50% real-fake + 50% synthetic | same as above |
-| `real_syn` (C1)  | ISOT real | synthetic only     | same as above |
+| `half_synthetic`          | ISOT real | 50% real-fake + 50% synthetic | same as above |
+| `full_synthetic` (C1)  | ISOT real | synthetic only     | same as above |
 
 All three are built with the SAME fake-class total (`build_datasets.py core`
 caps every composition at `min(real_train, isot_fake_pool, len(synthetic))` —
-previously `real_syn` silently got half the fake count of the other two; now
+previously `full_synthetic` silently got half the fake count of the other two; now
 fixed). Tested on `test_crossdomain.csv` (ISOT real held-out + LIAR fake).
 
-**What `real_syn`'s SVM collapse (F1=0.000) actually looks like at the example
-level** (`evaluate.py hard-examples --model svm --comp real_syn`): every single
+**What `full_synthetic`'s SVM collapse (F1=0.000) actually looks like at the example
+level** (`evaluate.py hard-examples --model svm --comp full_synthetic`): every single
 prediction on both LIAR and WELFake fake articles comes back with confidence
 *exactly* 0.500 — not "wrong but uncertain," but zero differentiation at all,
 consistent with the AUC=0.500 (pure chance) already reported. Contrast with
 `real_real`'s SVM, which only misclassifies 462/9941 WELFake articles, and even
 those are wire-style articles that genuinely read like real news on the
 surface (Reuters-style datelines on plausible political stories) — a
-qualitatively different, much narrower failure mode than `real_syn`'s total
+qualitatively different, much narrower failure mode than `full_synthetic`'s total
 absence of signal. See `results/extra/hard_examples.csv` for the saved examples.
 
 **Objective 1 — Partial augmentation**: does ADDING synthetic fake news on top of a FIXED
@@ -342,7 +328,7 @@ imbalance hurt." Once that confound is removed, a moderate blend (~25-50%)
 genuinely helps LR/SVM/BERT and is neutral-to-mildly-negative for CNN.
 
 **Why CNN is the outlier** (`evaluate.py hard-examples --model cnn --comp
-swap_025 mixed swap_075 real_syn`): unlike LR/SVM/BERT, CNN never shows a
+synthetic_25pct half_synthetic synthetic_75pct full_synthetic`): unlike LR/SVM/BERT, CNN never shows a
 rise-then-fall sweet spot — it declines steadily at every synthetic fraction.
 Reading the actual misclassified LIAR-test examples across all four sweep
 points shows why: every single error, at every synthetic fraction, is the
@@ -351,11 +337,11 @@ The exact same specific articles (colorful, commentary/opinion-flavored
 genuine pieces, e.g. celebrity- or personality-driven stories, not straight
 wire reports) reappear as top errors across multiple sweep points, and CNN's
 confidence on these errors actually *drops* as synthetic fraction rises
-(0.96 -> 0.63 average top-3 confidence from swap_025 to real_syn). That's
+(0.96 -> 0.63 average top-3 confidence from synthetic_25pct to full_synthetic). That's
 consistent with a general erosion of CNN's real/fake decision boundary on
 stylistically distinctive real content as more synthetic (near-verbatim,
 lightly-edited) fake examples enter training — not CNN learning a new,
-confident-but-wrong shortcut the way SVM does on `real_syn`. See
+confident-but-wrong shortcut the way SVM does on `full_synthetic`. See
 `results/extra/hard_examples.csv`.
 
 **Validity check (beyond the proposal) — Synthetic-real, authorship-shortcut control**: `generate_synthetic_real.py`
@@ -365,8 +351,8 @@ LLM-authored" rather than "is this fake":
 
 | | real-fake (RF) | synthetic-fake (SF) |
 |---|---|---|
-| real-real (RR) | C0 = `real_real` | C1 = `real_syn` |
-| synthetic-real (SR) | C2 = `train_c2_synreal_realfake` | C3 = `train_c3_synreal_synfake` |
+| real-real (RR) | C0 = `real_real` | C1 = `full_synthetic` |
+| synthetic-real (SR) | C2 = `train_synthetic_real_only` | C3 = `train_both_synthetic` |
 
 If C3 (both classes machine-authored) collapses to near-chance while C2 (only
 the real side is machine-authored) does not, that's evidence of an
@@ -376,8 +362,8 @@ Requires running `generate_synthetic_real.py` (costs OpenAI API calls) then `bui
 **C3 doesn't collapse to chance — it's actively INVERTED, and now explained.**
 C3's AUC-ROC isn't ~0.5 (no signal); it's consistently far below 0.5 across
 every model, both test sets, and all 3 seeds (`train.py --model all --dataset
-c2_synreal_realfake c3_synreal_synfake`, then `evaluate.py cross-target
---dataset welfake --comp c2_synreal_realfake c3_synreal_synfake`, then
+synthetic_real_only both_synthetic`, then `evaluate.py cross-target
+--dataset welfake --comp synthetic_real_only both_synthetic`, then
 `run_multiseed_robustness.py`): BERT crossdomain AUC = 0.017 +/- 0.005 (LIAR)
 and 0.206 (WELFake); CNN 0.033 +/- 0.004 (LIAR) and 0.053 (WELFake) — tiny
 variance, so this is a stable, reproducible property, not one bad run. It
@@ -386,7 +372,7 @@ even shows up **in-domain** (BERT AUC 0.204, CNN AUC 0.063 on `test_indomain`
 "doesn't generalize" as the explanation entirely.
 
 The mechanism, confirmed by reading the actual misclassified examples
-(`evaluate.py hard-examples --comp c3_synreal_synfake`, both BERT and LR
+(`evaluate.py hard-examples --comp both_synthetic`, both BERT and LR
 independently show the identical pattern): C3's REAL class is
 `generate_synthetic_real.py`'s output — real ISOT articles **paraphrased**
 by an LLM. C3's FAKE class (`generate_synthetic_fake.py`) is built to **preserve
@@ -411,10 +397,10 @@ resist stylistic manipulation? Answered in two stages:
 1. `generate_style.py attack` builds a paired TEST set — 200 held-out ISOT
    articles rewritten by an LLM, tone ONLY, true label unchanged (real ->
    sensationalized, fake -> neutralized). `eval_style_robustness.py`
-   evaluates the already-trained `real_real`/`mixed`/`real_syn` models
+   evaluates the already-trained `real_real`/`half_synthetic`/`full_synthetic` models
    (no retraining) on original vs. attacked versions of the same articles,
    reporting **flip rate**: of articles originally correct, the fraction
-   that become wrong after the attack. Result: `mixed` (generic synthetic
+   that become wrong after the attack. Result: `half_synthetic` (generic synthetic
    fake news) is MORE vulnerable than `real_real` for every model — the
    opposite of the hypothesis, because only 1 of `generate_synthetic_fake.py`'s
    4 transformation strategies (`tone_adjustment`) even touches tone, applied
@@ -439,7 +425,7 @@ resist stylistic manipulation? Answered in two stages:
    re-evaluates the same already-trained models against it. Result:
    `style_robust`'s flip rate rises on every model (BERT 0.000->0.015, CNN
    0.005->0.020, SVM 0.026->0.041, LR 0.031->0.046) but stays under 5% for
-   all four, versus `mixed`'s 10.5-18% on the original direction — the fix
+   all four, versus `half_synthetic`'s 10.5-18% on the original direction — the fix
    genuinely generalizes to a tone shift it was never specifically trained
    against, just not perfectly symmetrically. Worth stating as "generalizes,
    with a measurable but small gap" rather than either "fully solved" or
@@ -452,10 +438,10 @@ original pipeline only ever generated synthetic fake news from ISOT
 generates a second batch sourced from LIAR real-labelled statements instead
 (a lower 10-word minimum is used since LIAR statements are much shorter than
 ISOT articles). `build_datasets.py multisource` builds
-`train_real_syn_multisource`: same size/balance as `real_syn` (500/500), but
+`train_synthetic_multisource`: same size/balance as `full_synthetic` (500/500), but
 the fake class is 300 ISOT-sourced + 200 LIAR-sourced synthetic instead of
 100% ISOT-sourced. `train.py --model all --dataset multisource` trains all 4 models on it.
-Every model improves over single-source `real_syn`, though part of the
+Every model improves over single-source `full_synthetic`, though part of the
 cross-domain gain is a length/domain confound in `test_crossdomain.csv`
 itself (real is always long-form ISOT, fake is always short-form LIAR) —
 see the "Does the detector still work on fake news from a totally different
@@ -469,8 +455,8 @@ format?** Since the LIAR-sourced synthetic data is built from LIAR's own
 *real*-labelled statements (`liar_real`, disjoint from the `liar_fake` rows
 used in `test_crossdomain`), there's no direct text leakage — but the model
 does see LIAR's short-statement *format* during training for the first time,
-which single-source `real_syn` never did. Checked against WELFake instead
-(`evaluate.py cross-target --dataset welfake --comp real_syn_multisource`,
+which single-source `full_synthetic` never did. Checked against WELFake instead
+(`evaluate.py cross-target --dataset welfake --comp synthetic_multisource`,
 reusing the already-trained checkpoints, no retraining) — a dataset neither
 synthetic-generation step ever touched: AUC-ROC improves for every method
 (SVM 0.500→0.662, CNN 0.447→0.856, LR 0.643→0.804, BERT 0.629→0.945), real
@@ -487,7 +473,7 @@ than only reporting the LIAR numbers.
 `run_multiseed_robustness.py` checks CNN and BERT (the two non-deterministic
 models here) across 3 seeds on 5 core compositions. CNN is tight and
 reliable across seeds; BERT is reliable on 2 of 3 seeds but fails
-catastrophically on the third (e.g. F1=0.002 on `real_syn`) even with the
+catastrophically on the third (e.g. F1=0.002 on `full_synthetic`) even with the
 warmup/decay/gradient-clipping fixes in `train.py`'s `train_bert()` — so treat any
 single-run BERT number in this project as one draw from a distribution that
 includes real failure, not a guaranteed result. Not surfaced as its own

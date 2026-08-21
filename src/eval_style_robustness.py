@@ -17,7 +17,7 @@ from train import Vocab, CNNDataset, BertDataset
 EXTRA_DIR = cfg.RESULTS_DIR / "extra"
 EXTRA_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-COMPS = ["real_real", "mixed", "real_syn", "style_robust"]
+COMPS = ["real_real", "half_synthetic", "full_synthetic", "style_robust"]
 
 
 def load_pair(pair="forward"):

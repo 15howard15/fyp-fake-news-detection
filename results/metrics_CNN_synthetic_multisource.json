@@ -1,0 +1,15 @@
+{
+ "model": "CNN",
+ "composition": "synthetic_multisource",
+ "accuracy": 0.8688260738356303,
+ "precision": 0.8131204143288735,
+ "recall": 0.9991161392964468,
+ "f1": 0.8965736040609137,
+ "auc_roc": 0.9976969280435055,
+ "confusion": {
+  "tn": 2985,
+  "fp": 1299,
+  "fn": 5,
+  "tp": 5652
+ }
+}

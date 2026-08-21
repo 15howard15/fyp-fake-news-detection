@@ -26,7 +26,7 @@ from metrics import compute_metrics
 EXTRA_DIR = cfg.RESULTS_DIR / "extra"
 EXTRA_DIR.mkdir(parents=True, exist_ok=True)
 
-ERROR_ANALYSIS_COMPS = ["real_real", "mixed", "real_syn", "c2_synreal_realfake", "c3_synreal_synfake"]
+ERROR_ANALYSIS_COMPS = ["real_real", "half_synthetic", "full_synthetic", "synthetic_real_only", "both_synthetic"]
 
 
 def cmd_master(args):
@@ -1070,7 +1070,7 @@ def main():
     sg.add_argument("--dataset", default="liar",
                      help="'liar', 'welfake', 'welfake_clean', or a raw test-set stem")
     sg.add_argument("--comp", nargs="+",
-                     default=["real_real", "mixed", "real_syn", "style_robust"],
+                     default=["real_real", "half_synthetic", "full_synthetic", "style_robust"],
                      help="composition names to compare (checkpoints must exist)")
     sg.add_argument("--model", nargs="+", choices=["LR", "SVM", "CNN", "BERT"],
                      default=["LR", "SVM", "CNN", "BERT"],
@@ -1090,7 +1090,7 @@ def main():
         help="concrete style-attack flip examples with article text (see module docstring)",
     )
     cs.add_argument("--model", choices=["lr", "svm", "cnn", "bert"], default="bert")
-    cs.add_argument("--comp", nargs="+", default=["mixed", "style_robust"],
+    cs.add_argument("--comp", nargs="+", default=["half_synthetic", "style_robust"],
                      help="compositions to check (checkpoints must exist under models/)")
     cs.add_argument("--n", type=int, default=3, help="max examples to print/save per composition")
 
@@ -1099,7 +1099,7 @@ def main():
         help="most confidently-wrong predictions on a plain test set, with article text (see module docstring)",
     )
     he.add_argument("--model", choices=["lr", "svm", "cnn", "bert"], default="svm")
-    he.add_argument("--comp", nargs="+", default=["real_syn"],
+    he.add_argument("--comp", nargs="+", default=["full_synthetic"],
                      help="compositions to check (checkpoints must exist under models/)")
     he.add_argument("--dataset", default="liar", help="'liar', 'welfake', or a raw test-set stem")
     he.add_argument("--n", type=int, default=5, help="max examples to print/save per composition")
@@ -1112,7 +1112,7 @@ def main():
     ls.add_argument("--model", nargs="+", choices=["lr", "svm"], default=["lr", "svm"],
                      help="LR/SVM only -- deterministic and inference-only, so the "
                           "comparison isn't muddied by CNN/BERT run-to-run variance")
-    ls.add_argument("--comp", nargs="+", default=["real_real", "mixed"],
+    ls.add_argument("--comp", nargs="+", default=["real_real", "half_synthetic"],
                      help="composition checkpoints to sweep")
     ls.add_argument("--lengths", nargs="+", type=int, default=None,
                      help="word limits to test (default: full 300 150 75 40 20)")

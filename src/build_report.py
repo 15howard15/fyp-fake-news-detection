@@ -12,44 +12,44 @@ MODELS = ["LR", "SVM", "CNN", "BERT"]
 
 RECIPE_LABEL = {
     "real_real": "Real + Real",
-    "mixed": "Real + Mixed",
-    "real_syn": "Real + Synthetic",
-    "c2_synreal_realfake": "Synthetic-real + Real-fake",
-    "c3_synreal_synfake": "Synthetic-real + Synthetic-fake",
-    "real_syn_multisource": "Real + Synthetic (diverse-sourced)",
-    "real_syn_mixedlen": "Real + Synthetic (length-controlled)",
-    "c2_sym": "Synthetic-real + Real-fake (edit-matched)",
-    "c3_sym": "Synthetic-real + Synthetic-fake (edit-matched)",
+    "half_synthetic": "Real + Mixed",
+    "full_synthetic": "Real + Synthetic",
+    "synthetic_real_only": "Synthetic-real + Real-fake",
+    "both_synthetic": "Synthetic-real + Synthetic-fake",
+    "synthetic_multisource": "Real + Synthetic (diverse-sourced)",
+    "synthetic_length_controlled": "Real + Synthetic (length-controlled)",
+    "synthetic_real_only_matched": "Synthetic-real + Real-fake (edit-matched)",
+    "both_synthetic_matched": "Synthetic-real + Synthetic-fake (edit-matched)",
     "style_robust": "Style-robust",
 }
 METRICS = ["f1", "auc_roc", "accuracy", "precision", "recall"]
 
 RECIPE_PLAIN = {
     "real_real": "Real news + real fake news",
-    "mixed": "Real news + half-synthetic fakes",
-    "real_syn": "Real news + all-synthetic fakes",
-    "c2_synreal_realfake": "AI-rewritten real news + real fake news",
-    "c3_synreal_synfake": "AI-rewritten real news + AI-written fakes",
-    "real_syn_multisource": "Real news + synthetic fakes from mixed sources",
-    "real_syn_mixedlen": "Real news + length-matched synthetic fakes",
+    "half_synthetic": "Real news + half-synthetic fakes",
+    "full_synthetic": "Real news + all-synthetic fakes",
+    "synthetic_real_only": "AI-rewritten real news + real fake news",
+    "both_synthetic": "AI-rewritten real news + AI-written fakes",
+    "synthetic_multisource": "Real news + synthetic fakes from mixed sources",
+    "synthetic_length_controlled": "Real news + length-matched synthetic fakes",
     "style_robust": "Tone-balanced training (the fix)",
-    "c2_sym": "AI-rewritten real + real fake, edit-matched",
-    "c3_sym": "Both classes AI-written, edit-matched",
-    "swap_025": "Real news + 25% synthetic fakes",
-    "swap_075": "Real news + 75% synthetic fakes",
+    "synthetic_real_only_matched": "AI-rewritten real + real fake, edit-matched",
+    "both_synthetic_matched": "Both classes AI-written, edit-matched",
+    "synthetic_25pct": "Real news + 25% synthetic fakes",
+    "synthetic_75pct": "Real news + 75% synthetic fakes",
 }
 
 RECIPE_ROLE = {
     "real_real": "control",
-    "mixed": "control",
-    "real_syn": "failing",
-    "c2_synreal_realfake": "control",
-    "c3_synreal_synfake": "failing",
-    "real_syn_multisource": "failing",
-    "real_syn_mixedlen": "optimized",
+    "half_synthetic": "control",
+    "full_synthetic": "failing",
+    "synthetic_real_only": "control",
+    "both_synthetic": "failing",
+    "synthetic_multisource": "failing",
+    "synthetic_length_controlled": "optimized",
     "style_robust": "optimized",
-    "c2_sym": "optimized",
-    "c3_sym": "optimized",
+    "synthetic_real_only_matched": "optimized",
+    "both_synthetic_matched": "optimized",
 }
 
 
@@ -154,9 +154,9 @@ def contamination_block(comps):
     return out
 
 
-SWEEP_PCT = {"swap_000": "0%", "swap_025": "25%", "swap_050": "50%",
-             "swap_075": "75%", "swap_100": "100%"}
-SWEEP_ALIAS = {"swap_000": "real_real", "swap_050": "mixed", "swap_100": "real_syn"}
+SWEEP_PCT = {"synthetic_0pct": "0%", "synthetic_25pct": "25%", "synthetic_50pct": "50%",
+             "synthetic_75pct": "75%", "synthetic_100pct": "100%"}
+SWEEP_ALIAS = {"synthetic_0pct": "real_real", "synthetic_50pct": "half_synthetic", "synthetic_100pct": "full_synthetic"}
 
 SWEEP_METRICS = ["f1", "auc_roc", "precision", "recall"]
 
@@ -200,9 +200,9 @@ def sweep_block():
         if any_val:
             out["tests"]["WELFake (ISOT removed)"] = block
 
-    files = {"swap_000": "train_real_real", "swap_025": "train_swap_025",
-             "swap_050": "train_mixed", "swap_075": "train_swap_075",
-             "swap_100": "train_real_syn"}
+    files = {"synthetic_0pct": "train_real_real", "synthetic_25pct": "train_synthetic_25pct",
+             "synthetic_50pct": "train_half_synthetic", "synthetic_75pct": "train_synthetic_75pct",
+             "synthetic_100pct": "train_full_synthetic"}
     aucs = []
     for sweep, stem in files.items():
         p = cfg.PROCESSED_DIR / f"{stem}.csv"
@@ -266,7 +266,7 @@ def sweep_block():
 def style_block():
     cur = pd.read_csv(EXTRA / "style_robustness_results.csv")
     rev = pd.read_csv(EXTRA / "style_robustness_reverse_results.csv")
-    recipes = ["real_real", "mixed", "real_syn", "style_robust"]
+    recipes = ["real_real", "half_synthetic", "full_synthetic", "style_robust"]
     flips = {RECIPE_LABEL[c]: {m: None for m in MODELS} for c in recipes}
     for _, r in cur.iterrows():
         if r["comp"] in recipes:
@@ -278,7 +278,7 @@ def style_block():
 
     DEGENERATE_AT = 0.95
     degenerate = {}
-    for comp in ("real_real", "mixed", "real_syn", "style_robust"):
+    for comp in ("real_real", "half_synthetic", "full_synthetic", "style_robust"):
         label = RECIPE_LABEL.get(comp, comp)
         row = {}
         for m in MODELS:
@@ -321,22 +321,6 @@ def length_block():
         return out
     return {"both_labels": both, "both": series(both),
             "fake_labels": fake, "fake": series(fake)}
-
-
-def matched_block(cap=300):
-    """Full-text vs."""
-    out = {}
-    for comp in ("real_real", "mixed", "real_syn"):
-        row = {}
-        for m in MODELS:
-            full = _metrics_json(m, comp)
-            cut = _metrics_json(m, f"{comp}_max{cap}")
-            if full and cut:
-                row[m] = {"f1_full": full["f1"], "f1_max300": cut["f1"],
-                          "auc_full": full["auc_roc"], "auc_max300": cut["auc_roc"]}
-        if row:
-            out[RECIPE_LABEL.get(comp, comp)] = row
-    return out
 
 
 def families_block(comps):
@@ -464,8 +448,8 @@ def quality_block():
 
 
 def editsym_block():
-    pairs = [("c2_synreal_realfake", "c2_sym"), ("c3_synreal_synfake", "c3_sym")]
-    if not _metrics_json("LR", "c3_sym"):
+    pairs = [("synthetic_real_only", "synthetic_real_only_matched"), ("both_synthetic", "both_synthetic_matched")]
+    if not _metrics_json("LR", "both_synthetic_matched"):
         return {}
     out = {"models": MODELS, "pairs": [], "tests": {}}
     for before, after in pairs:
@@ -590,9 +574,9 @@ def leakage_block():
 
 
 def lengthcontrol_block():
-    """real_syn against its length-controlled twin, on every test set available."""
-    pair = ["real_syn", "real_syn_mixedlen"]
-    if not _metrics_json("LR", "real_syn_mixedlen"):
+    """full_synthetic against its length-controlled twin, on every test set available."""
+    pair = ["full_synthetic", "synthetic_length_controlled"]
+    if not _metrics_json("LR", "synthetic_length_controlled"):
         return {}
     out = {"models": MODELS, "recipes": pair, "tests": {}}
     out["tests"]["LIAR"] = {c: {m: _metrics_json(m, c) for m in MODELS} for c in pair}
@@ -638,11 +622,11 @@ def demo_examples():
 
 
 def collect():
-    rq1_comps = ["real_real", "mixed", "real_syn",
-                 "c2_synreal_realfake", "c3_synreal_synfake"]
-    if _metrics_json("LR", "real_syn_mixedlen"):
-        rq1_comps.append("real_syn_mixedlen")
-    rq3_comps = rq1_comps + ["real_syn_multisource"]
+    rq1_comps = ["real_real", "half_synthetic", "full_synthetic",
+                 "synthetic_real_only", "both_synthetic"]
+    if _metrics_json("LR", "synthetic_length_controlled"):
+        rq1_comps.append("synthetic_length_controlled")
+    rq3_comps = rq1_comps + ["synthetic_multisource"]
     return {
         "models": MODELS,
         "labels": RECIPE_LABEL,

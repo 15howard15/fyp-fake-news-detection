@@ -21,11 +21,11 @@ EXTRA_DIR.mkdir(parents=True, exist_ok=True)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 SWEEP_POINTS = [
-    ("swap_000", "real_real"),
-    ("swap_025", "swap_025"),
-    ("swap_050", "mixed"),
-    ("swap_075", "swap_075"),
-    ("swap_100", "real_syn"),
+    ("synthetic_0pct", "real_real"),
+    ("synthetic_25pct", "synthetic_25pct"),
+    ("synthetic_50pct", "half_synthetic"),
+    ("synthetic_75pct", "synthetic_75pct"),
+    ("synthetic_100pct", "full_synthetic"),
 ]
 
 
@@ -88,7 +88,7 @@ def run_cnn(tests):
                 xb, yb = xb.to(DEVICE), yb.to(DEVICE)
                 opt.zero_grad(); loss = crit(model(xb), yb); loss.backward(); opt.step()
 
-        if label in ("swap_025", "swap_075"):
+        if label in ("synthetic_25pct", "synthetic_75pct"):
             torch.save(model.state_dict(), cfg.MODELS_DIR / f"cnn_{label}.pt")
 
         model.eval()

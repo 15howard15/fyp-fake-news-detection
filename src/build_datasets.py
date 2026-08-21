@@ -55,7 +55,7 @@ def truncate_to_sentences(text: str, target: int) -> str:
 
 
 def cmd_core(args):
-    """real_real / mixed / real_syn + the shared test set."""
+    """real_real / half_synthetic / full_synthetic + the shared test set."""
     liar_fake = pd.read_csv(cfg.PROCESSED_DIR / "liar_fake.csv")
     syn_path = cfg.SYNTHETIC_DIR / "synthetic_fake.csv"
     if not syn_path.exists():
@@ -78,7 +78,7 @@ def cmd_core(args):
     n_real = len(real_train)
     n_fake = min(n_real, len(isot_fake_pool), len(synthetic))
     print(f"Using {n_fake:,} fake samples per composition "
-          f"(same count for real_real / mixed / real_syn — capped by synthetic "
+          f"(same count for real_real / half_synthetic / full_synthetic — capped by synthetic "
           f"supply: {len(synthetic):,} available).")
 
     real_part = real_train.head(n_fake)[["text", "label", "source"]]
@@ -88,23 +88,23 @@ def cmd_core(args):
         return _write(df, f"train_{comp}")
 
     assemble(isot_fake_pool.head(n_fake)[["text", "label", "source"]], "real_real")
-    assemble(synthetic.head(n_fake)[["text", "label", "source"]], "real_syn")
+    assemble(synthetic.head(n_fake)[["text", "label", "source"]], "full_synthetic")
 
     half = n_fake // 2
     assemble(pd.concat([
         isot_fake_pool.head(half)[["text", "label", "source"]],
         synthetic.head(half)[["text", "label", "source"]],
-    ], ignore_index=True), "mixed")
+    ], ignore_index=True), "half_synthetic")
 
-    _core_mixedlen()
+    _core_length_controlled()
     print("\nAll training sets + shared test set built.")
 
 
-def _core_mixedlen():
-    """real_syn_mixedlen: the same recipe with the length confound removed."""
+def _core_length_controlled():
+    """synthetic_length_controlled: the same recipe with the length confound removed."""
     ml_path = cfg.SYNTHETIC_DIR / "synthetic_fake_mixedlen.csv"
     if not ml_path.exists():
-        print(f"\n(skipping real_syn_mixedlen -- {ml_path.name} not found; "
+        print(f"\n(skipping synthetic_length_controlled -- {ml_path.name} not found; "
               f"run generate_synthetic_fake.py --lengths short medium long)")
         return
     ml = pd.read_csv(ml_path)
@@ -119,9 +119,9 @@ def _core_mixedlen():
         ml_rows.append({"text": r["text"], "label": cfg.LABEL_FAKE,
                         "source": "synthetic"})
     ml_df = _shuffled(pd.DataFrame(ml_rows))
-    ml_df.to_csv(cfg.PROCESSED_DIR / "train_real_syn_mixedlen.csv", index=False)
+    ml_df.to_csv(cfg.PROCESSED_DIR / "train_synthetic_length_controlled.csv", index=False)
     w = ml_df["text"].str.split().str.len()
-    print(f"\n  train_real_syn_mixedlen: {len(ml_df):,} "
+    print(f"\n  train_synthetic_length_controlled: {len(ml_df):,} "
           f"({(ml_df.label==0).sum()} real / {(ml_df.label==1).sum()} fake)")
     print(f"    median words -- real {int(w[ml_df.label==0].median())} / "
           f"fake {int(w[ml_df.label==1].median())}")
@@ -149,8 +149,8 @@ def cmd_sweep(args):
         print(f"      ({n_real_fake} real-fake + {n_syn} synthetic-fake)")
 
     print("\nDone. Full sweep (5 points, all balanced 500/500): "
-          "swap_000 = train_real_real, swap_050 = train_mixed, "
-          "swap_100 = train_real_syn.")
+          "synthetic_0pct = train_real_real, synthetic_50pct = train_half_synthetic, "
+          "synthetic_100pct = train_full_synthetic.")
 
 
 def cmd_style_robust(args):
@@ -163,14 +163,14 @@ def cmd_style_robust(args):
 
 
 def cmd_multisource(args):
-    """real_syn with half its synthetic fake class re-sourced from LIAR."""
-    real_syn_path = cfg.PROCESSED_DIR / "train_real_syn.csv"
-    if not real_syn_path.exists():
+    """full_synthetic with half its synthetic fake class re-sourced from LIAR."""
+    full_synthetic_path = cfg.PROCESSED_DIR / "train_full_synthetic.csv"
+    if not full_synthetic_path.exists():
         raise FileNotFoundError("Run `build_datasets.py core` first.")
-    existing = pd.read_csv(real_syn_path)
+    existing = pd.read_csv(full_synthetic_path)
     real_part = existing[existing.label == cfg.LABEL_REAL].reset_index(drop=True)
     n_fake = int((existing.label == cfg.LABEL_FAKE).sum())
-    print(f"train_real_syn.csv: {len(real_part):,} real / {n_fake:,} fake "
+    print(f"train_full_synthetic.csv: {len(real_part):,} real / {n_fake:,} fake "
           f"(ISOT-sourced synthetic only)")
 
     liar_syn_path = cfg.SYNTHETIC_DIR / "synthetic_fake_liar.csv"
@@ -196,7 +196,7 @@ def cmd_multisource(args):
     fake_part = pd.concat([isot_synthetic.head(n_isot),
                            liar_synthetic.head(n_liar)], ignore_index=True)
     df = _shuffled(pd.concat([real_part, fake_part], ignore_index=True))
-    _write(df, "train_real_syn_multisource")
+    _write(df, "train_synthetic_multisource")
     print(f"      ({n_isot} ISOT-sourced synthetic + {n_liar} LIAR-sourced)")
 
 
@@ -324,15 +324,15 @@ def cmd_controls(args):
     c2 = pd.concat([syn_real.head(n_c2),
                     isot_fake_pool.head(n_c2)[["text", "label", "source"]]],
                    ignore_index=True)
-    _write(_shuffled(c2), "train_c2_synreal_realfake")
+    _write(_shuffled(c2), "train_synthetic_real_only")
     print(f"  (n={n_c2:,}/{n_c2:,} -- matched scale to train_real_real / "
-          "train_mixed / train_real_syn / C3 for a fair 5-way comparison.)")
+          "train_half_synthetic / train_full_synthetic / C3 for a fair 5-way comparison.)")
 
     print("\n--- C3: synthetic-real + synthetic-fake ---")
     n_c3 = min(len(syn_real), len(syn_fake))
     c3 = pd.concat([syn_real.head(n_c3), syn_fake.head(n_c3)], ignore_index=True)
-    _write(_shuffled(c3), "train_c3_synreal_synfake")
-    print(f"  (compare vs train_real_syn at matched scale n={n_c3:,})")
+    _write(_shuffled(c3), "train_both_synthetic")
+    print(f"  (compare vs train_full_synthetic at matched scale n={n_c3:,})")
 
     sym_fake_path = cfg.SYNTHETIC_DIR / "synthetic_fake_sym.csv"
     sym_real_path = cfg.SYNTHETIC_DIR / "synthetic_real_sym.csv"
@@ -354,13 +354,13 @@ def cmd_controls(args):
     c2s = pd.concat([sym_real.head(n),
                      isot_fake_pool.head(n)[["text", "label", "source"]]],
                     ignore_index=True)
-    _write(_shuffled(c2s), "train_c2_sym")
+    _write(_shuffled(c2s), "train_synthetic_real_only_matched")
 
     print("\n--- C3': symmetric synthetic-real + symmetric synthetic-fake ---")
     n3 = min(len(sym_real), len(sym_fake))
     c3s = pd.concat([sym_real.head(n3), sym_fake.head(n3)], ignore_index=True)
-    _write(_shuffled(c3s), "train_c3_sym")
-    print(f"  (compare against train_c3_synreal_synfake at matched scale "
+    _write(_shuffled(c3s), "train_both_synthetic_matched")
+    print(f"  (compare against train_both_synthetic at matched scale "
           f"n={n3:,} -- same real class, same manipulation strategies, "
           f"differing only in how heavily the fake class was rewritten)")
 
@@ -369,10 +369,10 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="command", required=True)
     for name, helptext in [
-        ("core", "real_real / mixed / real_syn + shared test set (+ mixedlen)"),
-        ("sweep", "swap_025 / swap_075, the synthetic-fraction sweep points"),
+        ("core", "real_real / half_synthetic / full_synthetic + shared test set (+ length-controlled)"),
+        ("sweep", "synthetic_25pct / synthetic_75pct, the synthetic-fraction sweep points"),
         ("style-robust", "train_real_real + counter-style twins"),
-        ("multisource", "real_syn with half the fake class re-sourced from LIAR"),
+        ("multisource", "full_synthetic with half the fake class re-sourced from LIAR"),
         ("test-sets", "in-domain / LIAR / WELFake test sets, ISOT overlap removed"),
         ("controls", "C2/C3 and their edit-matched twins, the authorship controls"),
         ("all", "core then sweep, the two that must stay in step"),

@@ -21,9 +21,9 @@ from preprocessing import clean_series
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-DATASET_ALIASES = {"multisource": "real_syn_multisource"}
+DATASET_ALIASES = {"multisource": "synthetic_multisource"}
 DATASET_REQUIRES = {
-    "real_syn_multisource": "build_datasets.py multisource",
+    "synthetic_multisource": "build_datasets.py multisource",
     "style_robust": "build_datasets.py style-robust",
 }
 
@@ -378,7 +378,7 @@ def main():
         "--dataset", nargs="+", default=list(cfg.COMPOSITIONS),
         help=f"composition name(s), i.e. train_<name>.csv under data/processed/. "
              f"Defaults to {list(cfg.COMPOSITIONS)}. 'multisource' is an alias "
-             f"for real_syn_multisource.",
+             f"for synthetic_multisource.",
     )
     ap.add_argument("--grad_accum", type=int, default=1,
                      help="BERT gradient accumulation steps (raise if OOM)")

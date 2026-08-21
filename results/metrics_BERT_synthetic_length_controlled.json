@@ -1,0 +1,15 @@
+{
+ "model": "BERT",
+ "composition": "synthetic_length_controlled",
+ "accuracy": 0.4372799517151192,
+ "precision": 0.5117405888930302,
+ "recall": 0.24270814919568676,
+ "f1": 0.32925659472422064,
+ "auc_roc": 0.4473639081464888,
+ "confusion": {
+  "tn": 2974,
+  "fp": 1310,
+  "fn": 4284,
+  "tp": 1373
+ }
+}

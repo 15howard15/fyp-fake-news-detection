@@ -1,0 +1,15 @@
+{
+ "model": "SVM",
+ "composition": "synthetic_real_only_matched",
+ "accuracy": 0.7375515541696006,
+ "precision": 0.7263814616755794,
+ "recall": 0.8644157680749514,
+ "f1": 0.7894099604487852,
+ "auc_roc": 0.7619729495710841,
+ "confusion": {
+  "tn": 2442,
+  "fp": 1842,
+  "fn": 767,
+  "tp": 4890
+ }
+}
