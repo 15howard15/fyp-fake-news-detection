@@ -244,7 +244,21 @@ def style_block():
             degenerate[label] = row
     baseline = {}
     for comp in ("real_real", "style_robust"):
-        baseline[RECIPE_LABEL[comp]] = {m: _metrics_json(m, comp) for m in MODELS}
+        label = RECIPE_LABEL[comp]
+        row = {}
+        for m in MODELS:
+            r = cur[(cur.comp == comp) & (cur.model == m)]
+            if r.empty:
+                continue
+            r = r.iloc[0]
+            row[m] = {
+                "accuracy": round(float(r["acc_original"]), 4),
+                "precision": round(float(r["precision_original"]), 4),
+                "recall": round(float(r["recall_original"]), 4),
+                "f1": round(float(r["f1_original"]), 4),
+                "auc_roc": round(float(r["auc_original"]), 4),
+            }
+        baseline[label] = row
     return {"flips": flips, "original": original, "reverse": reverse,
             "baseline": baseline, "degenerate": degenerate,
             "degenerate_at": DEGENERATE_AT}

@@ -55,6 +55,9 @@ def eval_traditional(orig, attacked, rows):
             rows.append({"model": mname, "comp": comp,
                          "f1_original": round(mo["f1"], 4), "f1_attacked": round(ma["f1"], 4),
                          "acc_original": round(mo["accuracy"], 4), "acc_attacked": round(ma["accuracy"], 4),
+                         "auc_original": round(mo["auc_roc"], 4), "auc_attacked": round(ma["auc_roc"], 4),
+                         "precision_original": round(mo["precision"], 4), "precision_attacked": round(ma["precision"], 4),
+                         "recall_original": round(mo["recall"], 4), "recall_attacked": round(ma["recall"], 4),
                          "flip_rate": round(flip_rate, 4)})
             print(f"  [{mname:4s}|{comp:10s}] F1 {mo['f1']:.3f}->{ma['f1']:.3f}  flip_rate={flip_rate:.3f}")
 
@@ -107,6 +110,9 @@ def eval_cnn(orig, attacked, rows):
         rows.append({"model": "CNN", "comp": comp,
                      "f1_original": round(mo["f1"], 4), "f1_attacked": round(ma["f1"], 4),
                      "acc_original": round(mo["accuracy"], 4), "acc_attacked": round(ma["accuracy"], 4),
+                     "auc_original": round(mo["auc_roc"], 4), "auc_attacked": round(ma["auc_roc"], 4),
+                     "precision_original": round(mo["precision"], 4), "precision_attacked": round(ma["precision"], 4),
+                     "recall_original": round(mo["recall"], 4), "recall_attacked": round(ma["recall"], 4),
                      "flip_rate": round(flip_rate, 4)})
         print(f"  [CNN |{comp:10s}] F1 {mo['f1']:.3f}->{ma['f1']:.3f}  flip_rate={flip_rate:.3f}")
 
@@ -146,6 +152,9 @@ def eval_bert(orig, attacked, rows):
         rows.append({"model": "BERT", "comp": comp,
                      "f1_original": round(mo["f1"], 4), "f1_attacked": round(ma["f1"], 4),
                      "acc_original": round(mo["accuracy"], 4), "acc_attacked": round(ma["accuracy"], 4),
+                     "auc_original": round(mo["auc_roc"], 4), "auc_attacked": round(ma["auc_roc"], 4),
+                     "precision_original": round(mo["precision"], 4), "precision_attacked": round(ma["precision"], 4),
+                     "recall_original": round(mo["recall"], 4), "recall_attacked": round(ma["recall"], 4),
                      "flip_rate": round(flip_rate, 4)})
         print(f"  [BERT|{comp:10s}] F1 {mo['f1']:.3f}->{ma['f1']:.3f}  flip_rate={flip_rate:.3f}")
 
