@@ -7,6 +7,7 @@ from sklearn.metrics import roc_auc_score
 import config as cfg
 
 RESULTS = cfg.RESULTS_DIR
+METRICS_DIR = cfg.METRICS_DIR
 EXTRA = RESULTS / "extra"
 MODELS = ["LR", "SVM", "CNN", "BERT"]
 
@@ -54,7 +55,7 @@ RECIPE_ROLE = {
 
 
 def _metrics_json(model, comp):
-    p = RESULTS / f"metrics_{model}_{comp}.json"
+    p = METRICS_DIR / f"metrics_{model}_{comp}.json"
     if not p.exists():
         return None
     d = json.loads(p.read_text())
@@ -229,7 +230,7 @@ def style_block():
         label = RECIPE_LABEL.get(comp, comp)
         row = {}
         for m in MODELS:
-            p = cfg.RESULTS_DIR / f"metrics_{m}_{comp}.json"
+            p = cfg.METRICS_DIR / f"metrics_{m}_{comp}.json"
             if not p.exists():
                 continue
             c = json.loads(p.read_text()).get("confusion")

@@ -31,7 +31,7 @@ ERROR_ANALYSIS_COMPS = ["real_real", "half_synthetic", "full_synthetic", "synthe
 
 def cmd_master(args):
     rows = []
-    for path in sorted(cfg.RESULTS_DIR.glob("metrics_*.json")):
+    for path in sorted(cfg.METRICS_DIR.glob("metrics_*.json")):
         with open(path) as f:
             d = json.load(f)
         rows.append({
@@ -134,7 +134,7 @@ def run_deep(test_df, models):
 
     if "cnn" in models:
         import torch.nn as nn
-        from train import Vocab, CNNDataset, TextCNN, load_glove, get_cnn_vocab_and_embed
+        from train import CNNDataset, TextCNN, get_cnn_vocab_and_embed
 
         test_clean = clean_series(test_df["text"])
         vocab, _ = get_cnn_vocab_and_embed()
@@ -317,10 +317,10 @@ def cmd_cross_target(args):
     rows = []
     for comp in args.comp:
         try:
-            vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
+            vec = joblib.load(cfg.MODELS_DIR / "tfidf" / f"tfidf_{comp}.joblib")
             Xt = vec.transform(clean_series(test["text"]))
             for mname, fname in (("LR", "lr"), ("SVM", "svm")):
-                clf = joblib.load(cfg.MODELS_DIR / f"{fname}_{comp}.joblib")
+                clf = joblib.load(cfg.MODELS_DIR / fname / f"{fname}_{comp}.joblib")
                 pred = clf.predict(Xt)
                 prob = clf.predict_proba(Xt)[:, 1]
                 m = compute_metrics(y, pred, prob)
@@ -339,7 +339,7 @@ def cmd_cross_target(args):
             DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
             vocab, embed = get_cnn_vocab_and_embed()
             model = TextCNN(embed, cfg.CNN_NUM_FILTERS, cfg.CNN_FILTER_SIZES, cfg.CNN_DROPOUT).to(DEVICE)
-            model.load_state_dict(torch.load(cfg.MODELS_DIR / f"cnn_{comp}.pt", map_location=DEVICE))
+            model.load_state_dict(torch.load(cfg.MODELS_DIR / "cnn" / f"cnn_{comp}.pt", map_location=DEVICE))
             model.eval()
             test_clean = clean_series(test["text"])
             dl = DataLoader(CNNDataset(test_clean, y, vocab, cfg.CNN_MAX_LEN), batch_size=cfg.CNN_BATCH_SIZE)
@@ -365,7 +365,7 @@ def cmd_cross_target(args):
             from train import BertDataset
             DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
             tok = AutoTokenizer.from_pretrained(cfg.BERT_MODEL_NAME)
-            model = AutoModelForSequenceClassification.from_pretrained(cfg.MODELS_DIR / f"bert_{comp}").to(DEVICE)
+            model = AutoModelForSequenceClassification.from_pretrained(cfg.MODELS_DIR / "bert" / f"bert_{comp}").to(DEVICE)
             model.eval()
             test_clean = clean_series(test["text"], aggressive=False)
             dl = DataLoader(BertDataset(test_clean, y, tok, cfg.BERT_MAX_LEN), batch_size=cfg.BERT_BATCH_SIZE)
@@ -403,8 +403,8 @@ def predict_labels(comp, model, test):
     """Predicted labels for one (composition, model) pair on a test frame."""
     y = test["label"].values
     if model in ("LR", "SVM"):
-        vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
-        clf = joblib.load(cfg.MODELS_DIR / f"{'lr' if model == 'LR' else 'svm'}_{comp}.joblib")
+        vec = joblib.load(cfg.MODELS_DIR / "tfidf" / f"tfidf_{comp}.joblib")
+        clf = joblib.load(cfg.MODELS_DIR / ("lr" if model == "LR" else "svm") / f"{'lr' if model == 'LR' else 'svm'}_{comp}.joblib")
         return clf.predict(vec.transform(clean_series(test["text"])))
 
     if model == "CNN":
@@ -414,7 +414,7 @@ def predict_labels(comp, model, test):
         DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         vocab, embed = get_cnn_vocab_and_embed()
         net = TextCNN(embed, cfg.CNN_NUM_FILTERS, cfg.CNN_FILTER_SIZES, cfg.CNN_DROPOUT).to(DEVICE)
-        net.load_state_dict(torch.load(cfg.MODELS_DIR / f"cnn_{comp}.pt", map_location=DEVICE))
+        net.load_state_dict(torch.load(cfg.MODELS_DIR / "cnn" / f"cnn_{comp}.pt", map_location=DEVICE))
         net.eval()
         dl = DataLoader(CNNDataset(clean_series(test["text"]), y, vocab, cfg.CNN_MAX_LEN),
                         batch_size=cfg.CNN_BATCH_SIZE)
@@ -432,7 +432,7 @@ def predict_labels(comp, model, test):
         DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         tok = AutoTokenizer.from_pretrained(cfg.BERT_MODEL_NAME)
         net = AutoModelForSequenceClassification.from_pretrained(
-            cfg.MODELS_DIR / f"bert_{comp}").to(DEVICE)
+            cfg.MODELS_DIR / "bert" / f"bert_{comp}").to(DEVICE)
         net.eval()
         dl = DataLoader(BertDataset(clean_series(test["text"], aggressive=False), y,
                                     tok, cfg.BERT_MAX_LEN), batch_size=cfg.BERT_BATCH_SIZE)
@@ -628,8 +628,8 @@ def cmd_hard_examples(args):
 
     def predict_lr_svm(comp):
         fname = "lr" if args.model == "lr" else "svm"
-        vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
-        clf = joblib.load(cfg.MODELS_DIR / f"{fname}_{comp}.joblib")
+        vec = joblib.load(cfg.MODELS_DIR / "tfidf" / f"tfidf_{comp}.joblib")
+        clf = joblib.load(cfg.MODELS_DIR / fname / f"{fname}_{comp}.joblib")
         Xt = vec.transform(clean_series(test["text"]))
         return clf.predict(Xt), clf.predict_proba(Xt)[:, 1]
 
@@ -640,7 +640,7 @@ def cmd_hard_examples(args):
         DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         vocab, embed = get_cnn_vocab_and_embed()
         model = TextCNN(embed, cfg.CNN_NUM_FILTERS, cfg.CNN_FILTER_SIZES, cfg.CNN_DROPOUT).to(DEVICE)
-        model.load_state_dict(torch.load(cfg.MODELS_DIR / f"cnn_{comp}.pt", map_location=DEVICE))
+        model.load_state_dict(torch.load(cfg.MODELS_DIR / "cnn" / f"cnn_{comp}.pt", map_location=DEVICE))
         model.eval()
         dl = DataLoader(CNNDataset(clean_series(test["text"]), y, vocab, cfg.CNN_MAX_LEN),
                          batch_size=cfg.CNN_BATCH_SIZE)
@@ -659,7 +659,7 @@ def cmd_hard_examples(args):
         from train import BertDataset
         DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         tok = AutoTokenizer.from_pretrained(cfg.BERT_MODEL_NAME)
-        model = AutoModelForSequenceClassification.from_pretrained(cfg.MODELS_DIR / f"bert_{comp}").to(DEVICE)
+        model = AutoModelForSequenceClassification.from_pretrained(cfg.MODELS_DIR / "bert" / f"bert_{comp}").to(DEVICE)
         model.eval()
         dl = DataLoader(BertDataset(clean_series(test["text"], aggressive=False), y, tok, cfg.BERT_MAX_LEN),
                          batch_size=cfg.BERT_BATCH_SIZE)
@@ -727,8 +727,8 @@ def cmd_length_sweep(args):
     for comp in args.comp:
         for model in args.model:
             fname = "lr" if model == "lr" else "svm"
-            vec_p = cfg.MODELS_DIR / f"tfidf_{comp}.joblib"
-            clf_p = cfg.MODELS_DIR / f"{fname}_{comp}.joblib"
+            vec_p = cfg.MODELS_DIR / "tfidf" / f"tfidf_{comp}.joblib"
+            clf_p = cfg.MODELS_DIR / fname / f"{fname}_{comp}.joblib"
             if not (vec_p.exists() and clf_p.exists()):
                 print(f"  (skipping {model}/{comp} -- checkpoint not found)")
                 continue
@@ -921,8 +921,8 @@ def cmd_case_studies(args):
 
     def predict_lr_svm(comp):
         fname = "lr" if args.model == "lr" else "svm"
-        vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
-        clf = joblib.load(cfg.MODELS_DIR / f"{fname}_{comp}.joblib")
+        vec = joblib.load(cfg.MODELS_DIR / "tfidf" / f"tfidf_{comp}.joblib")
+        clf = joblib.load(cfg.MODELS_DIR / fname / f"{fname}_{comp}.joblib")
         po = clf.predict(vec.transform(clean_series(orig["text"])))
         pa = clf.predict(vec.transform(clean_series(attacked["text"])))
         return po, pa
@@ -950,7 +950,7 @@ def cmd_case_studies(args):
         vocab, _ = get_cnn_vocab_and_embed()
         model = _LoadableTextCNN(cfg.CNN_EMBED_DIM, cfg.CNN_NUM_FILTERS, cfg.CNN_FILTER_SIZES,
                                   cfg.CNN_DROPOUT, len(vocab)).to(DEVICE)
-        model.load_state_dict(torch.load(cfg.MODELS_DIR / f"cnn_{comp}.pt", map_location=DEVICE))
+        model.load_state_dict(torch.load(cfg.MODELS_DIR / "cnn" / f"cnn_{comp}.pt", map_location=DEVICE))
         model.eval()
 
         def predict(texts):
@@ -971,7 +971,7 @@ def cmd_case_studies(args):
         from train import BertDataset
         DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
         tok = AutoTokenizer.from_pretrained(cfg.BERT_MODEL_NAME)
-        model = AutoModelForSequenceClassification.from_pretrained(cfg.MODELS_DIR / f"bert_{comp}").to(DEVICE)
+        model = AutoModelForSequenceClassification.from_pretrained(cfg.MODELS_DIR / "bert" / f"bert_{comp}").to(DEVICE)
         model.eval()
 
         def predict(texts):

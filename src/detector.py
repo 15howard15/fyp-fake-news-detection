@@ -21,8 +21,8 @@ TOL = 1e-6
 
 def _load_model():
     """The vectorizer and classifier the browser copy has to reproduce."""
-    vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{COMP}.joblib")
-    lr = joblib.load(cfg.MODELS_DIR / f"lr_{COMP}.joblib")
+    vec = joblib.load(cfg.MODELS_DIR / "tfidf" / f"tfidf_{COMP}.joblib")
+    lr = joblib.load(cfg.MODELS_DIR / "lr" / f"lr_{COMP}.joblib")
     return vec, lr
 
 

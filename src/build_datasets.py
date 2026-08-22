@@ -55,8 +55,7 @@ def truncate_to_sentences(text: str, target: int) -> str:
 
 
 def cmd_core(args):
-    """real_real / half_synthetic / full_synthetic + the shared test set."""
-    liar_fake = pd.read_csv(cfg.PROCESSED_DIR / "liar_fake.csv")
+    """real_real / half_synthetic / full_synthetic."""
     syn_path = cfg.SYNTHETIC_DIR / "synthetic_fake.csv"
     if not syn_path.exists():
         raise FileNotFoundError("Run generate_synthetic_fake.py first.")
@@ -64,16 +63,6 @@ def cmd_core(args):
 
     real_train, real_test, isot_fake_pool = isot_pools()
     print(f"ISOT real -> train {len(real_train):,} / test {len(real_test):,}")
-
-    test = pd.concat([
-        real_test[["text", "label", "source"]],
-        liar_fake[["text", "label", "source"]],
-    ], ignore_index=True)
-    test = _shuffled(test)
-    test.to_csv(cfg.PROCESSED_DIR / "test_shared.csv", index=False)
-    print(f"Shared test set: {len(test):,} "
-          f"({(test.label==cfg.LABEL_REAL).sum()} real / "
-          f"{(test.label==cfg.LABEL_FAKE).sum()} fake)")
 
     n_real = len(real_train)
     n_fake = min(n_real, len(isot_fake_pool), len(synthetic))
@@ -97,7 +86,7 @@ def cmd_core(args):
     ], ignore_index=True), "half_synthetic")
 
     _core_length_controlled()
-    print("\nAll training sets + shared test set built.")
+    print("\nAll training sets built.")
 
 
 def _core_length_controlled():
@@ -369,7 +358,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     sub = ap.add_subparsers(dest="command", required=True)
     for name, helptext in [
-        ("core", "real_real / half_synthetic / full_synthetic + shared test set (+ length-controlled)"),
+        ("core", "real_real / half_synthetic / full_synthetic (+ length-controlled)"),
         ("sweep", "synthetic_25pct / synthetic_75pct, the synthetic-fraction sweep points"),
         ("style-robust", "train_real_real + counter-style twins"),
         ("multisource", "full_synthetic with half the fake class re-sourced from LIAR"),

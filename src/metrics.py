@@ -1,6 +1,5 @@
 """metrics.py — Shared evaluation (Section 3.6)."""
 import json
-import numpy as np
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score, roc_auc_score,
     confusion_matrix,
@@ -32,7 +31,7 @@ def compute_metrics(y_true, y_pred, y_prob=None):
 def save_metrics(metrics: dict, model_name: str, composition: str):
     """Write one JSON per (model, composition) into results/."""
     out = {"model": model_name, "composition": composition, **metrics}
-    path = cfg.RESULTS_DIR / f"metrics_{model_name}_{composition}.json"
+    path = cfg.METRICS_DIR / f"metrics_{model_name}_{composition}.json"
     with open(path, "w") as f:
         json.dump(out, f, indent=2)
     return path

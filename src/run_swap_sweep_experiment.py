@@ -64,7 +64,7 @@ def run_traditional(tests):
     return rows
 
 
-from train import Vocab, CNNDataset, TextCNN, load_glove, get_cnn_vocab_and_embed
+from train import CNNDataset, TextCNN, get_cnn_vocab_and_embed
 
 
 def run_cnn(tests):
@@ -89,7 +89,7 @@ def run_cnn(tests):
                 opt.zero_grad(); loss = crit(model(xb), yb); loss.backward(); opt.step()
 
         if label in ("synthetic_25pct", "synthetic_75pct"):
-            torch.save(model.state_dict(), cfg.MODELS_DIR / f"cnn_{label}.pt")
+            torch.save(model.state_dict(), cfg.MODELS_DIR / "cnn" / f"cnn_{label}.pt")
 
         model.eval()
         for test_label, test_df in tests.items():

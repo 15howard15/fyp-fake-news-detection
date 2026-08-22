@@ -41,11 +41,11 @@ def eval_traditional(orig, attacked, rows):
     a_clean = clean_series(attacked["text"])
     y = orig["label"].values
     for comp in COMPS:
-        vec = joblib.load(cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
+        vec = joblib.load(cfg.MODELS_DIR / "tfidf" / f"tfidf_{comp}.joblib")
         Xo = vec.transform(o_clean)
         Xa = vec.transform(a_clean)
         for mname, fname in (("LR", "lr"), ("SVM", "svm")):
-            model = joblib.load(cfg.MODELS_DIR / f"{fname}_{comp}.joblib")
+            model = joblib.load(cfg.MODELS_DIR / fname / f"{fname}_{comp}.joblib")
             po, pa = model.predict(Xo), model.predict(Xa)
             correct_before = po == y
             correct_after = pa == y
@@ -88,7 +88,7 @@ def eval_cnn(orig, attacked, rows):
     for comp in COMPS:
         model = TextCNN(cfg.CNN_EMBED_DIM, cfg.CNN_NUM_FILTERS, cfg.CNN_FILTER_SIZES,
                         cfg.CNN_DROPOUT, len(vocab)).to(DEVICE)
-        model.load_state_dict(torch.load(cfg.MODELS_DIR / f"cnn_{comp}.pt", map_location=DEVICE))
+        model.load_state_dict(torch.load(cfg.MODELS_DIR / "cnn" / f"cnn_{comp}.pt", map_location=DEVICE))
         model.eval()
 
         def predict(dl):
@@ -128,7 +128,7 @@ def eval_bert(orig, attacked, rows):
 
     for comp in COMPS:
         model = AutoModelForSequenceClassification.from_pretrained(
-            cfg.MODELS_DIR / f"bert_{comp}").to(DEVICE)
+            cfg.MODELS_DIR / "bert" / f"bert_{comp}").to(DEVICE)
         model.eval()
 
         def predict(dl):

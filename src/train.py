@@ -61,9 +61,9 @@ def train_lr_svm(train, test, comp):
     save_metrics(svm_m, "SVM", comp)
     print_metrics(svm_m, f"\n[SVM | {comp}]")
 
-    joblib.dump(vec, cfg.MODELS_DIR / f"tfidf_{comp}.joblib")
-    joblib.dump(lr, cfg.MODELS_DIR / f"lr_{comp}.joblib")
-    joblib.dump(svm, cfg.MODELS_DIR / f"svm_{comp}.joblib")
+    joblib.dump(vec, cfg.MODELS_DIR / "tfidf" / f"tfidf_{comp}.joblib")
+    joblib.dump(lr, cfg.MODELS_DIR / "lr" / f"lr_{comp}.joblib")
+    joblib.dump(svm, cfg.MODELS_DIR / "svm" / f"svm_{comp}.joblib")
 
 
 def _pair_groups(train):
@@ -274,7 +274,7 @@ def train_cnn(train, test, comp):
     m = compute_metrics(np.array(ys), np.array(preds), np.array(probs))
     save_metrics(m, "CNN", comp)
     print_metrics(m, f"\n[CNN | {comp}]")
-    torch.save(model.state_dict(), cfg.MODELS_DIR / f"cnn_{comp}.pt")
+    torch.save(model.state_dict(), cfg.MODELS_DIR / "cnn" / f"cnn_{comp}.pt")
 
 
 class BertDataset(Dataset):
@@ -362,7 +362,7 @@ def train_bert(train, test, comp, grad_accum=1, seed=None):
     label = comp if seed == cfg.SEED else f"{comp}_seed{seed}"
     save_metrics(m, "BERT", label)
     print_metrics(m, f"\n[BERT | {label}]")
-    model.save_pretrained(cfg.MODELS_DIR / f"bert_{label}")
+    model.save_pretrained(cfg.MODELS_DIR / "bert" / f"bert_{label}")
 
 
 def main():

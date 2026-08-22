@@ -27,6 +27,11 @@
   --role-control:#7b879f; --role-control-2:#5a6478;
   --role-failing:#fb7185; --role-failing-2:#f0a3ad;
   --role-hero:#22d3ee;    --role-hero-2:#67e8f9;
+  /* Seed-stability pair. Stepped to sit inside the dark-mode OKLCH lightness
+     band (0.48-0.67) and above the chroma floor, then validated: CVD dE 13.5,
+     normal-vision dE 28.3, contrast 6.5:1 / 5.7:1 on this surface. The nearby
+     --role-hero/--role-failing values are too light for the band. */
+  --seed-a:#0aa6c6; --seed-b:#ea6078;
   --good:#34d399; --warn:#fbbf24; --crit:#fb7185; --good-ink:#34d399;
   --shadow:0 1px 2px rgba(0,0,0,.6);
 }
@@ -45,6 +50,9 @@
   --role-control:#6b7488; --role-control-2:#98a1b3;
   --role-failing:#be123c; --role-failing-2:#e0607c;
   --role-hero:#0e7490;    --role-hero-2:#0891b2;
+  /* Light-mode steps of the same pair, validated against white:
+     CVD dE 15.5, normal-vision dE 28.9, contrast 5.3:1 / 6.3:1. */
+  --seed-a:#047496; --seed-b:#be123c;
   --good:#047857; --warn:#b45309; --crit:#be123c; --good-ink:#047857;
   --shadow:0 1px 2px rgba(13,17,23,.08);
 }
@@ -742,71 +750,104 @@ function dumbbell(host,cfg){
    cfg: {rows:[{name, series:[{name,color,min,max,mean,collapsed}]}], xLabel} */
 function rangeRows(host,cfg){
   host.innerHTML="";
-  const rows=cfg.rows, W=cfg.width||760, rowH=cfg.rowH||36;
-  const Lp=cfg.labelW||286, R=64, T=cfg.annotate?58:24, B=44;
-  const H=T+B+rowH*rows.length, pw=W-Lp-R, max=cfg.max||1;
+  /* One row PER MODEL, grouped under a recipe heading, rather than two series
+     interleaved 11px apart inside one row. The question this chart answers is
+     "how far apart are three runs of the same thing", which is a comparison of
+     LINE LENGTH -- and two lengths cannot be compared when they sit almost on
+     top of each other and identity is carried by colour alone. Each model now
+     gets its own baseline, its own name in the gutter, and its own spread
+     printed at the end, so the comparison is a glance rather than a decode. */
+  const groups=cfg.rows, W=cfg.width||760;
+  const rowH=cfg.rowH||30, headH=cfg.headH||26;
+  /* The ring note lives at the BOTTOM as a key, not as a leader line from the
+     top: the run it marks sits at F1≈0.002, so any drop-line to it lands
+     exactly on the 0.00 gridline and its tick label, and reads as a thicker
+     axis rather than as an annotation. */
+  const Lp=cfg.labelW||286, R=104, T=26, B=cfg.annotate?64:46;
+  const groupH=headH+rowH*2;
+  const H=T+B+groupH*groups.length, pw=W-Lp-R, max=cfg.max||1;
   const x=v=>Lp+(v/max)*pw;
   const svg=el("svg",{class:"chart",viewBox:`0 0 ${W} ${H}`,role:"img"});
 
   GRID(max).forEach(v=>{
-    svg.appendChild(el("line",{class:"grid-line",x1:x(v),x2:x(v),y1:T-8,y2:T+rowH*rows.length}));
+    svg.appendChild(el("line",{class:"grid-line",x1:x(v),x2:x(v),y1:T-8,y2:T+groupH*groups.length}));
     const t=el("text",{x:x(v),y:T-16,"text-anchor":"middle"});
     t.textContent=v.toFixed(2); svg.appendChild(t);
   });
   if(cfg.xLabel){
-    const t=el("text",{class:"axis-title",x:Lp+pw/2,y:H-12,"text-anchor":"middle"});
+    const t=el("text",{class:"axis-title",x:Lp+pw/2,y:H-(cfg.annotate?34:12),"text-anchor":"middle"});
     t.textContent=cfg.xLabel; svg.appendChild(t);
   }
 
   let flagged=null;
-  rows.forEach((r,i)=>{
-    const yTop=T+i*rowH;
-    /* Zebra banding instead of row rules: separation without another line. */
-    if(i%2===0) svg.appendChild(el("rect",{x:Lp-10,y:yTop,width:pw+20,height:rowH,
-      fill:cv("--ink"),opacity:.028}));
-    const lab2=el("text",{x:Lp-18,y:yTop+rowH/2+4,"text-anchor":"end",class:"row-label"});
-    lab2.textContent=r.name; svg.appendChild(lab2);
+  groups.forEach((g,gi)=>{
+    const gTop=T+gi*groupH;
+    /* Band the whole GROUP, not alternate rows: the pairing is the structure. */
+    if(gi%2===0) svg.appendChild(el("rect",{x:12,y:gTop+2,width:W-24,height:groupH-4,
+      fill:cv("--ink"),opacity:.03,rx:4}));
 
-    const n=r.series.length;
-    r.series.forEach((s,si)=>{
+    const head=el("text",{x:Lp-28,y:gTop+headH-6,"text-anchor":"end",class:"row-label"});
+    head.setAttribute("font-weight","600");
+    head.textContent=g.name; svg.appendChild(head);
+
+    g.series.forEach((s,si)=>{
       if(s.min==null) return;
-      const yy=yTop+rowH/2+(si-(n-1)/2)*11;
-      const collapsed=!!s.collapsed;
-      const col=collapsed?cv("--role-failing"):s.color;
+      const yy=gTop+headH+rowH*si+rowH/2;
+      const col=s.color, spread=(s.max-s.min)/2;
+
+      /* Model name in the gutter -- identity is never colour-alone. Held back
+         from the plot edge so the failure ring, which sits at F1~0, clears it. */
+      const mn=el("text",{x:Lp-28,y:yy+4,"text-anchor":"end",class:"val",fill:cv("--ink-2")});
+      mn.textContent=s.name; svg.appendChild(mn);
+
+      /* A faint full-width track makes a SHORT line read as short, instead of
+         reading as "no data". Without it, stability is invisible. */
+      svg.appendChild(el("line",{x1:Lp,x2:Lp+pw,y1:yy,y2:yy,
+        stroke:cv("--ink"),"stroke-width":1,opacity:.13}));
+
       svg.appendChild(el("line",{x1:x(s.min),x2:x(s.max),y1:yy,y2:yy,stroke:col,
-        "stroke-width":collapsed?4.5:3.5,"stroke-linecap":"round",
-        opacity:collapsed?1:.55}));
-      /* End caps make the extremes readable when a range is very short. */
+        "stroke-width":4,"stroke-linecap":"round",opacity:.9}));
       [s.min,s.max].forEach(v=>svg.appendChild(el("line",{x1:x(v),x2:x(v),
-        y1:yy-4,y2:yy+4,stroke:col,"stroke-width":collapsed?2.5:2,opacity:collapsed?1:.7})));
-      const dot=el("circle",{cx:x(s.mean),cy:yy,r:4,fill:col,
-        stroke:cv("--surface"),"stroke-width":1.5});
+        y1:yy-5,y2:yy+5,stroke:col,"stroke-width":2,opacity:.85})));
+      const dot=el("circle",{cx:x(s.mean),cy:yy,r:4.5,fill:col,
+        stroke:cv("--surface"),"stroke-width":2});
       const ti=el("title");
-      ti.textContent=`${s.name} — ${r.name}: runs from ${s.min.toFixed(3)} to `
-        +`${s.max.toFixed(3)}, mean ${s.mean.toFixed(3)}`
-        +(collapsed?"  (one run did not converge)":"");
+      ti.textContent=`${s.name} — ${g.name}: three runs from ${s.min.toFixed(3)} to `
+        +`${s.max.toFixed(3)}, mean ${s.mean.toFixed(3)}, spread ±${spread.toFixed(3)}`
+        +(s.collapsed?"  (one run did not converge)":"");
       dot.appendChild(ti); svg.appendChild(dot);
-      if(collapsed && !flagged) flagged={x:x(s.min),y:yy,s,r};
+
+      /* A run at ~0 is a training failure, not a low score. Marked with a ring
+         and named in words -- NOT by recolouring the series, which would make
+         the same model two different colours and break the legend. */
+      if(s.collapsed){
+        svg.appendChild(el("circle",{cx:x(s.min),cy:yy,r:8,fill:"none",
+          stroke:col,"stroke-width":1.5,opacity:.75}));
+        if(!flagged) flagged={x:x(s.min),y:yy,color:col};
+      }
+
+      /* Every row carries its OWN spread. The old chart printed one number per
+         recipe -- silently the worse of the two models -- which read as though
+         it described both. */
+      const t=el("text",{x:W-R+12,y:yy+4,class:"val","text-anchor":"start",
+        fill:spread>=0.15?col:cv("--ink-2")});
+      t.textContent="±"+spread.toFixed(2); svg.appendChild(t);
     });
-    /* Spread printed at the right: the number the row exists to communicate. */
-    const worst=r.series.reduce((a,b)=>
-      ((b.max-b.min)>((a&&a.max-a.min)||-1)?b:a),null);
-    if(worst&&worst.min!=null){
-      const t=el("text",{x:W-R+10,y:yTop+rowH/2+4,class:"val","text-anchor":"start",
-        fill:(worst.max-worst.min)>0.3?cv("--role-failing"):cv("--ink-2")});
-      t.textContent="±"+((worst.max-worst.min)/2).toFixed(2); svg.appendChild(t);
-    }
   });
 
+  /* Key for the ring, drawn as the glyph itself beside its meaning, so the
+     reader matches shape-to-shape rather than holding a sentence in memory. */
   if(cfg.annotate && flagged){
-    const text=cfg.annotate;
-    const t=el("text",{x:Lp,y:T-38,"text-anchor":"start",class:"callout",
-      fill:cv("--role-failing")});
-    t.textContent=text; svg.appendChild(t);
-    svg.appendChild(el("path",{d:`M ${Lp+6} ${T-32} L ${flagged.x} ${T-32} L ${flagged.x} ${flagged.y-7}`,
-      fill:"none",stroke:cv("--role-failing"),"stroke-width":1.5,opacity:.9}));
-    svg.appendChild(el("circle",{cx:flagged.x,cy:flagged.y,r:8,fill:"none",
-      stroke:cv("--role-failing"),"stroke-width":1.5,opacity:.6}));
+    const ky=H-12, kx=Lp;
+    svg.appendChild(el("circle",{cx:kx+5,cy:ky-4,r:6,fill:"none",
+      stroke:flagged.color,"stroke-width":1.5,opacity:.75}));
+    svg.appendChild(el("line",{x1:kx+1,x2:kx+9,y1:ky-4,y2:ky-4,
+      stroke:flagged.color,"stroke-width":3,"stroke-linecap":"round",opacity:.9}));
+    /* Keyed as a footnote, not a headline: it explains a mark, and should not
+       outweigh the axis title sitting directly above it. */
+    const t=el("text",{x:kx+18,y:ky,"text-anchor":"start",class:"axis-title",
+      fill:cv("--ink-2")});
+    t.textContent=cfg.annotate; svg.appendChild(t);
   }
   host.appendChild(svg);
 }
@@ -1549,23 +1590,20 @@ table(document.getElementById("t-rq2"),
     const sp=k=>Math.max.apply(null,DATA.models.map(m=>S[k][m]?S[k][m].max-S[k][m].min:0));
     return sp(b)-sp(a);
   });
-  legend(document.getElementById("l-seed"),[{name:"CNN",color:cv("--role-control")},{name:"BERT",color:cv("--role-hero")}]);
+  legend(document.getElementById("l-seed"),[{name:"CNN",color:cv("--seed-a")},{name:"BERT",color:cv("--seed-b")}]);
   REDRAW.push(()=>drawSeed());
   function drawSeed(){
   rangeRows(document.getElementById("c-seed"),{
-    /* Taller rows because there are only three: the space the other six used
-       to occupy becomes breathing room rather than being reclaimed. */
-    rowH:54,
-    xLabel:"F1 across three identical runs — a long line means the same setup gave different answers",
-    annotate:"1 in 3 identical BERT runs failed to converge (F1 = 0.002)",
+    xLabel:"F1 across three identical runs — a longer line means the same setup gave more different answers",
+    annotate:"ringed end = a run that failed to train (F1 = 0.002), not a low score",
     rows:names.map(n=>({
       name:PLAIN[n]||n,
       series:["CNN","BERT"].map(m=>{
         const d=S[n][m]; if(!d) return {name:m,min:null};
         return {name:m,min:d.min,max:d.max,mean:d.mean,
-                color:m==="BERT"?cv("--role-hero"):cv("--role-control"),
-                /* A run at or near zero is a training failure, not a low score,
-                   and gets the failing colour wherever it appears. */
+                color:m==="BERT"?cv("--seed-b"):cv("--seed-a"),
+                /* A run at or near zero is a training failure, not a low score.
+                   Marked with a ring, not a colour change. */
                 collapsed:d.min<0.05&&d.max>0.2};
       })}))});
   }

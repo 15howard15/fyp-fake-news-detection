@@ -12,8 +12,15 @@ SYNTHETIC_DIR = ROOT / "data" / "synthetic"
 MODELS_DIR = ROOT / "models"
 RESULTS_DIR = ROOT / "results"
 
-for d in (PROCESSED_DIR, SYNTHETIC_DIR, MODELS_DIR, RESULTS_DIR):
+METRICS_DIR = RESULTS_DIR / "metrics"
+
+for d in (PROCESSED_DIR, SYNTHETIC_DIR, MODELS_DIR, RESULTS_DIR, METRICS_DIR):
     d.mkdir(parents=True, exist_ok=True)
+
+# One subfolder per model type, so models/ groups by what trained it rather
+# than sitting as ~60 files of five different kinds side by side.
+for _sub in ("tfidf", "lr", "svm", "cnn", "bert"):
+    (MODELS_DIR / _sub).mkdir(parents=True, exist_ok=True)
 
 SEED = 42
 
